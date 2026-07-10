@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -715,6 +716,11 @@ export function Explorer() {
 
   const selected = selectedId ? CROP_BY_ID[selectedId] : null;
 
+  // Kararlı referans: DetailModal içindeki escape/scroll-lock effect'inin
+  // her Explorer render'ında (ör. companion navigasyonunda) gereksiz yere
+  // temizlenip yeniden kurulmasını önler (yanlış bağımlılık/gereksiz efekt riski).
+  const closeModal = useCallback(() => setSelectedId(null), []);
+
   return (
     <>
       {/* HERO */}
@@ -876,7 +882,7 @@ export function Explorer() {
       </section>
 
       {selected && (
-        <DetailModal crop={selected} onClose={() => setSelectedId(null)} onNavigate={(id) => setSelectedId(id)} />
+        <DetailModal crop={selected} onClose={closeModal} onNavigate={(id) => setSelectedId(id)} />
       )}
 
       <style>{`
@@ -947,6 +953,7 @@ export function Explorer() {
 
         /* ---- Grid ---- */
         .seed-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(288px, 1fr)); gap: 20px; }
+        @media (max-width: 480px) { .seed-grid { grid-template-columns: 1fr; } }
         .tilt-wrap { perspective: 900px; }
 
         .seed-card {

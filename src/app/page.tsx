@@ -348,7 +348,7 @@ export default function Home() {
                   margin: "18px auto 0",
                 }}
               >
-                2024'te küresel organik gıda perakendesinin büyüklüğü. Talep büyürken üretici, doğru ürünü
+                2024&apos;te küresel organik gıda perakendesinin büyüklüğü. Talep büyürken üretici, doğru ürünü
                 seçmek, planlamak ve gıda güvenliğini kanıtlamak için hâlâ dağınık araçlarla boğuşuyor.
               </p>
             </Reveal>
@@ -581,7 +581,7 @@ export default function Home() {
                   <div style={{ flex: 1, minWidth: 240 }}>
                     <h3 style={{ fontSize: "var(--fs-h3)", margin: 0 }}>Kaynak gösteren AI asistan</h3>
                     <p style={{ color: "var(--text-mid)", fontSize: "var(--fs-body)", margin: "8px 0 0", maxWidth: "70ch" }}>
-                      "Neden bu ürün?" diye sor; asistan cevabını hangi veri kaynağına ve hangi kanıt
+                      &quot;Neden bu ürün?&quot; diye sor; asistan cevabını hangi veri kaynağına ve hangi kanıt
                       seviyesine dayandırdığını göstererek yanıtlar. Referanssız iddia üretmez.
                     </p>
                   </div>
@@ -637,8 +637,8 @@ export default function Home() {
                   Uygunluk motoru · v1.0
                 </div>
                 <p style={{ color: "var(--text-mid)", fontSize: "var(--fs-body)", lineHeight: 1.65 }}>
-                  Bir ürün 82 uygunluk alabilir; ama toprağın pH'ı ölçülmediyse buna olan güven yalnızca
-                  "orta"dır. İkisini birbirine karıştırmak yerine ayrı gösteririz — böylece nereye
+                  Bir ürün 82 uygunluk alabilir; ama toprağın pH&apos;ı ölçülmediyse buna olan güven yalnızca
+                  &quot;orta&quot;dır. İkisini birbirine karıştırmak yerine ayrı gösteririz — böylece nereye
                   bakacağını ve neyi ölçmen gerektiğini bilirsin. Yerel test, her zaman küresel tahmine
                   üstündür.
                 </p>
@@ -679,7 +679,7 @@ export default function Home() {
                       }}
                     >
                       <Droplet size={15} />
-                      pH ve tuzluluk ölçülmedi. Yerel toprak testi güveni "yüksek"e çıkarır.
+                      pH ve tuzluluk ölçülmedi. Yerel toprak testi güveni &quot;yüksek&quot;e çıkarır.
                     </div>
                   </div>
                 </div>

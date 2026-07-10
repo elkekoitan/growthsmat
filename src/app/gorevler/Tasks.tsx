@@ -179,6 +179,7 @@ export function Tasks() {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw) as Task[];
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage SSR'da yok, post-hydration senkron kasıtlı
         setTasks(Array.isArray(parsed) && parsed.length ? parsed : seedTasks());
       } else {
         const s = seedTasks();
@@ -401,7 +402,7 @@ export function Tasks() {
             {/* --- Araç çubuğu --- */}
             <div className="toolbar">
               <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                <span className="chip" aria-hidden="true">
+                <span className="chip">
                   <Sprout size={13} /> {totalActive} aktif satır
                 </span>
                 {selectedDay && (
@@ -781,7 +782,7 @@ function StyleBlock() {
       .week-cell {
         display: flex; flex-direction: column; align-items: center; gap: 4px;
         padding: 10px 4px 8px; border-radius: 12px; background: transparent;
-        border: 1px solid transparent; cursor: pointer;
+        border: 1px solid transparent; cursor: pointer; min-width: 0;
         transition: background var(--dur-fast) ease, border-color var(--dur-fast) ease, transform var(--dur-instant) var(--ease-out);
       }
       .week-cell:hover { background: var(--bg-surface-2); transform: translateY(-1px); }
@@ -906,6 +907,11 @@ function StyleBlock() {
         .field-wide { grid-column: span 1; }
         .task-main { flex-wrap: wrap; }
         .task-right { width: 100%; justify-content: flex-start; margin-left: 44px; }
+        .week-strip { gap: 3px; padding: 12px 6px 10px; }
+        .week-cell { padding: 8px 1px 6px; }
+        .week-dow { font-size: 10px; }
+        .week-dom { font-size: var(--fs-sm); }
+        .week-count { font-size: 10px; }
       }
 
       @media (prefers-reduced-motion: reduce) {

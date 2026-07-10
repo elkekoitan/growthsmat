@@ -28,6 +28,7 @@ export function Nav() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- route değişince menüyü kasıtlı kapatıyor
   useEffect(() => setOpen(false), [pathname]);
 
   return (

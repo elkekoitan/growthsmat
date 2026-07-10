@@ -935,8 +935,8 @@ export function Studio() {
                     <span
                       className="mf-succ-bar"
                       style={{
-                        gridColumnStart: batch + 1,
-                        gridColumnEnd: batch + 1 + growWeeks,
+                        gridColumnStart: batch + 2,
+                        gridColumnEnd: batch + 2 + growWeeks,
                       }}
                     >
                       <span className="mf-succ-harvest" aria-hidden="true">✂</span>
@@ -991,7 +991,7 @@ export function Studio() {
         .mf-section-lead strong { color: var(--text-hi); }
 
         /* GÜVENLİK */
-        .mf-blocked { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
+        .mf-blocked { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr)); gap: 1rem; }
         .mf-block-card { padding: 1.1rem 1.2rem; border-left: 3px solid var(--color-danger); }
         .mf-block-top { display: flex; align-items: center; gap: 0.7rem; }
         .mf-block-x {
@@ -1017,7 +1017,7 @@ export function Studio() {
         .mf-callout--warn .mf-callout-ic { background: color-mix(in srgb, var(--color-warning) 18%, transparent); color: var(--color-warning); }
 
         /* REÇETE KARTLARI */
-        .mf-recipes { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 1.1rem; }
+        .mf-recipes { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(290px, 100%), 1fr)); gap: 1.1rem; }
         .mf-recipe { position: relative; overflow: hidden; padding: 0; transition: transform var(--dur-base) var(--ease-out-soft), border-color var(--dur-base) ease, box-shadow var(--dur-base) ease; }
         .mf-recipe:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); }
         .mf-recipe--on { border-color: var(--rc); box-shadow: 0 0 0 2px color-mix(in srgb, var(--rc) 40%, transparent), var(--shadow-md); }

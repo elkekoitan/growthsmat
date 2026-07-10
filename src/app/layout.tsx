@@ -2,7 +2,10 @@ import type { Metadata, Viewport } from "next";
 import { display, sans, mono } from "./fonts";
 import "./globals.css";
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://smartgrowth.app";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: {
     default: "SmartGrowth OS — Organik üretim işletim sistemi",
     template: "%s · SmartGrowth OS",

@@ -69,6 +69,7 @@ export function useTheme(): [Theme, () => void] {
     const stored = localStorage.getItem("sg-theme") as Theme | null;
     const initial: Theme =
       stored ?? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- SSR'da yok, mount'ta gerçek temayı localStorage/sistem tercihinden okuyup kasıtlı senkronize ediyor
     setTheme(initial);
   }, []);
   useEffect(() => {

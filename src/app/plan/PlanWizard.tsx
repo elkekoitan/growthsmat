@@ -158,6 +158,7 @@ export function PlanWizard() {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return;
       const saved = JSON.parse(raw);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage SSR'da yok, post-hydration senkron kasıtlı
       if (saved.profile) setProfile({ ...DEFAULT_PROFILE, ...saved.profile });
       if (typeof saved.phMeasured === "boolean") setPhMeasured(saved.phMeasured);
       if (typeof saved.phValue === "number") setPhValue(saved.phValue);
