@@ -71,9 +71,9 @@ export const EPICS: Epic[] = [
     risk: "Monorepo / CI",
     tasks: [
       { id: "P01-01", title: "Canlı proje takip dashboardu", status: "done" },
-      { id: "P01-02", title: "Web uygulama iskeleti (Next.js + tasarım dili)", status: "in_progress" },
+      { id: "P01-02", title: "Web uygulama iskeleti (Next.js + tasarım dili)", status: "done" },
       { id: "P01-03", title: "Paket yöneticisi/workspace yapılandırması", status: "todo" },
-      { id: "P01-04", title: "Ortak TypeScript/ESLint/format standartları", status: "in_progress" },
+      { id: "P01-04", title: "Ortak TypeScript/ESLint/format standartları", status: "review" },
       { id: "P01-05", title: "Ortam yapılandırması ve secret şeması", status: "todo" },
       { id: "P01-06", title: "CI kalite hattı", status: "todo" },
       { id: "P01-07", title: "Preview/staging yayın hattı", status: "todo" },
@@ -125,7 +125,9 @@ export const EPICS: Epic[] = [
     risk: "Sahte kesinlik",
     tasks: todos("P05", 14).map((t, i) => ({
       ...t,
-      status: (i < 3 ? "in_progress" : "todo") as TaskStatus,
+      // v1 motoru + 24 birim test: alt skorlar, sert kısıt ve ayrı güven done;
+      // senaryo/birlikte ekim prototip aşamasında; rotasyon/geri bildirim todo.
+      status: (["in_progress", "done", "done", "done", "done", "done", "done", "done", "done", "done", "in_progress", "in_progress", "todo", "todo"][i]) as TaskStatus,
       title: ["Değerlendirme input snapshot", "Birim/özellik normalizasyonu", "Sert kısıt motoru", "İklim alt skoru", "Toprak/su alt skoru", "Yöntem/operasyon alt skoru", "Risk/sürdürülebilirlik skoru", "Pazar/ekonomi alt skoru", "Güven ve belirsizlik hesabı", "Açıklama ve veri boşluğu", "Ne-olursa senaryo motoru", "Birlikte ekim ilişki motoru", "Rotasyon çözücü", "Karar geri bildirimi"][i],
     })),
   },
@@ -168,7 +170,8 @@ export const EPICS: Epic[] = [
     risk: "Gıda güvenliği",
     tasks: todos("P09", 12).map((t, i) => ({
       ...t,
-      status: (i === 0 || i === 3 ? "in_progress" : "todo") as TaskStatus,
+      // Reçete şeması, Solanaceae güvenlik bloğu ve tepsi maliyet/marj: implement + test edildi.
+      status: (["done", "done", "todo", "in_progress", "todo", "todo", "in_progress", "todo", "todo", "done", "todo", "todo"][i]) as TaskStatus,
       title: ["MicrogreenRecipe şeması", "Güvenlik kataloğu (Solanaceae blok)", "Oda/raf/ışık kapasite modeli", "Tepsi reçetesi karşılaştırma UI", "Tohum/substrat lot kabulü", "Parti/tepsi QR üretimi", "Karartma/ışık/sulama görev dizisi", "Küf/sapma gözlem akışı", "Hasat/kalite/soğuk kayıtları", "Tepsi maliyet ve marj", "Restoran aboneliğinden geriye ekim", "Reçete A/B deneyi"][i],
     })),
   },
