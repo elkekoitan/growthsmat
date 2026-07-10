@@ -404,6 +404,11 @@ a { color: inherit; text-decoration: none; }
 }
 .reveal.is-visible { opacity: 1; transform: none; }
 
+/* Satır reveal (maske içinden yukarı) — inline transform yerine class ile,
+   böylece is-visible sıfırlaması özgüllük savaşına girmez. */
+.reveal-line { transform: translateY(110%); }
+.reveal-line.is-visible { transform: none; }
+
 .shimmer-text {
   background: linear-gradient(110deg, var(--color-forest-700) 35%, var(--color-forest-400) 50%, var(--color-forest-700) 65%);
   background-size: 200% 100%;

@@ -45,6 +45,31 @@ Ham ramp: `--color-forest-50..950 --color-gold-100..900 --color-paper-50..300 --
 - `@/data/microgreens` → `MICROGREEN_RECIPES`, `BLOCKED_MICROGREENS`, `SAFETY_LABELS`, `computeTrayCost(input): TrayCostResult`, `DEFAULT_TRAY_INPUT`; tipler `MicrogreenRecipe, TrayCostInput, TrayCostResult`
 - `@/data/roadmap` → `EPICS: Epic[]`, `epicProgress(epic)`, `overallProgress()`, `STATUS_WEIGHT`, `STATUS_LABELS`; tipler `TaskStatus, RoadmapTask, Epic`
 
+## İMZA GÖRSEL PRİMİTİFLERİ (araştırmadan çıkan güçlü move'lar — bunları kullan)
+- `@/components/graphics` (SAF SVG/CSS, server'da da kullanılır):
+  - `<RadialGauge value={0-100} size label sub color track />` — conic-gradient halka gösterge (plan sonuç skoru, panel proje sağlığı, çimlenme oranı)
+  - `<SegmentedBar segments={n} current={i} height />` — tamamlanan/mevcut(baskın altın)/bekleyen faz çubuğu (plan adımları, panel epik fazları)
+  - `<Sparkline data={number[]} width height color fill />` — mini trend (KPI kartları)
+  - `<WaveDivider fill flip height />` — organik dalga section ayracı (keskin çizgi yerine; geçişlerde fill=sonraki bölümün zemini)
+  - `<StampBadge ring center={<>...</>} size />` — dönen dairesel mühür rozeti (kart köşe etki-istatistiği)
+  - `<ArchFrame ratio children />` — kemer maskeli görsel çerçeve (persona/vitrin kartları)
+  - `<SoilLineStages stages={[{emoji,label,day}]} />` — sürekli toprak çizgisi üzerinde büyüme evreleri (mikro filiz, plan)
+  - `<BotanicalScene className style />` — gizli 'S' harf formu üzerine dizili, currentColor botanik hero sahnesi (kendi kendini çizen çizgiler)
+  - `<NumberedHeading n="01" title eyebrow />` — mono rakam + serif başlık + hairline (bölüm başlıkları)
+- `@/components/visuals` (CLIENT "use client"):
+  - `<SpotlightCard glow as children />` — imleç-takip fener glow kartı (bento özellikler, panel widget'ları)
+  - `<Marquee>...</Marquee>` — kenarları eriyen, hover'da duran sonsuz şerit (veri kaynağı şeridi; içerik otomatik 2x)
+  - `<RevealHeading lines={[...]} as />` — satır satır maske içinden yukarı açılan başlık (hero + bölüm başlıkları; RevealProvider gerekli)
+  - `<CompareSlider before after beforeLabel afterLabel height />` — görünmez range input'lu karşılaştırma sürgüsü (mikro filiz önce/sonra, plan yerel-test etkisi)
+  - `<KpiCard label value unit delta={{value,dir,good}} data={number[]} color />` — kanonik KPI: mono etiket + tabular sayı + delta chip + sparkline
+
+## Doküman gerçekleri (kullan)
+- Veri kaynakları: FAO GAEZ v4 (~9km ön-eleme), NASA POWER (günlük iklim), WorldClim 2.1 (normaller), SoilGrids/ISRIC (REST beta duraklatıldı → yerel test üstün), Crop Ontology, USDA GRIN-Global (600k+ accession), EPPO Global Database (zararlı/karantina).
+- Pazar: 2024 küresel organik gıda perakende 145 milyar EUR (FiBL/IFOAM). Etsy: 86,5M alıcı, 5,6M satıcı, 10,5 milyar USD GMS; ücret 0,20 USD listing + %6,5 transaction.
+- Mikro filiz güvenliği: Penn State Extension, FDA FSMA Produce Safety, Utah State. Bloklu türler: domates/biber/patlıcan/patates (Solanaceae fide alkaloidi).
+- İlkeler: "organik" doğrulanmadan rozet YOK; skor ile güven AYRI; üretici verinin sahibi; yerel test küresel tahmine üstün.
+- Fiyat paketleri: Keşif (ücretsiz), Plus (6-9 USD), Grower Pro (24-39 USD), Business (99-249 USD), Network (750+ USD).
+
 ## Sayfa iskeleti (her sayfa)
 ```tsx
 import { Nav } from "@/components/Nav";
