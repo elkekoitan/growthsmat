@@ -1,0 +1,27 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1F4631"/>
+      <stop offset="0.5" stop-color="#25573C"/>
+      <stop offset="1" stop-color="#123024"/>
+    </linearGradient>
+    <linearGradient id="leaf" x1="300" y1="820" x2="820" y2="200" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8FC2A2"/>
+      <stop offset="0.5" stop-color="#5FA37B"/>
+      <stop offset="1" stop-color="#BBDBC6"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.32" r="0.7">
+      <stop stop-color="#3E865D" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#3E865D" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <rect width="1024" height="1024" fill="url(#glow)"/>
+  <!-- maskable: mark %66 güvenli daire içinde, daha küçük ölçek -->
+  <g transform="translate(512 512) scale(19) translate(-16 -16)">
+    <path d="M15 17.4C15 17.4 12.9 10.2 5.6 8.9C4.7 8.7 3.9 9.6 4.2 10.5C6.1 16.9 11.6 18.6 15 18.7V17.4Z" fill="url(#leaf)" opacity="0.78"/>
+    <path d="M17 15.2C17 15.2 18.7 6.9 26.4 4.9C27.4 4.7 28.2 5.6 27.9 6.6C25.9 13.9 20.6 16.4 17 16.6V15.2Z" fill="url(#leaf)"/>
+    <path d="M16 28V14.5C16 11 17.3 8 19.6 5.7" stroke="#EAF3EC" stroke-width="2.4" stroke-linecap="round"/>
+    <circle cx="16" cy="27.4" r="2.1" fill="#F3C969"/>
+  </g>
+</svg>
