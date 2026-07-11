@@ -119,7 +119,9 @@ export const EPICS: Epic[] = [
     risk: "Kaynak/lisans/çeşit kimliği",
     tasks: todos("P04", 14).map((t, i) => ({
       ...t,
-      status: (i === 0 ? "in_progress" : i === 11 ? "in_progress" : "todo") as TaskStatus,
+      // Arama zaten vardı; karşılaştırma (findBestCropIndex, "en iyi" vurgusu eşitlikte
+      // gizlenir) bu tur test edilerek tamamlandı → görev artık done.
+      status: (i === 0 ? "in_progress" : i === 11 ? "done" : "todo") as TaskStatus,
       title: ["Takson/tür/çeşit/yerel ad şeması", "Yetiştirme yöntemi ve gereksinim şeması", "Claim/source/evidence şeması", "Crop Ontology adapter", "GRIN adapter", "EPPO adapter", "FAO GAEZ veri alma", "NASA POWER cache", "WorldClim raster hattı", "SoilGrids fallback", "Kaynak doğrulama/checksum", "Ürün/çeşit arama ve karşılaştırma", "İçerik kürasyon konsolu", "Görsel lisans kataloğu"][i],
     })),
   },

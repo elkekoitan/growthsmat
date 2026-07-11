@@ -23,6 +23,7 @@ import {
 } from "@/data/crops";
 import { BotanicalScene } from "@/components/graphics";
 import { Reveal } from "@/components/ui";
+import { COMPARISON_METRICS, findBestCropIndex } from "@/lib/compareCrops";
 import {
   Sun,
   Droplet,
@@ -266,7 +267,19 @@ function Spec({ label, children }: { label: string; children: ReactNode }) {
 
 /* ------------------------------------------------------------------- Kart */
 
-function SeedCard({ crop, onOpen }: { crop: Crop; onOpen: (id: string) => void }) {
+function SeedCard({
+  crop,
+  onOpen,
+  compareChecked,
+  onToggleCompare,
+  compareDisabled,
+}: {
+  crop: Crop;
+  onOpen: (id: string) => void;
+  compareChecked: boolean;
+  onToggleCompare: (id: string) => void;
+  compareDisabled: boolean;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const reduce = useRef(false);
   const meta = CATEGORY_META[crop.category];
@@ -313,9 +326,24 @@ function SeedCard({ crop, onOpen }: { crop: Crop; onOpen: (id: string) => void }
             onOpen(crop.id);
           }
         }}
-        style={{ "--sc": meta.color } as Vars}
+        style={{ "--sc": meta.color, position: "relative" } as Vars}
       >
         <span className="seed-strip" aria-hidden />
+
+        <label
+          className="compare-toggle"
+          onClick={(e) => e.stopPropagation()}
+          title={compareDisabled && !compareChecked ? "En fazla 4 ürün karşılaştırılabilir" : "Karşılaştırmaya ekle"}
+        >
+          <input
+            type="checkbox"
+            checked={compareChecked}
+            disabled={compareDisabled && !compareChecked}
+            onChange={() => onToggleCompare(crop.id)}
+            aria-label={`${crop.name} — karşılaştırmaya ekle`}
+          />
+          <span className="font-mono">Karşılaştır</span>
+        </label>
 
         <div className="seed-head">
           <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
@@ -662,6 +690,103 @@ function DetailModal({
   );
 }
 
+function CompareModal({ crops, onClose, onRemove }: { crops: Crop[]; onClose: () => void; onRemove: (id: string) => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    document.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+    };
+  }, [onClose]);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Ürün karşılaştırması"
+      style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", alignItems: "flex-end", justifyContent: "center" }}
+    >
+      <div
+        onClick={onClose}
+        style={{ position: "absolute", inset: 0, background: "rgba(10,15,12,0.55)", backdropFilter: "blur(2px)" }}
+        aria-hidden="true"
+      />
+      <div
+        className="card"
+        style={{
+          position: "relative",
+          width: "100%",
+          maxWidth: 900,
+          maxHeight: "82vh",
+          margin: "0 auto 24px",
+          padding: 0,
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
+          boxShadow: "var(--shadow-lg)",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid var(--border-hair)" }}>
+          <h3 style={{ margin: 0, fontSize: "var(--fs-lg)" }}>Ürün karşılaştırması</h3>
+          <button onClick={onClose} className="btn btn-ghost btn-sm" aria-label="Kapat">
+            <X size={18} />
+          </button>
+        </div>
+        <div style={{ overflow: "auto", padding: 20 }}>
+          <table className="compare-table">
+            <thead>
+              <tr>
+                <th style={{ textAlign: "left" }}>Özellik</th>
+                {crops.map((c) => (
+                  <th key={c.id}>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                      <span style={{ fontSize: 22 }} aria-hidden="true">{c.emoji}</span>
+                      <span style={{ fontWeight: 600, fontSize: "var(--fs-sm)" }}>{c.name}</span>
+                      <button onClick={() => onRemove(c.id)} className="chip" style={{ cursor: "pointer", border: "none", fontSize: 10 }}>
+                        <X size={10} /> Kaldır
+                      </button>
+                    </div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {COMPARISON_METRICS.map((m) => {
+                const bestIdx = findBestCropIndex(crops, m);
+                return (
+                  <tr key={m.key}>
+                    <td className="font-mono" style={{ color: "var(--text-low)", fontSize: "var(--fs-xs)" }}>{m.label}</td>
+                    {crops.map((c, i) => (
+                      <td key={c.id} style={{ textAlign: "center" }}>
+                        <span
+                          className={i === bestIdx ? "chip chip-ok" : undefined}
+                          style={i === bestIdx ? undefined : { color: "var(--text-mid)" }}
+                        >
+                          {i === bestIdx && <Check size={11} />} {m.getValue(c)}
+                        </span>
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          <p style={{ fontSize: "var(--fs-xs)", color: "var(--text-low)", marginTop: 16 }}>
+            Yeşil rozet, o metrikte tek başına en iyi adayı gösterir — eşitlik durumunda hiçbiri vurgulanmaz.
+          </p>
+        </div>
+      </div>
+      <style>{`
+        .compare-table { border-collapse: collapse; width: 100%; min-width: 480px; }
+        .compare-table th, .compare-table td { border-bottom: 1px solid var(--border-hair); padding: 10px 12px; }
+        .compare-table thead th { border-bottom: 2px solid var(--border-soft); }
+      `}</style>
+    </div>
+  );
+}
+
 function SectionTitle({ n, title, style }: { n: string; title: string; style?: CSSProperties }) {
   return (
     <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 10, ...style }}>
@@ -683,6 +808,17 @@ export function Explorer() {
   const [query, setQuery] = useState("");
   const [beginnerOnly, setBeginnerOnly] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [compareIds, setCompareIds] = useState<string[]>([]);
+  const [compareOpen, setCompareOpen] = useState(false);
+  const MAX_COMPARE = 4;
+
+  const toggleCompare = useCallback((id: string) => {
+    setCompareIds((prev) => {
+      if (prev.includes(id)) return prev.filter((x) => x !== id);
+      if (prev.length >= MAX_COMPARE) return prev;
+      return [...prev, id];
+    });
+  }, []);
 
   const catCounts = useMemo(() => {
     const m: Record<string, number> = {};
@@ -864,7 +1000,14 @@ export function Explorer() {
           {results.length > 0 ? (
             <div className="seed-grid">
               {results.map((c) => (
-                <SeedCard key={c.id} crop={c} onOpen={setSelectedId} />
+                <SeedCard
+                  key={c.id}
+                  crop={c}
+                  onOpen={setSelectedId}
+                  compareChecked={compareIds.includes(c.id)}
+                  onToggleCompare={toggleCompare}
+                  compareDisabled={compareIds.length >= MAX_COMPARE}
+                />
               ))}
             </div>
           ) : (
@@ -885,7 +1028,41 @@ export function Explorer() {
         <DetailModal crop={selected} onClose={closeModal} onNavigate={(id) => setSelectedId(id)} />
       )}
 
+      {compareIds.length > 0 && !compareOpen && (
+        <div className="compare-bar" role="status">
+          <span className="font-mono" style={{ fontSize: "var(--fs-sm)" }}>
+            {compareIds.length} ürün seçili {compareIds.length < 2 && "(en az 2 seçin)"}
+          </span>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button className="btn btn-ghost btn-sm" onClick={() => setCompareIds([])}>
+              Temizle
+            </button>
+            <button className="btn btn-primary btn-sm" disabled={compareIds.length < 2} onClick={() => setCompareOpen(true)}>
+              Karşılaştır <ArrowRight size={15} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {compareOpen && compareIds.length >= 2 && (
+        <CompareModal
+          crops={compareIds.map((id) => CROP_BY_ID[id]).filter(Boolean)}
+          onClose={() => setCompareOpen(false)}
+          onRemove={(id) => {
+            setCompareIds((prev) => prev.filter((x) => x !== id));
+            if (compareIds.length <= 2) setCompareOpen(false);
+          }}
+        />
+      )}
+
       <style>{`
+        .compare-bar {
+          position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+          z-index: 55; display: flex; align-items: center; gap: 16px;
+          padding: 12px 18px; border-radius: 999px;
+          background: var(--bg-surface); border: 1px solid var(--border-soft);
+          box-shadow: var(--shadow-lg);
+        }
         /* ---- Spektrum ---- */
         .spectrum-labels {
           display: flex; justify-content: space-between; align-items: baseline;
@@ -974,6 +1151,19 @@ export function Explorer() {
           position: absolute; top: 0; left: 0; right: 0; height: 4px;
           background: var(--sc); border-radius: var(--radius-card) var(--radius-card) 0 0;
         }
+        .compare-toggle {
+          position: absolute; top: 10px; right: 10px; z-index: 2;
+          display: flex; align-items: center; gap: 5px;
+          padding: 4px 8px; border-radius: 999px;
+          background: color-mix(in srgb, var(--bg-surface) 88%, transparent);
+          border: 1px solid var(--border-hair);
+          font-size: 10px; color: var(--text-low);
+          cursor: pointer; backdrop-filter: blur(4px);
+          transition: border-color 150ms ease, color 150ms ease;
+        }
+        .compare-toggle:has(input:checked) { border-color: var(--primary); color: var(--primary); }
+        .compare-toggle input:disabled { cursor: not-allowed; }
+        .compare-toggle input { cursor: pointer; }
         .seed-head { padding: 20px 18px 12px; transform: translateZ(26px); }
         .seed-content { padding: 14px 18px 18px; margin-top: auto; }
 
