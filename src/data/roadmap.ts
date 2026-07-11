@@ -78,7 +78,7 @@ export const EPICS: Epic[] = [
       { id: "P01-06", title: "CI kalite hattı", status: "todo" },
       { id: "P01-07", title: "Preview/staging yayın hattı", status: "todo" },
       { id: "P01-08", title: "Gözlemlenebilirlik temel paketi", status: "todo" },
-      { id: "P01-09", title: "Feature flag ve deney altyapısı", status: "todo" },
+      { id: "P01-09", title: "Feature flag ve deney altyapısı", status: "done" },
       { id: "P01-10", title: "Migrasyon expand-contract standardı", status: "todo" },
     ],
   },
@@ -96,7 +96,8 @@ export const EPICS: Epic[] = [
       { id: "P02-04", title: "Rol ve izin kataloğu", status: "done" },
       { id: "P02-05", title: "API tenant bağlamı ve politika katmanı", status: "done", critical: true },
       { id: "P02-06", title: "PostgreSQL RLS politikaları", status: "todo", critical: true },
-      ...todos("P02", 6, 7).map((t, i) => ({ ...t, title: ["Davet ve üyelik yaşam döngüsü", "MFA ve yeniden doğrulama", "İzin/rıza merkezi", "Veri dışa aktarma ve silme", "Konum şifreleme/genelleştirme", "Süreli destek erişimi"][i], critical: i === 4 })),
+      // P02-07 Davet ve üyelik yaşam döngüsü (transition/canCancel/acceptInvite) test edilerek implement edildi.
+      ...todos("P02", 6, 7).map((t, i) => ({ ...t, status: (i === 0 ? "done" : "todo") as TaskStatus, title: ["Davet ve üyelik yaşam döngüsü", "MFA ve yeniden doğrulama", "İzin/rıza merkezi", "Veri dışa aktarma ve silme", "Konum şifreleme/genelleştirme", "Süreli destek erişimi"][i], critical: i === 4 })),
     ],
   },
   {
@@ -134,7 +135,7 @@ export const EPICS: Epic[] = [
       ...t,
       // v1 motoru + test edilmiş alt skorlar, sert kısıt, ayrı güven ve rotasyon çözücü done;
       // senaryo/birlikte ekim prototip aşamasında; karar geri bildirimi todo.
-      status: (["in_progress", "done", "done", "done", "done", "done", "done", "done", "done", "done", "in_progress", "in_progress", "done", "todo"][i]) as TaskStatus,
+      status: (["in_progress", "done", "done", "done", "done", "done", "done", "done", "done", "done", "done", "done", "done", "todo"][i]) as TaskStatus,
       title: ["Değerlendirme input snapshot", "Birim/özellik normalizasyonu", "Sert kısıt motoru", "İklim alt skoru", "Toprak/su alt skoru", "Yöntem/operasyon alt skoru", "Risk/sürdürülebilirlik skoru", "Pazar/ekonomi alt skoru", "Güven ve belirsizlik hesabı", "Açıklama ve veri boşluğu", "Ne-olursa senaryo motoru", "Birlikte ekim ilişki motoru", "Rotasyon çözücü", "Karar geri bildirimi"][i],
     })),
   },
@@ -159,6 +160,10 @@ export const EPICS: Epic[] = [
     tasks: todos("P07", 12).map((t, i) => ({
       ...t,
       critical: [2, 5, 6, 7, 8].includes(i),
+      // Outbox idempotent yazma protokolü + alan bazlı çakışma çözümü (applyOperation/
+      // resolveConflict) test edilerek implement edildi (src/lib/outbox.ts). Inbox/delta,
+      // mobil (Expo) ve fiziksel katman henüz yok.
+      status: (["todo", "todo", "todo", "todo", "todo", "done", "todo", "done", "todo", "todo", "todo", "todo"][i]) as TaskStatus,
       title: ["Expo/RN proje ve navigasyon", "Ortak sözleşme/domain paketleri", "Güvenli token/anahtar saklama", "Yerel SQLite şeması", "Offline veri paketleme", "Outbox idempotent yazma", "Inbox/delta senkronu", "Alan bazlı çakışma çözümü", "Offline fotoğraf/ses kuyruğu", "Kamera, QR, konum, bildirim", "Tarlada büyük dokunma/ses", "Çalınmış cihaz/erişim iptali"][i],
     })),
   },
@@ -173,7 +178,7 @@ export const EPICS: Epic[] = [
       // Lot grafiği, mass balance, organik iddia zinciri ve geri çağırma soy ağacı
       // implement + test edildi (src/lib/traceability.ts, /izlenebilirlik).
       // Jurisdiction/sertifika/SOP/CAPA/denetim export gerçek kural motoru gerektirir — henüz yok.
-      status: (["done", "done", "done", "todo", "todo", "done", "todo", "todo", "todo", "todo", "todo", "done", "todo", "in_progress"][i]) as TaskStatus,
+      status: (["done", "done", "done", "done", "done", "done", "todo", "todo", "todo", "todo", "todo", "done", "todo", "in_progress"][i]) as TaskStatus,
       title: ["Lot/operation/mass balance şeması", "Seed→hasat lot zinciri", "Paket/sevkiyat/alıcı zinciri", "Jurisdiction/RulePack motoru", "Sertifika kapsam/geçerlilik", "Organik iddia yayın kapısı", "Girdi uygunluk kontrolü", "Su testi uygunsuzluk akışı", "SOP ve kontrol noktası", "Hijyen/eğitim kayıtları", "Uygunsuzluk ve CAPA", "Geri çağırma soy ağacı", "Denetim dosyası export", "QR lot doğrulama sayfası"][i],
     })),
   },
@@ -185,7 +190,7 @@ export const EPICS: Epic[] = [
     tasks: todos("P09", 12).map((t, i) => ({
       ...t,
       // Reçete şeması, Solanaceae güvenlik bloğu ve tepsi maliyet/marj: implement + test edildi.
-      status: (["done", "done", "todo", "in_progress", "todo", "todo", "in_progress", "todo", "todo", "done", "todo", "todo"][i]) as TaskStatus,
+      status: (["done", "done", "done", "in_progress", "todo", "todo", "in_progress", "todo", "todo", "done", "done", "todo"][i]) as TaskStatus,
       title: ["MicrogreenRecipe şeması", "Güvenlik kataloğu (Solanaceae blok)", "Oda/raf/ışık kapasite modeli", "Tepsi reçetesi karşılaştırma UI", "Tohum/substrat lot kabulü", "Parti/tepsi QR üretimi", "Karartma/ışık/sulama görev dizisi", "Küf/sapma gözlem akışı", "Hasat/kalite/soğuk kayıtları", "Tepsi maliyet ve marj", "Restoran aboneliğinden geriye ekim", "Reçete A/B deneyi"][i],
     })),
   },
@@ -198,7 +203,7 @@ export const EPICS: Epic[] = [
       ...t,
       // Master katalog + teslimat bölgeleri + Etsy/yerel ücret simülatörleri (test edilen
       // gerçek hesap mantığı) + /pazar vitrini implement edildi; OAuth/webhook/checkout backend gerektirir.
-      status: (["todo", "in_progress", "in_progress", "done", "todo", "in_progress", "todo", "done", "todo", "todo", "in_progress", "todo", "todo", "done"][i]) as TaskStatus,
+      status: (["done", "done", "in_progress", "done", "todo", "in_progress", "todo", "done", "todo", "todo", "in_progress", "todo", "todo", "done"][i]) as TaskStatus,
       title: ["Maliyet kategorisi modeli", "Ürün/lot/kanal marj hesabı", "Tahmini hasat stok modeli", "Üretici vitrini ve teslimat", "B2C sepet/sipariş/ödeme", "B2B talep/teklif/fiyat", "Restoran/CSA aboneliği", "Master katalog/kanal listing", "Etsy OAuth 2.0 PKCE", "Etsy taslak listing akışı", "Etsy politika/iddia kapısı", "Etsy webhook idempotency", "QPS/QPD limit/reconciliation", "Kanal ücret simülasyonu"][i],
     })),
   },
