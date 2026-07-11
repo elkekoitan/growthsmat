@@ -125,9 +125,9 @@ export const EPICS: Epic[] = [
     risk: "Sahte kesinlik",
     tasks: todos("P05", 14).map((t, i) => ({
       ...t,
-      // v1 motoru + 24 birim test: alt skorlar, sert kısıt ve ayrı güven done;
-      // senaryo/birlikte ekim prototip aşamasında; rotasyon/geri bildirim todo.
-      status: (["in_progress", "done", "done", "done", "done", "done", "done", "done", "done", "done", "in_progress", "in_progress", "todo", "todo"][i]) as TaskStatus,
+      // v1 motoru + test edilmiş alt skorlar, sert kısıt, ayrı güven ve rotasyon çözücü done;
+      // senaryo/birlikte ekim prototip aşamasında; karar geri bildirimi todo.
+      status: (["in_progress", "done", "done", "done", "done", "done", "done", "done", "done", "done", "in_progress", "in_progress", "done", "todo"][i]) as TaskStatus,
       title: ["Değerlendirme input snapshot", "Birim/özellik normalizasyonu", "Sert kısıt motoru", "İklim alt skoru", "Toprak/su alt skoru", "Yöntem/operasyon alt skoru", "Risk/sürdürülebilirlik skoru", "Pazar/ekonomi alt skoru", "Güven ve belirsizlik hesabı", "Açıklama ve veri boşluğu", "Ne-olursa senaryo motoru", "Birlikte ekim ilişki motoru", "Rotasyon çözücü", "Karar geri bildirimi"][i],
     })),
   },
@@ -212,6 +212,9 @@ export const EPICS: Epic[] = [
     risk: "Cihaz komutu/gizlilik",
     tasks: todos("P12", 11).map((t, i) => ({
       ...t,
+      // Cihaz/okuma şeması + aykırı değer filtresi test edilerek implement edildi (/sensor);
+      // alarm kuralı motoru çalışıyor ama gerçek bildirim gönderimi yok (in_progress).
+      status: (["done", "todo", "todo", "done", "in_progress", "todo", "todo", "todo", "todo", "todo", "todo"][i]) as TaskStatus,
       title: ["Cihaz/sensör/metric şeması", "MQTT/HTTP adapter", "Zaman serisi ingest/partition", "Sensör kalite ve aykırı değer", "Alarm kuralı ve bildirim", "Aktüatör komut güvenliği", "Üretim/maliyet dashboardu", "Tahmin-gerçek kalibrasyon", "Kooperatif toplu kapasite", "Anonim bölgesel benchmark", "Kurumsal program raporu"][i],
     })),
   },

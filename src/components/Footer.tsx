@@ -21,6 +21,8 @@ const COLUMNS = [
       { href: "/mikrofiliz", label: "Maliyet hesaplayıcı" },
       { href: "/urunler", label: "Bilgi grafiği" },
       { href: "/izlenebilirlik", label: "Lot izlenebilirlik" },
+      { href: "/rotasyon", label: "Rotasyon planlayıcı" },
+      { href: "/sensor", label: "Sensör ve alarm" },
     ],
   },
   {
