@@ -25,6 +25,7 @@ const COLUMNS = [
       { href: "/sensor", label: "Sensör ve alarm" },
       { href: "/gorev-sablonu", label: "Görev şablonu" },
       { href: "/roller", label: "Rol ve izin matrisi" },
+      { href: "/alan-kalitesi", label: "Alan veri kalitesi" },
     ],
   },
   {
