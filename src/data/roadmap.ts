@@ -138,6 +138,9 @@ export const EPICS: Epic[] = [
     risk: "Görev/uygulama bütünlüğü",
     tasks: todos("P06", 11).map((t, i) => ({
       ...t,
+      // /plan'da gerçek 3-senaryo karşılaştırma UI'ı zaten çalışıyordu (önceki turda işaretlenmemiş);
+      // görev şablon motoru bu turda test edilerek implement edildi (/gorev-sablonu).
+      status: (["todo", "done", "todo", "done", "todo", "todo", "todo", "todo", "todo", "todo", "todo"][i]) as TaskStatus,
       title: ["SeasonPlan/Activity şeması", "Plan senaryosu karşılaştırma UI", "Yatak/parsel takvim yerleşimi", "Görev şablon motoru", "Görev atama ve takvim", "Fotoğraf/ses/ölçümle tamamlama", "Uygulama ve girdi lot kaydı", "Hava/sensör görev önerisi", "Gecikme ve aşağı akış etkisi", "QR/NFC üretim birimi açma", "Operasyon KPI"][i],
     })),
   },

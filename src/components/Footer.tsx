@@ -23,6 +23,7 @@ const COLUMNS = [
       { href: "/izlenebilirlik", label: "Lot izlenebilirlik" },
       { href: "/rotasyon", label: "Rotasyon planlayıcı" },
       { href: "/sensor", label: "Sensör ve alarm" },
+      { href: "/gorev-sablonu", label: "Görev şablonu" },
     ],
   },
   {
