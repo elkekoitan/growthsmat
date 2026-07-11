@@ -9,6 +9,7 @@ import { Moon, Sun, Menu, X, ArrowRight } from "./icons";
 
 const NAV_LINKS = [
   { href: "/plan", label: "Plan" },
+  { href: "/pazar", label: "Pazar" },
   { href: "/urunler", label: "Ürün Kâşifi" },
   { href: "/gorevler", label: "Görevler" },
   { href: "/mikrofiliz", label: "Mikro Filiz" },

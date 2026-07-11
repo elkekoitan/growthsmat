@@ -5,6 +5,7 @@ import { Footer } from "@/components/Footer";
 import { RevealProvider, Reveal, Counter } from "@/components/ui";
 import { SpotlightCard, Marquee } from "@/components/visuals";
 import { HeroMockup } from "@/components/HeroMockup";
+import { CHANNELS } from "@/data/commerce";
 import {
   RadialGauge,
   NumberedHeading,
@@ -26,6 +27,8 @@ import {
   Droplet,
   Leaf,
   Globe,
+  Store,
+  Package,
 } from "@/components/icons";
 
 export const metadata = {
@@ -76,6 +79,14 @@ const FEATURES: {
     desc: "Tarlada internet yokken de günlük tutulur; bağlantı gelince sorunsuz eşitlenir.",
   },
 ];
+
+/* ---------- Ticaret kanalları (bkz. @/data/commerce) ---------- */
+const CHANNEL_ICON: Record<string, IconType> = {
+  "yerel-vitrin": Store,
+  "restoran-b2b": Scale,
+  "csa-kutu": Package,
+  etsy: Globe,
+};
 
 /* ---------- Nasıl çalışır adımları ---------- */
 const STEPS: { n: string; title: string; desc: string }[] = [
@@ -594,6 +605,65 @@ export default function Home() {
                     </span>
                   </div>
                 </SpotlightCard>
+
+                {/* Geniş hücre — Ticaret & Etsy */}
+                <Link href="/pazar" style={{ display: "contents" }}>
+                  <SpotlightCard
+                    glow="var(--color-forest-400)"
+                    style={{
+                      gridColumn: "span 4",
+                      padding: 26,
+                      display: "flex",
+                      gap: 20,
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: 52,
+                        height: 52,
+                        borderRadius: 14,
+                        display: "grid",
+                        placeItems: "center",
+                        background: "color-mix(in srgb, var(--primary) 14%, transparent)",
+                        color: "var(--primary)",
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Store size={26} />
+                    </span>
+                    <div style={{ flex: 1, minWidth: 240 }}>
+                      <h3 style={{ fontSize: "var(--fs-h3)", margin: 0 }}>
+                        Yerel vitrinden Etsy&apos;ye, tek pazar merkezi
+                      </h3>
+                      <p style={{ color: "var(--text-mid)", fontSize: "var(--fs-body)", margin: "8px 0 0", maxWidth: "70ch" }}>
+                        Yerel vitrin, restoran aboneliği, CSA kutusu ve Etsy — tek master katalogdan
+                        yönetilir. Her işlemde toplam ücret ve net üretici geliri ödeme öncesi
+                        görünür; Etsy&apos;de başlayan işlem asla platform dışına yönlendirilmez.
+                      </p>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 14 }}>
+                        {CHANNELS.map((c) => (
+                          <span key={c.id} className="chip">
+                            {c.name.replace("SmartGrowth ", "")}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end", flexShrink: 0 }}>
+                      <span className="chip chip-info">
+                        <Globe size={13} /> 0,20$ + %6,5 Etsy ücreti
+                      </span>
+                      <span
+                        className="font-mono"
+                        style={{ fontSize: "var(--fs-sm)", color: "var(--primary)", fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}
+                      >
+                        Pazar merkezini gör <ArrowRight size={14} />
+                      </span>
+                    </div>
+                  </SpotlightCard>
+                </Link>
               </div>
             </Reveal>
           </div>
@@ -753,7 +823,72 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ====================== 8 · FİYATLANDIRMA ====================== */}
+        {/* ====================== 8 · TİCARET VE ETSY ====================== */}
+        <section className="section" style={{ background: "var(--bg-page)" }}>
+          <div className="container-x">
+            <Reveal i={0}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "flex-end",
+                  gap: 24,
+                  flexWrap: "wrap",
+                  marginBottom: 36,
+                }}
+              >
+                <div style={{ maxWidth: "56ch" }}>
+                  <span className="eyebrow">Sat, kaçırma</span>
+                  <h2 style={{ fontSize: "var(--fs-h1)", margin: "16px 0 0" }}>
+                    Ürettiğini <em style={{ fontStyle: "italic", color: "var(--primary)" }}>kaçırmadan</em> sat.
+                  </h2>
+                  <p style={{ color: "var(--text-mid)", fontSize: "var(--fs-body)", margin: "12px 0 0" }}>
+                    Dört kanal, tek master katalog. Her işlemde toplam ücret ve net üretici geliri
+                    ödeme öncesi görünür — Etsy ücreti SmartGrowth ücretinden her zaman ayrı gösterilir.
+                  </p>
+                </div>
+                <Link href="/pazar" className="btn btn-primary" style={{ flexShrink: 0 }}>
+                  Pazar merkezini keşfet <ArrowRight size={16} />
+                </Link>
+              </div>
+            </Reveal>
+
+            <Reveal i={1}>
+              <div className="channel-grid">
+                {CHANNELS.map((c) => {
+                  const Icon = CHANNEL_ICON[c.id];
+                  return (
+                    <SpotlightCard key={c.id} style={{ padding: 22, display: "flex", flexDirection: "column", gap: 10 }}>
+                      <span
+                        style={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: 11,
+                          display: "grid",
+                          placeItems: "center",
+                          background: "color-mix(in srgb, var(--primary) 10%, transparent)",
+                          color: "var(--primary)",
+                        }}
+                      >
+                        <Icon size={20} />
+                      </span>
+                      <h3 style={{ fontSize: "var(--fs-lg)", margin: "2px 0 0" }}>{c.name}</h3>
+                      <p style={{ color: "var(--text-mid)", fontSize: "var(--fs-sm)", margin: 0, lineHeight: 1.55, flex: 1 }}>
+                        {c.tagline}
+                      </p>
+                      <span className="chip" style={{ width: "fit-content" }}>
+                        <Scale size={13} />{" "}
+                        {c.feePct[0] === c.feePct[1] ? `%${c.feePct[0]}` : `%${c.feePct[0]}–${c.feePct[1]}`}
+                      </span>
+                    </SpotlightCard>
+                  );
+                })}
+              </div>
+            </Reveal>
+          </div>
+        </section>
+
+        {/* ====================== 9 · FİYATLANDIRMA ====================== */}
         <section className="section" style={{ background: "var(--bg-page)" }}>
           <div className="container-x">
             <Reveal i={0}>
@@ -861,7 +996,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ====================== 9 · KAPANIŞ CTA ====================== */}
+        {/* ====================== 10 · KAPANIŞ CTA ====================== */}
         <section className="pine-band grain" style={{ position: "relative", overflow: "hidden" }}>
           <WaveDivider fill="var(--bg-page)" flip height={70} />
           <div
@@ -903,6 +1038,9 @@ export default function Home() {
 
         .step-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; }
         .persona-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.25rem; }
+        .channel-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; }
+        @media (max-width: 860px) { .channel-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+        @media (max-width: 480px) { .channel-grid { grid-template-columns: 1fr; } }
         .price-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1rem; align-items: stretch; }
         .motor-grid { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: clamp(2rem, 5vw, 4rem); align-items: center; }
         @media (max-width: 820px) { .motor-grid { grid-template-columns: 1fr; } }

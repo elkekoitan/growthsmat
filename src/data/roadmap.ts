@@ -182,6 +182,9 @@ export const EPICS: Epic[] = [
     risk: "Politika, ücret, tazelik",
     tasks: todos("P10", 14).map((t, i) => ({
       ...t,
+      // Master katalog + teslimat bölgeleri + Etsy/yerel ücret simülatörleri (test edilen
+      // gerçek hesap mantığı) + /pazar vitrini implement edildi; OAuth/webhook/checkout backend gerektirir.
+      status: (["todo", "in_progress", "in_progress", "done", "todo", "in_progress", "todo", "done", "todo", "todo", "in_progress", "todo", "todo", "done"][i]) as TaskStatus,
       title: ["Maliyet kategorisi modeli", "Ürün/lot/kanal marj hesabı", "Tahmini hasat stok modeli", "Üretici vitrini ve teslimat", "B2C sepet/sipariş/ödeme", "B2B talep/teklif/fiyat", "Restoran/CSA aboneliği", "Master katalog/kanal listing", "Etsy OAuth 2.0 PKCE", "Etsy taslak listing akışı", "Etsy politika/iddia kapısı", "Etsy webhook idempotency", "QPS/QPD limit/reconciliation", "Kanal ücret simülasyonu"][i],
     })),
   },
