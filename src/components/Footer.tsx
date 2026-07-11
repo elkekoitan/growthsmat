@@ -9,6 +9,8 @@ const COLUMNS = [
       { href: "/urunler", label: "Ürün kâşifi" },
       { href: "/gorevler", label: "Görev ve saha günlüğü" },
       { href: "/mikrofiliz", label: "Mikro filiz stüdyosu" },
+      { href: "/pazar", label: "Pazar ve ticaret" },
+      { href: "/asistan", label: "AI asistan" },
     ],
   },
   {
@@ -18,15 +20,16 @@ const COLUMNS = [
       { href: "/plan", label: "Uygunluk motoru" },
       { href: "/mikrofiliz", label: "Maliyet hesaplayıcı" },
       { href: "/urunler", label: "Bilgi grafiği" },
+      { href: "/izlenebilirlik", label: "Lot izlenebilirlik" },
     ],
   },
   {
     title: "İlkeler",
     links: [
-      { href: "/", label: "Sahte kesinlik yok" },
-      { href: "/", label: "Kanıt seviyeli öneri" },
+      { href: "/plan", label: "Sahte kesinlik yok" },
+      { href: "/urunler", label: "Kanıt seviyeli öneri" },
       { href: "/", label: "Üretici verinin sahibi" },
-      { href: "/", label: "Önce gıda güvenliği" },
+      { href: "/izlenebilirlik", label: "Önce gıda güvenliği" },
     ],
   },
 ];

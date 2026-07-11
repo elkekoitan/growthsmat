@@ -505,12 +505,18 @@ export function Market() {
             <p style={{ color: "rgba(232,237,233,.78)", maxWidth: 620, marginBottom: 8 }}>
               Sponsorlu ürün organik sıralamayı değiştirmez, &quot;en uygun&quot; rozeti satın
               alınamaz. Etsy&apos;de başlayan işlem platform dışına yönlendirilmez; her işlemde
-              toplam ücret ve net üretici geliri ödeme öncesi görünür.
+              toplam ücret ve net üretici geliri ödeme öncesi görünür. Her satış lotu tohumdan
+              sevkiyata izlenebilir.
             </p>
           </div>
-          <Link href="/plan" className="btn btn-accent btn-lg" style={{ flexShrink: 0 }}>
-            Satışa hazır plan oluştur <ArrowRight size={16} />
-          </Link>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", flexShrink: 0 }}>
+            <Link href="/izlenebilirlik" className="btn btn-secondary btn-lg">
+              Lot zincirini gör
+            </Link>
+            <Link href="/plan" className="btn btn-accent btn-lg">
+              Satışa hazır plan oluştur <ArrowRight size={16} />
+            </Link>
+          </div>
         </div>
       </section>
 
