@@ -2,10 +2,10 @@
 
 import { useMemo, useState } from "react";
 import { CROPS } from "@/data/crops";
-import { generateTaskSchedule, addDaysISO, TASK_KIND_LABELS, type TaskKind } from "@/lib/taskTemplates";
+import { generateTaskSchedule, applyTaskDelay, addDaysISO, TASK_KIND_LABELS, type TaskKind } from "@/lib/taskTemplates";
 import { NumberedHeading } from "@/components/graphics";
 import { Reveal } from "@/components/ui";
-import { Sprout, Droplet, Layers, Clipboard, Package } from "@/components/icons";
+import { Sprout, Droplet, Layers, Clipboard, Package, X } from "@/components/icons";
 
 const KIND_ICON: Record<TaskKind, typeof Sprout> = {
   ekim: Sprout,
@@ -22,6 +22,15 @@ export function TaskTemplateBuilder() {
 
   const crop = CROPS.find((c) => c.id === cropId) ?? CROPS[0];
   const tasks = useMemo(() => generateTaskSchedule(crop), [crop]);
+
+  const [delayIndex, setDelayIndex] = useState<number>(-1);
+  const [delayDays, setDelayDays] = useState(3);
+  const impact = useMemo(
+    () => (delayIndex >= 0 ? applyTaskDelay(tasks, delayIndex, delayDays) : null),
+    [tasks, delayIndex, delayDays]
+  );
+  const displayedTasks = impact ? impact.newSchedule : tasks;
+  const shiftedFromIndex = delayIndex >= 0 ? delayIndex : Infinity;
 
   return (
     <>
@@ -70,12 +79,62 @@ export function TaskTemplateBuilder() {
             </label>
           </div>
 
-          <NumberedHeading n="02" eyebrow={`${tasks.length} görev`} title={`${crop.name} takvimi`} />
+          <NumberedHeading n="02" eyebrow="Ne olursa?" title="Gecikme etkisini simüle et" />
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end", marginBottom: 24 }}>
+            <label style={{ fontSize: "var(--fs-sm)" }}>
+              Hangi görev gecikti?
+              <select
+                value={delayIndex}
+                onChange={(e) => setDelayIndex(Number(e.target.value))}
+                className="tt-select"
+                style={{ minWidth: 220 }}
+              >
+                <option value={-1}>— Gecikme yok —</option>
+                {tasks.map((t, i) => (
+                  <option key={i} value={i}>
+                    {t.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {delayIndex >= 0 && (
+              <label style={{ fontSize: "var(--fs-sm)" }}>
+                Kaç gün gecikti?
+                <input
+                  type="number"
+                  min={0}
+                  value={delayDays}
+                  onChange={(e) => setDelayDays(Math.max(0, Number(e.target.value) || 0))}
+                  className="tt-select"
+                  style={{ width: 100 }}
+                />
+              </label>
+            )}
+            {impact && impact.harvestShiftDays > 0 && (
+              <span className="chip chip-warn">
+                <X size={12} /> Hasat {impact.harvestShiftDays} gün kayıyor, {impact.affectedCount} görev etkileniyor
+              </span>
+            )}
+          </div>
+
+          <NumberedHeading n="03" eyebrow={`${displayedTasks.length} görev`} title={`${crop.name} takvimi`} />
           <div style={{ display: "grid", gap: 10 }}>
-            {tasks.map((t, i) => {
+            {displayedTasks.map((t, i) => {
               const Icon = KIND_ICON[t.kind];
+              const isShifted = i >= shiftedFromIndex;
               return (
-                <Reveal key={i} i={i % 6} className="card" style={{ padding: 16, display: "flex", alignItems: "center", gap: 14 }}>
+                <Reveal
+                  key={i}
+                  i={i % 6}
+                  className="card"
+                  style={{
+                    padding: 16,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 14,
+                    borderColor: isShifted ? "color-mix(in srgb, var(--color-warning) 40%, transparent)" : undefined,
+                  }}
+                >
                   <span
                     style={{
                       width: 36,
@@ -83,8 +142,10 @@ export function TaskTemplateBuilder() {
                       borderRadius: 10,
                       display: "grid",
                       placeItems: "center",
-                      background: "color-mix(in srgb, var(--primary) 12%, transparent)",
-                      color: "var(--primary)",
+                      background: isShifted
+                        ? "color-mix(in srgb, var(--color-warning) 14%, transparent)"
+                        : "color-mix(in srgb, var(--primary) 12%, transparent)",
+                      color: isShifted ? "var(--color-warning)" : "var(--primary)",
                       flexShrink: 0,
                     }}
                   >
@@ -94,9 +155,10 @@ export function TaskTemplateBuilder() {
                     <div style={{ fontWeight: 600, fontSize: "var(--fs-sm)" }}>{t.title}</div>
                     <div style={{ fontSize: "var(--fs-xs)", color: "var(--text-low)" }}>
                       {TASK_KIND_LABELS[t.kind]} · Gün {t.dayOffset}
+                      {isShifted && delayDays > 0 && ` (${delayDays} gün kaydı)`}
                     </div>
                   </div>
-                  <span className="font-mono chip">{addDaysISO(startDate, t.dayOffset)}</span>
+                  <span className={`font-mono chip ${isShifted ? "chip-warn" : ""}`}>{addDaysISO(startDate, t.dayOffset)}</span>
                 </Reveal>
               );
             })}

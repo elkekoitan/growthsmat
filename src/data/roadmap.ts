@@ -144,8 +144,8 @@ export const EPICS: Epic[] = [
     tasks: todos("P06", 11).map((t, i) => ({
       ...t,
       // /plan'da gerçek 3-senaryo karşılaştırma UI'ı zaten çalışıyordu (önceki turda işaretlenmemiş);
-      // görev şablon motoru bu turda test edilerek implement edildi (/gorev-sablonu).
-      status: (["todo", "done", "todo", "done", "todo", "todo", "todo", "todo", "todo", "todo", "todo"][i]) as TaskStatus,
+      // görev şablon motoru + gecikme/aşağı akış etkisi (applyTaskDelay) test edilerek implement edildi.
+      status: (["todo", "done", "todo", "done", "todo", "todo", "todo", "todo", "done", "todo", "todo"][i]) as TaskStatus,
       title: ["SeasonPlan/Activity şeması", "Plan senaryosu karşılaştırma UI", "Yatak/parsel takvim yerleşimi", "Görev şablon motoru", "Görev atama ve takvim", "Fotoğraf/ses/ölçümle tamamlama", "Uygulama ve girdi lot kaydı", "Hava/sensör görev önerisi", "Gecikme ve aşağı akış etkisi", "QR/NFC üretim birimi açma", "Operasyon KPI"][i],
     })),
   },
@@ -234,6 +234,11 @@ export const EPICS: Epic[] = [
     tasks: todos("P13", 12).map((t, i) => ({
       ...t,
       critical: [2, 4, 5, 7].includes(i),
+      // Bu tur kod değil DÜRÜSTLÜK düzeltmesi: 104 testlik gerçek paket zaten
+      // tenant izolasyonu (roles.test.ts), lot/geri-çağırma (traceability.test.ts) ve
+      // AI güvenlik (assistant.test.ts) kapsıyordu ama hiç işaretlenmemişti. Web de
+      // gerçekten canlı (Coolify) — yalnız web kapsamı, mağaza yayını yok.
+      status: (["done", "todo", "done", "todo", "in_progress", "in_progress", "todo", "done", "todo", "todo", "todo", "in_progress"][i]) as TaskStatus,
       title: ["Unit/property test kapsaması", "OpenAPI/event contract testleri", "Tenant/IDOR güvenlik testi", "Offline chaos/çakışma testleri", "Lot ve geri çağırma E2E", "Organik/iddia adversarial test", "Etsy sandbox/contract E2E", "AI güvenlik ve kaynak eval", "WCAG 2.2 AA ve mobil kullanılabilirlik", "Yük, yedek ve restore tatbikatı", "Üç pilotu yürüt ve ölç", "Mağaza/web production yayın"][i],
     })),
   },

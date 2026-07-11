@@ -73,3 +73,37 @@ export function addDaysISO(startDateISO: string, dayOffset: number): string {
   d.setUTCDate(d.getUTCDate() + dayOffset);
   return d.toISOString().slice(0, 10);
 }
+
+// ---------- Gecikme ve aşağı akış etkisi (PRD FR-080, P06-09) ----------
+
+export interface DelayImpact {
+  delayedTask: ScheduledTask;
+  newSchedule: ScheduledTask[];
+  affectedCount: number; // gecikmeden etkilenen (kayan) görev sayısı — kendisi dahil
+  harvestShiftDays: number; // hasat başlangıcının kaç gün kaydığı
+}
+
+/**
+ * Bir görev `delayDays` kadar gecikirse, KENDİSİ ve ondan sonraki tüm görevler
+ * aynı miktarda ileri kayar (basit uniform-shift modeli — v1). Önceki görevler
+ * etkilenmez. Hasat üzerindeki etki ayrıca ayrıştırılır (FR-080).
+ */
+export function applyTaskDelay(schedule: ScheduledTask[], delayedTaskIndex: number, delayDays: number): DelayImpact {
+  const delayedTask = schedule[delayedTaskIndex];
+  if (!delayedTask || delayDays <= 0) {
+    return { delayedTask: delayedTask ?? schedule[0], newSchedule: schedule, affectedCount: 0, harvestShiftDays: 0 };
+  }
+
+  const newSchedule = schedule.map((t, i) => (i >= delayedTaskIndex ? { ...t, dayOffset: t.dayOffset + delayDays } : t));
+
+  const oldHarvest = schedule.find((t) => t.kind === "hasat");
+  const newHarvest = newSchedule.find((t) => t.kind === "hasat");
+  const harvestShiftDays = oldHarvest && newHarvest ? newHarvest.dayOffset - oldHarvest.dayOffset : 0;
+
+  return {
+    delayedTask,
+    newSchedule,
+    affectedCount: schedule.length - delayedTaskIndex,
+    harvestShiftDays,
+  };
+}

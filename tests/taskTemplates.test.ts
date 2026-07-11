@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { generateTaskSchedule, addDaysISO } from "../src/lib/taskTemplates.ts";
+import { generateTaskSchedule, addDaysISO, applyTaskDelay } from "../src/lib/taskTemplates.ts";
 import { CROP_BY_ID } from "../src/data/crops.ts";
 
 test("her şablon ekim görevi ile gün 0'da başlar", () => {
@@ -64,4 +64,35 @@ test("addDaysISO gün ofsetini doğru tarihe çevirir", () => {
   assert.equal(addDaysISO("2026-07-01", 10), "2026-07-11");
   assert.equal(addDaysISO("2026-07-25", 10), "2026-08-04"); // ay sınırını doğru geçer
   assert.equal(addDaysISO("2026-07-01", 0), "2026-07-01");
+});
+
+test("GECİKME: ekim gecikirse hasat da aynı miktarda kayar (uniform shift)", () => {
+  const schedule = generateTaskSchedule(CROP_BY_ID["marul"]);
+  const impact = applyTaskDelay(schedule, 0, 5); // ekim (index 0) 5 gün gecikti
+  assert.equal(impact.harvestShiftDays, 5);
+  assert.equal(impact.affectedCount, schedule.length); // ekimden sonra HERKES etkilenir
+});
+
+test("GECİKME: hasattan ÖNCEKİ görevler etkilenmez", () => {
+  const schedule = generateTaskSchedule(CROP_BY_ID["cherry-domates-kompakt"]);
+  const midIndex = Math.floor(schedule.length / 2);
+  const impact = applyTaskDelay(schedule, midIndex, 3);
+  for (let i = 0; i < midIndex; i++) {
+    assert.equal(impact.newSchedule[i].dayOffset, schedule[i].dayOffset, `görev ${i} kaymamalı`);
+  }
+});
+
+test("GECİKME: son görev (hasat) gecikirse yalnız hasat kayar, etkilenen sayısı 1'dir", () => {
+  const schedule = generateTaskSchedule(CROP_BY_ID["roka"]);
+  const lastIndex = schedule.length - 1;
+  const impact = applyTaskDelay(schedule, lastIndex, 4);
+  assert.equal(impact.affectedCount, 1);
+  assert.equal(impact.harvestShiftDays, 4);
+});
+
+test("GECİKME: sıfır veya negatif gecikme hiçbir şeyi değiştirmez", () => {
+  const schedule = generateTaskSchedule(CROP_BY_ID["marul"]);
+  const impact = applyTaskDelay(schedule, 0, 0);
+  assert.equal(impact.harvestShiftDays, 0);
+  assert.deepEqual(impact.newSchedule, schedule);
 });
