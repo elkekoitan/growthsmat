@@ -564,47 +564,58 @@ export default function Home() {
                 })}
 
                 {/* Geniş hücre — AI asistan */}
-                <SpotlightCard
-                  glow="var(--accent)"
-                  style={{
-                    gridColumn: "span 4",
-                    padding: 26,
-                    display: "flex",
-                    gap: 20,
-                    alignItems: "center",
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <span
+                <Link href="/asistan" style={{ display: "contents" }}>
+                  <SpotlightCard
+                    glow="var(--accent)"
                     style={{
-                      width: 52,
-                      height: 52,
-                      borderRadius: 14,
-                      display: "grid",
-                      placeItems: "center",
-                      background: "color-mix(in srgb, var(--accent) 16%, transparent)",
-                      color: "var(--color-gold-600)",
-                      flexShrink: 0,
+                      gridColumn: "span 4",
+                      padding: 26,
+                      display: "flex",
+                      gap: 20,
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                      cursor: "pointer",
                     }}
                   >
-                    <Sparkles size={26} />
-                  </span>
-                  <div style={{ flex: 1, minWidth: 240 }}>
-                    <h3 style={{ fontSize: "var(--fs-h3)", margin: 0 }}>Kaynak gösteren AI asistan</h3>
-                    <p style={{ color: "var(--text-mid)", fontSize: "var(--fs-body)", margin: "8px 0 0", maxWidth: "70ch" }}>
-                      &quot;Neden bu ürün?&quot; diye sor; asistan cevabını hangi veri kaynağına ve hangi kanıt
-                      seviyesine dayandırdığını göstererek yanıtlar. Referanssız iddia üretmez.
-                    </p>
-                  </div>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <span className="chip chip-info">
-                      <Globe size={13} /> Kaynaklı yanıt
+                    <span
+                      style={{
+                        width: 52,
+                        height: 52,
+                        borderRadius: 14,
+                        display: "grid",
+                        placeItems: "center",
+                        background: "color-mix(in srgb, var(--accent) 16%, transparent)",
+                        color: "var(--color-gold-600)",
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Sparkles size={26} />
                     </span>
-                    <span className="chip chip-ok">
-                      <Check size={13} /> Kanıt B+
-                    </span>
-                  </div>
-                </SpotlightCard>
+                    <div style={{ flex: 1, minWidth: 240 }}>
+                      <h3 style={{ fontSize: "var(--fs-h3)", margin: 0 }}>Kaynak gösteren AI asistan</h3>
+                      <p style={{ color: "var(--text-mid)", fontSize: "var(--fs-body)", margin: "8px 0 0", maxWidth: "70ch" }}>
+                        &quot;Neden bu ürün?&quot; diye sor; asistan cevabını hangi veri kaynağına ve hangi kanıt
+                        seviyesine dayandırdığını göstererek yanıtlar. Referanssız iddia üretmez.
+                      </p>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end", flexShrink: 0 }}>
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <span className="chip chip-info">
+                          <Globe size={13} /> Kaynaklı yanıt
+                        </span>
+                        <span className="chip chip-ok">
+                          <Check size={13} /> Kanıt B+
+                        </span>
+                      </div>
+                      <span
+                        className="font-mono"
+                        style={{ fontSize: "var(--fs-sm)", color: "var(--primary)", fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}
+                      >
+                        Asistanı dene <ArrowRight size={14} />
+                      </span>
+                    </div>
+                  </SpotlightCard>
+                </Link>
 
                 {/* Geniş hücre — Ticaret & Etsy */}
                 <Link href="/pazar" style={{ display: "contents" }}>

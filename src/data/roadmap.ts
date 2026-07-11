@@ -195,6 +195,9 @@ export const EPICS: Epic[] = [
     risk: "Kaynak ve yüksek risk",
     tasks: todos("P11", 11).map((t, i) => ({
       ...t,
+      // Kural-tabanlı (LLM'siz) güvenlik sınıflandırma + kaynaklı Q&A motoru ve /asistan UI'ı
+      // test edilerek implement edildi; gerçek model gateway/RAG/uzman akışı henüz yok.
+      status: (["todo", "done", "todo", "in_progress", "done", "todo", "todo", "todo", "todo", "todo", "in_progress"][i]) as TaskStatus,
       title: ["Model gateway ve adaptör", "Politika/risk sınıflandırma", "Domain tool registry", "Sürümlü kaynak/RAG indeksi", "Kaynaklı sohbet UI/API", "Yazma taslağı ve onay", "Görsel gözlem vaka akışı", "Uzman profil ve görüş", "Topluluk/deney paylaşımı", "Moderasyon ve itiraz", "AI altın set ve eval"][i],
     })),
   },
