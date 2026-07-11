@@ -88,11 +88,13 @@ export const EPICS: Epic[] = [
     short: "Auth, RLS, rıza, konum gizliliği",
     risk: "Veri izolasyonu",
     tasks: [
-      { id: "P02-01", title: "User/workspace/membership şeması", status: "todo", critical: true },
+      // Membership şeması + rol/izin kataloğu + tenant-bağlamlı hasPermission() test
+      // edilerek implement edildi (src/lib/roles.ts, /roller); gerçek OAuth/RLS backend yok.
+      { id: "P02-01", title: "User/workspace/membership şeması", status: "in_progress", critical: true },
       { id: "P02-02", title: "E-posta + OAuth kimlik akışı", status: "todo" },
       { id: "P02-03", title: "Apple/Google mobil kimlik", status: "todo" },
-      { id: "P02-04", title: "Rol ve izin kataloğu", status: "todo" },
-      { id: "P02-05", title: "API tenant bağlamı ve politika katmanı", status: "todo", critical: true },
+      { id: "P02-04", title: "Rol ve izin kataloğu", status: "done" },
+      { id: "P02-05", title: "API tenant bağlamı ve politika katmanı", status: "done", critical: true },
       { id: "P02-06", title: "PostgreSQL RLS politikaları", status: "todo", critical: true },
       ...todos("P02", 6, 7).map((t, i) => ({ ...t, title: ["Davet ve üyelik yaşam döngüsü", "MFA ve yeniden doğrulama", "İzin/rıza merkezi", "Veri dışa aktarma ve silme", "Konum şifreleme/genelleştirme", "Süreli destek erişimi"][i], critical: i === 4 })),
     ],
