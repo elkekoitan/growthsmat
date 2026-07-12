@@ -122,7 +122,14 @@ export const EPICS: Epic[] = [
       ...t,
       // Arama zaten vardı; karşılaştırma (findBestCropIndex, "en iyi" vurgusu eşitlikte
       // gizlenir) bu tur test edilerek tamamlandı → görev artık done.
-      status: (i === 0 ? "in_progress" : i === 11 ? "done" : "todo") as TaskStatus,
+      // 37 ürün (20 mevcut + 17 yeni) araştırma kütüphanesinden gerçek kaynak/kanıt ile
+      // yeniden yazıldı (crops.ts) — tür/çeşit/yerel ad alanları ve claim/source/evidence
+      // alanları artık tutarlı şekilde dolu ve doğrulanabilir; adaptörler (Crop Ontology,
+      // GRIN, EPPO, FAO GAEZ, NASA POWER, WorldClim, SoilGrids) ve checksum motoru henüz yok.
+      // İçerik kürasyon konsolu (öneri→incelemede→onay/red/geri-çekme, compliance.review
+      // rol kapısı, sürüm/köken koruması) test edilerek implement edildi (src/lib/curation.ts,
+      // /kurasyon). Görsel lisans kataloğu henüz yok.
+      status: (i === 0 ? "done" : i === 2 ? "done" : i === 11 ? "done" : i === 12 ? "done" : "todo") as TaskStatus,
       title: ["Takson/tür/çeşit/yerel ad şeması", "Yetiştirme yöntemi ve gereksinim şeması", "Claim/source/evidence şeması", "Crop Ontology adapter", "GRIN adapter", "EPPO adapter", "FAO GAEZ veri alma", "NASA POWER cache", "WorldClim raster hattı", "SoilGrids fallback", "Kaynak doğrulama/checksum", "Ürün/çeşit arama ve karşılaştırma", "İçerik kürasyon konsolu", "Görsel lisans kataloğu"][i],
     })),
   },

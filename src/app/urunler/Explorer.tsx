@@ -51,6 +51,7 @@ const CATEGORY_ORDER: CropCategory[] = [
   "kok-yumru",
   "baklagil",
   "meyve",
+  "agac-meyve",
 ];
 
 // Her kategoriye kimlik rengi (hue). Seçiliyken tam renk, seçili değilken %12 tint.
@@ -61,6 +62,7 @@ const CATEGORY_META: Record<CropCategory, { label: string; color: string }> = {
   "kok-yumru": { label: "Kök & yumru", color: "#9a6410" },
   baklagil: { label: "Baklagil", color: "#5c7a26" },
   meyve: { label: "Meyve", color: "#a83560" },
+  "agac-meyve": { label: "Ağaç meyvesi", color: "#6b4226" },
 };
 
 const METHOD_ORDER: GrowMethod[] = [
