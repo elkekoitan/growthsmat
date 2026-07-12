@@ -100,7 +100,7 @@ export const PEST_DISEASE_PROFILES: PestDiseaseProfile[] = [
     symptoms:
       "Brassicaceae familyasındaki bitkilerin köklerinde şişkin, yumru/ur benzeri deformasyonlara (club-shaped gövde) yol açan toprak kökenli bir protist hastalığıdır; etkilenen bitkilerde solma, cılızlaşma ve sararma görülür.",
     management:
-      "Brassicaceae türleriyle uzun süreli (5-7 yıl) ekim nöbeti, toprak pH'ını kireçleme ile 7.2 üzerine çıkarma, drenaj iyileştirme, sertifikalı/hastalıksız fide kullanımı, dayanıklı çeşitler, bulaşık toprağın alet/su ile taşınmasının önlenmesi.",
+      "Brassicaceae türleriyle uzun süreli (5-7 yıl) ekim nöbeti, toprak pH'ını kireçleme ile 7.2 üzerine çıkarma, drenaj iyileştirme, sertifikalı/hastalıksız fide kullanımı, dayanıklı çeşitler, bulaşık toprağın alet/su ile taşınmasının önlenmesi. Ek strateji (Sofo ve ark. 2025, Plants/MDPI, CC BY): Brassica bitki artıklarının toprağa gömülmesi (biyofumigasyon) — glukosinolatların parçalanmasıyla açığa çıkan izotiyosiyanatlar (ITC) toprak kökenli patojenleri baskılar ve faydalı toprak mikrobiyotasını artırır; rotasyon/gömme/solarizasyon birlikte uygulanınca etkinlik artar. Yalnız özet erişilebildi (tam metin MDPI bot-korumasınca engellendi) — spesifik doz/oran verisi YOK.",
     sourceOrg: "EPPO (European and Mediterranean Plant Protection Organization)",
     sourceFile: "EPPO_Datasheet_Plasmodiophora_brassicae.pdf",
     minRotationYears: 7,
@@ -142,7 +142,7 @@ export const PEST_DISEASE_PROFILES: PestDiseaseProfile[] = [
     symptoms:
       "Yaprakların bir tarafında ani sararmayla başlar, yapraklar solup ölür; gövde/sürgün iç dokusunda kahverengi damar çizgilenmesi görülür (domates/patateste tipik). Ölümcül seyreder; toprakta uzun süre (yıllarca) canlı kalabilen bir mantardır.",
     management:
-      "Aynı alanda duyarlı ürünlerin ART ARDA ekilmemesi gerekir — kaynak spesifik bir yıl sayısı VERMİYOR, yalnız 'tekrarlı ekimden kaçının, dayanıklı çeşit (adında 'V' harfi) kullanın' diyor. Yabancı ot kontrolü, hastalıklı bitki artıklarının gömülmeden/kompostlanmadan uzaklaştırılması, alet dezenfeksiyonu (%10 çamaşır suyu veya %70 alkol, 30+ saniye) önerilir.",
+      "Aynı alanda duyarlı ürünlerin ART ARDA ekilmemesi gerekir — kaynak spesifik bir yıl sayısı VERMİYOR, yalnız 'tekrarlı ekimden kaçının, dayanıklı çeşit (adında 'V' harfi) kullanın' diyor. Yabancı ot kontrolü, hastalıklı bitki artıklarının gömülmeden/kompostlanmadan uzaklaştırılması, alet dezenfeksiyonu (%10 çamaşır suyu veya %70 alkol, 30+ saniye) önerilir. Ek strateji (Sofo ve ark. 2025, Plants/MDPI, CC BY): Brassica bitki artıklarının toprağa gömülmesiyle (biyofumigasyon) açığa çıkan izotiyosiyanatlar (ITC) toprak kökenli patojenleri baskılayabilir — Verticillium'a özel doz/etkinlik verisi kaynakta yok, genel mekanizma aktarılıyor.",
     sourceOrg: "University of Wisconsin-Madison Plant Disease Diagnostics Clinic",
     sourceFile: "wisconsin_verticillium_wilt_vegetables.txt",
     // minRotationYears kasıtlı olarak YOK — kaynak belirli bir yıl sayısı vermiyor, uydurulmadı.

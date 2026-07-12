@@ -83,3 +83,10 @@ test("Verticillium solgunluğu kaynakta yıl sayısı vermediği için minRotati
   assert.ok(verticillium);
   assert.equal(verticillium!.minRotationYears, undefined);
 });
+
+test("Biyofumigasyon (Sofo ve ark. 2025) hem clubroot hem Verticillium yönetiminde gerçek kaynakla belirtilir", () => {
+  const clubroot = PEST_DISEASE_PROFILES.find((p) => p.id === "plasmodiophora-brassicae");
+  const verticillium = PEST_DISEASE_PROFILES.find((p) => p.id === "verticillium-wilt");
+  assert.ok(clubroot?.management.includes("Sofo ve ark. 2025"));
+  assert.ok(verticillium?.management.includes("Sofo ve ark. 2025"));
+});

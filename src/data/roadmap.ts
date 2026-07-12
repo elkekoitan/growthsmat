@@ -135,8 +135,11 @@ export const EPICS: Epic[] = [
       // checksum doğrulanmış) fotoğraf src/data/photoCredits.ts'e taşındı, /urunler'de
       // kart+detay görseli olarak entegre edildi, CC BY-SA atıf metni UI'da görünür (yasal
       // gereklilik), 2 bilinen yaklaşık/analog görsel (biber-carliston, kabak-sakiz) açıkça
-      // işaretli — sahte kesinlik yok. EPPO adapter: canlı API yerine 6 gerçek EPPO/Cornell/
-      // UCIPM zararlı-hastalık datasheet'inden çıkarılan yerel veri seti (bkz. pestDisease.ts).
+      // işaretli — sahte kesinlik yok. EPPO adapter: canlı API yerine 8 gerçek EPPO/Cornell/UCIPM/
+      // Wisconsin zararlı-hastalık datasheet'inden çıkarılan yerel veri seti (pestDisease.ts) —
+      // Verticillium solgunluğu + Sofo ve ark. 2025 (Plants/MDPI, CC BY) biyofumigasyon bulgusu
+      // (Brassica ITC'lerinin toprak patojenlerini baskılaması) clubroot+Verticillium yönetim
+      // notlarına eklendi; yalnız özet erişilebildiği açıkça belirtildi (tam metin engellendi).
       // Takson şeması ayrıca YENİ bir kategoriyle genişledi: mantar yetiştiriciliği (mushrooms.ts,
       // 4 tür — shiitake/istiridye/aslan yelesi/beyaz mantar), Cornell/NC State/SARE/Penn State/
       // Thammasat araştırmalarından. Agaricus'ta kaynakların yalnız laboratuvar spawn verisi
