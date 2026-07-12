@@ -229,6 +229,12 @@ export const EPICS: Epic[] = [
       ...t,
       // Master katalog + teslimat bölgeleri + Etsy/yerel ücret simülatörleri (test edilen
       // gerçek hesap mantığı) + /pazar vitrini implement edildi; OAuth/webhook/checkout backend gerektirir.
+      // Ek (görev listesinde ayrı satırı yok, epic'e genel katkı): ABD "cottage food" (ev
+      // mutfağı üretimi) yasa kataloğu — Georgia/Texas/New Mexico, 3 gerçek 2024-2025 eyalet
+      // yasasından (cottageFoodLaws.ts) — ev üreticisinin fazla ürün/ev-işlenmiş gıda satışının
+      // hangi eyalette lisanssız izinli olduğunu, gelir tavanını ve etiketleme zorunluluğunu
+      // gösterir; New Mexico kaynağının resmi metin değil özet broşür olduğu ve tarih çelişkisi
+      // açıkça işaretli.
       status: (["done", "done", "in_progress", "done", "todo", "in_progress", "todo", "done", "todo", "todo", "in_progress", "todo", "todo", "done"][i]) as TaskStatus,
       title: ["Maliyet kategorisi modeli", "Ürün/lot/kanal marj hesabı", "Tahmini hasat stok modeli", "Üretici vitrini ve teslimat", "B2C sepet/sipariş/ödeme", "B2B talep/teklif/fiyat", "Restoran/CSA aboneliği", "Master katalog/kanal listing", "Etsy OAuth 2.0 PKCE", "Etsy taslak listing akışı", "Etsy politika/iddia kapısı", "Etsy webhook idempotency", "QPS/QPD limit/reconciliation", "Kanal ücret simülasyonu"][i],
     })),
