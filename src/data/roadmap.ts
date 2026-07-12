@@ -109,7 +109,9 @@ export const EPICS: Epic[] = [
       ...t,
       // Alan veri kalite skoru (eksik+bayat ayrımı) test edilerek implement edildi
       // (/alan-kalitesi); SoilTest/WaterTest kısmi şema olarak tanımlı, tam CRUD/onboarding yok.
-      status: (["in_progress", "todo", "todo", "todo", "in_progress", "todo", "in_progress", "todo", "todo", "todo", "done"][i]) as TaskStatus,
+      // İş gücü/bütçe kapasitesi (haftalık görev yükü toplama + bütçe aşım tespiti +
+      // esnek/ertelenemez görev ayrımıyla öneri) test edilerek implement edildi (laborCapacity.ts).
+      status: (["in_progress", "todo", "todo", "todo", "in_progress", "todo", "in_progress", "todo", "done", "todo", "done"][i]) as TaskStatus,
       title: ["Site ve ProductionUnit şeması", "Harita/GPS/adres onboarding", "Parsel/yatak/saksı editörü", "Güneş/gölge/rüzgâr profili", "Toprak örnek ve ölçüm modeli", "Laboratuvar PDF/CSV içe aktarma", "Su kaynağı ve test modeli", "Sera/CEA ortam profili", "İş gücü/bütçe kapasitesi", "Veri kökeni görünümü", "Alan veri kalite skoru"][i],
     })),
   },
