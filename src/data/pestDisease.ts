@@ -23,6 +23,11 @@ export interface PestDiseaseProfile {
   management: string;
   sourceOrg: string;
   sourceFile: string;
+  // Kaynakta AÇIKÇA belirtilen minimum rotasyon yılı (ör. "en az 2 yıl", "5-7 yıl").
+  // Birden fazla yıl verildiğinde güvenli/uzun uç kullanılır — sert kısıt gevşetilmez.
+  // Kaynakta sayı yoksa (ör. Verticillium: "tekrar ekmeyin" ama yıl sayısı verilmez)
+  // uydurulmaz, undefined bırakılır.
+  minRotationYears?: number;
 }
 
 const FAMILY_SYNONYMS: Record<string, string> = {
@@ -98,6 +103,7 @@ export const PEST_DISEASE_PROFILES: PestDiseaseProfile[] = [
       "Brassicaceae türleriyle uzun süreli (5-7 yıl) ekim nöbeti, toprak pH'ını kireçleme ile 7.2 üzerine çıkarma, drenaj iyileştirme, sertifikalı/hastalıksız fide kullanımı, dayanıklı çeşitler, bulaşık toprağın alet/su ile taşınmasının önlenmesi.",
     sourceOrg: "EPPO (European and Mediterranean Plant Protection Organization)",
     sourceFile: "EPPO_Datasheet_Plasmodiophora_brassicae.pdf",
+    minRotationYears: 7,
   },
   {
     id: "ralstonia-solanacearum",
@@ -111,6 +117,7 @@ export const PEST_DISEASE_PROFILES: PestDiseaseProfile[] = [
       "Kimyasal tedavisi yoktur; sertifikalı, patojenden ari tohum/fide kullanımı, en az 2 yıl konukçu olmayan bitkilerle münavebe, yabani konukçuların imhası, bulaşık suyla sulamadan kaçınma, aletlerin %20 çamaşır suyu ile dezenfeksiyonu, enfekte parsellerin karantinaya alınıp erken bildirilmesi.",
     sourceOrg: "EPPO (European and Mediterranean Plant Protection Organization)",
     sourceFile: "EPPO_Datasheet_Ralstonia_solanacearum.pdf",
+    minRotationYears: 2,
   },
   {
     id: "phytophthora-infestans",
@@ -124,6 +131,21 @@ export const PEST_DISEASE_PROFILES: PestDiseaseProfile[] = [
       "Dayanıklı çeşitler ekilmeli; enfekteli yumru/meyveler gömülerek imha edilmeli, Solanaceae familyasıyla en az 3 yıl münavebe uygulanmalı, düzenli gözlem (scouting) yapılmalı, gerektiğinde onaylı (organik üretimde bakır bazlı gibi) fungisitler kullanılmalıdır.",
     sourceOrg: "Cornell University CALS — Plant Pathology and Plant-Microbe Biology Section",
     sourceFile: "Cornell_LateBlight_Factsheet.pdf",
+    minRotationYears: 3,
+  },
+  {
+    id: "verticillium-wilt",
+    commonName: "Verticillium Solgunluğu",
+    scientificName: "Verticillium dahliae / Verticillium albo-atrum",
+    kind: "hastalik",
+    affectedFamilies: ["Solanaceae", "Cucurbitaceae", "Brassicaceae", "Fabaceae", "Apiaceae", "Amaryllidaceae", "Amaranthaceae", "Asteraceae"],
+    symptoms:
+      "Yaprakların bir tarafında ani sararmayla başlar, yapraklar solup ölür; gövde/sürgün iç dokusunda kahverengi damar çizgilenmesi görülür (domates/patateste tipik). Ölümcül seyreder; toprakta uzun süre (yıllarca) canlı kalabilen bir mantardır.",
+    management:
+      "Aynı alanda duyarlı ürünlerin ART ARDA ekilmemesi gerekir — kaynak spesifik bir yıl sayısı VERMİYOR, yalnız 'tekrarlı ekimden kaçının, dayanıklı çeşit (adında 'V' harfi) kullanın' diyor. Yabancı ot kontrolü, hastalıklı bitki artıklarının gömülmeden/kompostlanmadan uzaklaştırılması, alet dezenfeksiyonu (%10 çamaşır suyu veya %70 alkol, 30+ saniye) önerilir.",
+    sourceOrg: "University of Wisconsin-Madison Plant Disease Diagnostics Clinic",
+    sourceFile: "wisconsin_verticillium_wilt_vegetables.txt",
+    // minRotationYears kasıtlı olarak YOK — kaynak belirli bir yıl sayısı vermiyor, uydurulmadı.
   },
   {
     id: "erwinia-tracheiphila",
@@ -174,6 +196,20 @@ export function pestsForCrop(crop: Crop): PestDiseaseProfile[] {
 
 export function pestsByKind(kind: PestKind): PestDiseaseProfile[] {
   return PEST_DISEASE_PROFILES.filter((p) => p.kind === kind);
+}
+
+/**
+ * Bir familyayı etkileyen, kaynakta AÇIKÇA yıl sayısı verilmiş hastalıklar arasından
+ * en güvenli (en uzun) minimum rotasyon süresini döner. Hiçbir hastalıkta yıl sayısı
+ * yoksa undefined — çağıran taraf kendi varsayılan lookback değerini kullanmalı
+ * (bkz. rotation.ts: max(varsayılan, bu değer) — sert kısıt asla gevşetilmez).
+ */
+export function minRotationYearsForFamily(family: string, catalog: PestDiseaseProfile[] = PEST_DISEASE_PROFILES): number | undefined {
+  const target = normalizeFamily(family);
+  const years = catalog
+    .filter((p) => p.minRotationYears !== undefined && p.affectedFamilies.some((f) => normalizeFamily(f) === target))
+    .map((p) => p.minRotationYears!);
+  return years.length > 0 ? Math.max(...years) : undefined;
 }
 
 export const PEST_KIND_LABELS: Record<PestKind, string> = {

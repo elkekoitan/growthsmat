@@ -154,6 +154,10 @@ export const EPICS: Epic[] = [
       ...t,
       // v1 motoru + test edilmiş alt skorlar, sert kısıt, ayrı güven ve rotasyon çözücü done;
       // senaryo/birlikte ekim prototip aşamasında; karar geri bildirimi todo.
+      // Rotasyon çözücü DERİNLEŞTİ: sabit "3 sezon" varsayılanı yerine artık pestDisease.ts'teki
+      // gerçek hastalık verisiyle familya-özel minimum süre uygulanıyor (ör. Brassicaceae/
+      // kökboğan → 7 yıl, sert kısıt yalnız SIKILAŞTIRILIR asla gevşetilmez) — /rotasyon'da
+      // gerekçesiyle gösteriliyor.
       status: (["in_progress", "done", "done", "done", "done", "done", "done", "done", "done", "done", "done", "done", "done", "todo"][i]) as TaskStatus,
       title: ["Değerlendirme input snapshot", "Birim/özellik normalizasyonu", "Sert kısıt motoru", "İklim alt skoru", "Toprak/su alt skoru", "Yöntem/operasyon alt skoru", "Risk/sürdürülebilirlik skoru", "Pazar/ekonomi alt skoru", "Güven ve belirsizlik hesabı", "Açıklama ve veri boşluğu", "Ne-olursa senaryo motoru", "Birlikte ekim ilişki motoru", "Rotasyon çözücü", "Karar geri bildirimi"][i],
     })),

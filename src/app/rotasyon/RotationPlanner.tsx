@@ -124,6 +124,12 @@ export function RotationPlanner() {
                       <span className="chip chip-danger" style={{ marginTop: 6 }}>
                         <X size={11} /> {r.conflict?.family} ailesi {r.conflict?.seasonsAgo} sezon önce ekilmiş
                       </span>
+                      {r.conflict?.diseaseDriven && (
+                        <p style={{ fontSize: "var(--fs-xs)", color: "var(--text-low)", marginTop: 6, marginBottom: 0 }}>
+                          Genel 3 sezon yerine {r.conflict.requiredYears} yıl bekleniyor — bu familyayı etkileyen
+                          bilinen bir hastalık (bkz. zararlı/hastalık kataloğu) daha uzun rotasyon gerektiriyor.
+                        </p>
+                      )}
                     </div>
                   </div>
                 ))}

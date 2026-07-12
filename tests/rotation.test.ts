@@ -74,3 +74,28 @@ test("suggestNextCrops yalnız uygun adayları, limit kadar döner", () => {
   assert.ok(top3.length <= 3);
   assert.ok(top3.every((r) => r.eligible));
 });
+
+test("HASTALIK-FARKINDA SERT KISIT: Brassicaceae (kökboğan/clubroot) varsayılan lookback'i aşan 7 yıl gerektirir", () => {
+  const history = [{ cropId: "lahana", seasonsAgo: 4 }]; // Brassicaceae, 4 sezon önce
+  const results = evaluateRotation(history); // varsayılan lookback=3 — eski modelde 4>3 olduğundan UYGUN sayılırdı
+  const karnabahar = results.find((r) => r.crop.id === "karnabahar"); // Brassicaceae
+  assert.equal(karnabahar!.eligible, false);
+  assert.equal(karnabahar!.conflict?.family, "Brassicaceae");
+  assert.equal(karnabahar!.conflict?.requiredYears, 7);
+  assert.equal(karnabahar!.conflict?.diseaseDriven, true);
+});
+
+test("Brassicaceae'de kökboğan penceresinin (7 yıl) DIŞINDAKİ ekim artık çakışma sayılmaz", () => {
+  const history = [{ cropId: "lahana", seasonsAgo: 8 }];
+  const results = evaluateRotation(history);
+  const karnabahar = results.find((r) => r.crop.id === "karnabahar");
+  assert.equal(karnabahar!.eligible, true);
+});
+
+test("hastalık verisinde familyanın gerektirdiği yıl varsayılanı aşmıyorsa requiredYears varsayılanda kalır, diseaseDriven=false", () => {
+  const history = [{ cropId: "cherry-domates-kompakt", seasonsAgo: 1 }]; // Solanaceae
+  const results = evaluateRotation(history);
+  const sirikDomates = results.find((r) => r.crop.id === "sirik-domates-beefsteak");
+  assert.equal(sirikDomates!.conflict?.requiredYears, 3);
+  assert.equal(sirikDomates!.conflict?.diseaseDriven, false);
+});

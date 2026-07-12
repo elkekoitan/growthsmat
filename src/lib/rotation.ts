@@ -3,6 +3,7 @@
 // tutulur — dokümandaki ayrımı korur. Kanıtsız "kesin uyumlu" iddiası üretmez.
 
 import { CROPS, CROP_BY_ID, type Crop, type CompanionRelation } from "@/data/crops";
+import { minRotationYearsForFamily } from "@/data/pestDisease";
 
 export interface PlotHistoryEntry {
   cropId: string;
@@ -13,6 +14,8 @@ export interface FamilyConflict {
   family: string;
   historicalCropId: string;
   seasonsAgo: number;
+  requiredYears: number; // bu çakışma için fiilen uygulanan minimum rotasyon süresi
+  diseaseDriven: boolean; // true ise requiredYears varsayılan lookback'ten değil, gerçek hastalık kaynağından geliyor
 }
 
 export interface RotationCandidate {
@@ -24,20 +27,24 @@ export interface RotationCandidate {
   score: number; // 0-100, sadece uygun adaylar arasında sıralama için
 }
 
-/** Geriye dönük `lookbackSeasons` içinde ekilmiş ürün ailelerini çıkarır. */
-function familiesInHistory(history: PlotHistoryEntry[], lookbackSeasons: number): Set<string> {
-  const families = new Set<string>();
-  for (const h of history) {
-    if (h.seasonsAgo > lookbackSeasons) continue;
-    const crop = CROP_BY_ID[h.cropId];
-    if (crop) families.add(crop.family);
+/**
+ * Bir familya için fiilen uygulanacak minimum rotasyon süresini belirler: varsayılan
+ * lookback ile o familyayı etkileyen gerçek hastalıkların (pestDisease.ts) belgelenmiş
+ * minimum süresinden BÜYÜK OLANI kullanılır — sert kısıt hastalık verisiyle yalnız
+ * SIKILAŞTIRILIR, asla gevşetilmez (ör. Brassicaceae varsayılan 3 yerine kökboğan
+ * nedeniyle 7 yıl gerektirir).
+ */
+function requiredYearsForFamily(family: string, defaultLookback: number): { years: number; diseaseDriven: boolean } {
+  const diseaseYears = minRotationYearsForFamily(family);
+  if (diseaseYears !== undefined && diseaseYears > defaultLookback) {
+    return { years: diseaseYears, diseaseDriven: true };
   }
-  return families;
+  return { years: defaultLookback, diseaseDriven: false };
 }
 
 /**
  * Bir parselin ekim geçmişine göre aday ürünleri değerlendirir.
- * SERT KISIT: adayın `rotationAvoidFamilies` listesindeki bir aile, lookback penceresinde
+ * SERT KISIT: adayın `rotationAvoidFamilies` listesindeki bir aile, gereken pencerede
  * ekilmişse aday elenir (aynı aile hastalık/besin baskısını taşır — 05-doküman §6.3).
  */
 export function evaluateRotation(
@@ -45,21 +52,30 @@ export function evaluateRotation(
   candidates: Crop[] = CROPS,
   lookbackSeasons = 3
 ): RotationCandidate[] {
-  const recentFamilies = familiesInHistory(history, lookbackSeasons);
+  // Çeşitlilik bonusu için genel (hastalık-farkında olmayan) pencere — sert kısıtı etkilemez.
+  const recentFamilies = new Set<string>();
+  for (const h of history) {
+    if (h.seasonsAgo > lookbackSeasons) continue;
+    const hc = CROP_BY_ID[h.cropId];
+    if (hc) recentFamilies.add(hc.family);
+  }
 
   const results: RotationCandidate[] = candidates.map((crop) => {
     let conflict: FamilyConflict | undefined;
 
     for (const avoidFamily of crop.rotationAvoidFamilies) {
-      if (recentFamilies.has(avoidFamily)) {
-        const historical = history.find((h) => {
-          const hc = CROP_BY_ID[h.cropId];
-          return hc && hc.family === avoidFamily && h.seasonsAgo <= lookbackSeasons;
-        });
+      const { years: requiredYears, diseaseDriven } = requiredYearsForFamily(avoidFamily, lookbackSeasons);
+      const historical = history.find((h) => {
+        const hc = CROP_BY_ID[h.cropId];
+        return hc && hc.family === avoidFamily && h.seasonsAgo <= requiredYears;
+      });
+      if (historical) {
         conflict = {
           family: avoidFamily,
-          historicalCropId: historical?.cropId ?? "bilinmeyen",
-          seasonsAgo: historical?.seasonsAgo ?? 0,
+          historicalCropId: historical.cropId,
+          seasonsAgo: historical.seasonsAgo,
+          requiredYears,
+          diseaseDriven,
         };
         break;
       }

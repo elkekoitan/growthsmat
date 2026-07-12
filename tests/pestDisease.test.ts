@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { PEST_DISEASE_PROFILES, pestsForCrop, pestsByKind } from "../src/data/pestDisease.ts";
+import { PEST_DISEASE_PROFILES, pestsForCrop, pestsByKind, minRotationYearsForFamily } from "../src/data/pestDisease.ts";
 import { CROP_BY_ID } from "../src/data/crops.ts";
 
 test("her profilde zorunlu alanlar dolu (kaynak/kanıt izlenebilirliği)", () => {
@@ -59,4 +59,27 @@ test("pestsByKind: zararli ve hastalik kümeleri ayrık ve toplam profil sayıs�
 test("geniş konukçulu zararlı (Ralstonia) 7 familyayı etkiler — dar/geniş konukçu ayrımı veride görünür", () => {
   const ralstonia = PEST_DISEASE_PROFILES.find((p) => p.id === "ralstonia-solanacearum");
   assert.equal(ralstonia?.affectedFamilies.length, 7);
+});
+
+test("minRotationYearsForFamily: Brassicaceae için en güvenli (en uzun) süre olan 7 döner (clubroot)", () => {
+  assert.equal(minRotationYearsForFamily("Brassicaceae"), 7);
+});
+
+test("minRotationYearsForFamily: birden fazla hastalık aynı familyayı etkiliyorsa MAX değer döner", () => {
+  // Solanaceae: ralstonia (2) + phytophthora-infestans (3) — güvenli taraf 3 olmalı
+  assert.equal(minRotationYearsForFamily("Solanaceae"), 3);
+});
+
+test("minRotationYearsForFamily: hiçbir hastalıkta yıl sayısı yoksa undefined (uydurulmaz)", () => {
+  assert.equal(minRotationYearsForFamily("Poaceae"), undefined);
+});
+
+test("minRotationYearsForFamily: eski taksonomi (Chenopodiaceae) yeni adla (Amaranthaceae) aynı sonucu verir", () => {
+  assert.equal(minRotationYearsForFamily("Amaranthaceae"), minRotationYearsForFamily("Chenopodiaceae"));
+});
+
+test("Verticillium solgunluğu kaynakta yıl sayısı vermediği için minRotationYears UYDURULMADI (undefined)", () => {
+  const verticillium = PEST_DISEASE_PROFILES.find((p) => p.id === "verticillium-wilt");
+  assert.ok(verticillium);
+  assert.equal(verticillium!.minRotationYears, undefined);
 });
