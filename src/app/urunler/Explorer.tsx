@@ -9,6 +9,7 @@ import {
   type CSSProperties,
   type ReactNode,
 } from "react";
+import Image from "next/image";
 import {
   CROPS,
   CROP_BY_ID,
@@ -21,6 +22,8 @@ import {
   type Season,
   type EvidenceGrade,
 } from "@/data/crops";
+import { cropPhotoPath, primaryCredit } from "@/data/photoCredits";
+import { pestsForCrop, PEST_KIND_LABELS } from "@/data/pestDisease";
 import { BotanicalScene } from "@/components/graphics";
 import { Reveal } from "@/components/ui";
 import { COMPARISON_METRICS, findBestCropIndex } from "@/lib/compareCrops";
@@ -311,6 +314,9 @@ function SeedCard({
     crop.methods.map((m) => SHORT_METHOD[m]).slice(0, 4).join(" · ") +
     ` — ${crop.daysToHarvest[0]}–${crop.daysToHarvest[1]} gün`;
 
+  const photoPath = cropPhotoPath(crop.id);
+  const credit = primaryCredit(crop.id);
+
   return (
     <div className="tilt-wrap">
       <div
@@ -363,10 +369,14 @@ function SeedCard({
 
         <div className="seed-illus">
           <span className="seed-illus-bg" aria-hidden />
-          <BotanicalScene
-            className="seed-illus-art"
-            style={{ color: `color-mix(in srgb, ${meta.color} 60%, transparent)` }}
-          />
+          {photoPath ? (
+            <Image src={photoPath} alt="" fill sizes="320px" className="seed-illus-photo" />
+          ) : (
+            <BotanicalScene
+              className="seed-illus-art"
+              style={{ color: `color-mix(in srgb, ${meta.color} 60%, transparent)` }}
+            />
+          )}
           <span className="cat-tag" aria-hidden>
             {meta.label}
           </span>
@@ -378,6 +388,11 @@ function SeedCard({
           >
             <span className="font-mono">{crop.evidence}</span>
           </span>
+          {credit?.isApproximation ? (
+            <span className="approx-badge" title="Fotoğraf yaklaşık/analog görsel — birebir çeşit değil">
+              ≈ analog görsel
+            </span>
+          ) : null}
         </div>
 
         <div className="seed-content">
@@ -425,6 +440,9 @@ function DetailModal({
 }) {
   const closeRef = useRef<HTMLButtonElement>(null);
   const meta = CATEGORY_META[crop.category];
+  const photoPath = cropPhotoPath(crop.id);
+  const credit = primaryCredit(crop.id);
+  const cropPests = useMemo(() => pestsForCrop(crop), [crop]);
 
   useEffect(() => {
     closeRef.current?.focus();
@@ -459,6 +477,18 @@ function DetailModal({
         style={{ "--sc": meta.color } as Vars}
       >
         <span className="modal-strip" aria-hidden />
+
+        {photoPath ? (
+          <div className="modal-hero">
+            <Image src={photoPath} alt={`${crop.name} fotoğrafı`} fill sizes="720px" style={{ objectFit: "cover", objectPosition: "center 30%" }} />
+            {credit ? (
+              <span className="modal-hero-credit">
+                {credit.isApproximation ? "≈ analog görsel (birebir çeşit değil) · " : ""}
+                {credit.attributionText}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
 
         <div className="modal-head">
           <div style={{ display: "flex", alignItems: "flex-start", gap: 12, flex: 1, minWidth: 0 }}>
@@ -637,8 +667,37 @@ function DetailModal({
             <p className="muted-hint">Bu ürün için özel bir rotasyon kısıtı bildirilmemiş (familya: {crop.family}).</p>
           )}
 
+          {/* Zararlı ve hastalık riskleri — familyaya göre, gerçek EPPO/Cornell/UC IPM kaynaklı */}
+          <SectionTitle n="04" title="Zararlı ve hastalık riskleri" style={{ marginTop: 32 }} />
+          {cropPests.length > 0 ? (
+            <div style={{ display: "grid", gap: 10 }}>
+              {cropPests.map((p) => (
+                <div key={p.id} className="pest-card">
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+                    <strong style={{ fontSize: "var(--fs-sm)" }}>
+                      {p.commonName} <em style={{ fontStyle: "italic", fontWeight: 400, color: "var(--text-low)" }}>· {p.scientificName}</em>
+                    </strong>
+                    <span className={`chip ${p.kind === "hastalik" ? "chip-danger" : "chip-warn"}`}>{PEST_KIND_LABELS[p.kind]}</span>
+                  </div>
+                  <p style={{ fontSize: "var(--fs-sm)", color: "var(--text-mid)", margin: "8px 0 0", lineHeight: 1.55 }}>{p.symptoms}</p>
+                  <p style={{ fontSize: "var(--fs-sm)", color: "var(--text-mid)", margin: "8px 0 0", lineHeight: 1.55 }}>
+                    <strong>Mücadele:</strong> {p.management}
+                  </p>
+                  <div style={{ fontSize: "var(--fs-xs)", color: "var(--text-low)", marginTop: 8 }}>
+                    Kaynak: {p.sourceOrg} — {p.sourceFile}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="muted-hint">
+              {crop.family} familyası için yerel veri setinde kayıtlı özel bir zararlı/hastalık profili yok (bu, riskin olmadığı anlamına gelmez —
+              yalnız bu profildeki 10 EPPO/Cornell/UC IPM kaynağı bu familyayı kapsamıyor).
+            </p>
+          )}
+
           {/* İpuçları */}
-          <SectionTitle n="04" title="Saha ipuçları" style={{ marginTop: 32 }} />
+          <SectionTitle n="05" title="Saha ipuçları" style={{ marginTop: 32 }} />
           <ul className="tips-list">
             {crop.tips.map((t, i) => (
               <li key={i}>
@@ -1197,6 +1256,22 @@ export function Explorer() {
           color: var(--ec); box-shadow: var(--shadow-sm);
         }
         .ev-badge .font-mono { font-size: 13px; font-weight: 700; line-height: 1; }
+        .seed-illus-photo { object-fit: cover; object-position: center 30%; }
+        .approx-badge {
+          position: absolute; left: 12px; top: 12px; transform: translateZ(30px);
+          font-size: 9px; font-weight: 700; letter-spacing: 0.02em;
+          padding: 3px 8px; border-radius: 999px; color: #fff;
+          background: color-mix(in srgb, var(--color-warning) 78%, black 10%);
+          box-shadow: var(--shadow-sm);
+        }
+
+        .modal-hero { position: relative; height: 200px; background: var(--bg-surface-2); }
+        .modal-hero-credit {
+          position: absolute; right: 10px; bottom: 8px; max-width: calc(100% - 20px);
+          font-size: 10px; color: #fff; background: color-mix(in srgb, var(--color-ink-900) 55%, transparent);
+          padding: 3px 8px; border-radius: 999px; backdrop-filter: blur(3px);
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
 
         .metrics { display: grid; gap: 9px; }
         .metric-row { display: grid; grid-template-columns: 18px 1fr auto; align-items: center; gap: 10px; }
@@ -1263,6 +1338,11 @@ export function Explorer() {
           padding: 16px; border-radius: 12px;
           background: color-mix(in srgb, var(--color-warning) 8%, transparent);
           border: 1px solid color-mix(in srgb, var(--color-warning) 26%, transparent);
+        }
+
+        .pest-card {
+          padding: 14px 16px; border-radius: 12px;
+          background: var(--bg-surface-2); border: 1px solid var(--border-hair);
         }
 
         .tips-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }

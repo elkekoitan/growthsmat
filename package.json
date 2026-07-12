@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "icons": "node scripts/gen-icons.mjs",
+    "import-photos": "node scripts/import-crop-photos.mjs",
     "test": "node --test --experimental-strip-types --import ./tests/register-alias.mjs \"tests/*.test.ts\""
   },
   "dependencies": {
