@@ -137,6 +137,10 @@ export const EPICS: Epic[] = [
       // gereklilik), 2 bilinen yaklaşık/analog görsel (biber-carliston, kabak-sakiz) açıkça
       // işaretli — sahte kesinlik yok. EPPO adapter: canlı API yerine 6 gerçek EPPO/Cornell/
       // UCIPM zararlı-hastalık datasheet'inden çıkarılan yerel veri seti (bkz. pestDisease.ts).
+      // Takson şeması ayrıca YENİ bir kategoriyle genişledi: mantar yetiştiriciliği (mushrooms.ts,
+      // 4 tür — shiitake/istiridye/aslan yelesi/beyaz mantar), Cornell/NC State/SARE/Penn State/
+      // Thammasat araştırmalarından. Agaricus'ta kaynakların yalnız laboratuvar spawn verisi
+      // içerdiği (meyvelenme sıcaklık/nem/verim YOK) dataGaps ile açıkça işaretli — uydurulmadı.
       status: (i === 0 ? "done" : i === 2 ? "done" : i === 5 ? "in_progress" : i === 11 ? "done" : i === 12 ? "done" : i === 13 ? "done" : "todo") as TaskStatus,
       title: ["Takson/tür/çeşit/yerel ad şeması", "Yetiştirme yöntemi ve gereksinim şeması", "Claim/source/evidence şeması", "Crop Ontology adapter", "GRIN adapter", "EPPO adapter", "FAO GAEZ veri alma", "NASA POWER cache", "WorldClim raster hattı", "SoilGrids fallback", "Kaynak doğrulama/checksum", "Ürün/çeşit arama ve karşılaştırma", "İçerik kürasyon konsolu", "Görsel lisans kataloğu"][i],
     })),
