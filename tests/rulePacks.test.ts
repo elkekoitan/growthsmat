@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { evaluateClaim, selectActivePack, type Certificate } from "../src/lib/rulePacks.ts";
+import { evaluateClaim, selectActivePack, JURISDICTION_LABELS, RULE_PACKS, type Certificate, type Jurisdiction } from "../src/lib/rulePacks.ts";
 
 const NOW = "2026-07-10";
 
@@ -73,4 +73,50 @@ test("TR/EU/US için gerçek yasal kaynaklar tanımlı", () => {
   assert.ok(tr!.legalSources.some((s) => s.includes("5262")));
   assert.ok(eu!.legalSources.some((s) => s.includes("2018/848")));
   assert.ok(us!.legalSources.some((s) => s.includes("7 CFR")));
+});
+
+test("6 yeni jurisdiction (CA/AU/JP/CODEX/SA/UK) her biri için yürürlükte paket seçilebilir", () => {
+  const jurisdictions: Jurisdiction[] = ["CA", "AU", "JP", "CODEX", "SA", "UK"];
+  for (const j of jurisdictions) {
+    const pack = selectActivePack(j, NOW);
+    assert.ok(pack, `${j} için yürürlükte paket bulunamadı`);
+    assert.ok(pack!.legalSources.length > 0, `${j} legalSources boş`);
+  }
+});
+
+test("yeni jurisdiction'ların her biri gerçek araştırmayla doğrulanmış keyPrinciple taşır", () => {
+  const jurisdictions: Jurisdiction[] = ["CA", "AU", "JP", "CODEX", "SA", "UK"];
+  for (const j of jurisdictions) {
+    const pack = selectActivePack(j, NOW);
+    assert.ok(pack!.keyPrinciple && pack!.keyPrinciple.length > 20, `${j} keyPrinciple eksik/kısa`);
+  }
+});
+
+test("orijinal TR/EU/US paketlerinde keyPrinciple SESSİZCE uydurulmamış (undefined kalır)", () => {
+  assert.equal(selectActivePack("TR", NOW)?.keyPrinciple, undefined);
+  assert.equal(selectActivePack("EU", NOW)?.keyPrinciple, undefined);
+  assert.equal(selectActivePack("US", NOW)?.keyPrinciple, undefined);
+});
+
+test("JURISDICTION_LABELS tüm jurisdiction'lar için etiket içerir", () => {
+  const allJurisdictions = new Set(RULE_PACKS.map((p) => p.jurisdiction));
+  for (const j of allJurisdictions) {
+    assert.ok(JURISDICTION_LABELS[j], `${j} için etiket eksik`);
+  }
+});
+
+test("Kanada sertifikası için evaluateClaim doğru çalışır (yeni jurisdiction genel motorla uyumlu)", () => {
+  const caCert: Certificate = {
+    id: "cert-ca-1",
+    holder: "Ontario Organic Farms",
+    jurisdiction: "CA",
+    scopeCropIds: ["cherry-domates-kompakt"],
+    validFrom: "2026-01-01",
+    validTo: "2026-12-31",
+    issuer: "CFIA-accredited certification body",
+  };
+  const r = evaluateClaim(caCert, "cherry-domates-kompakt", "CA", NOW);
+  assert.equal(r.allowed, true);
+  assert.equal(r.status, "sertifikali");
+  assert.equal(r.packVersion, "32.310-2026");
 });

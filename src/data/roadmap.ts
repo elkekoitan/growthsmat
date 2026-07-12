@@ -192,7 +192,10 @@ export const EPICS: Epic[] = [
       critical: true,
       // Lot grafiği, mass balance, organik iddia zinciri ve geri çağırma soy ağacı
       // implement + test edildi (src/lib/traceability.ts, /izlenebilirlik).
-      // Jurisdiction/sertifika/SOP/CAPA/denetim export gerçek kural motoru gerektirir — henüz yok.
+      // Jurisdiction/RulePack motoru 3 (TR/EU/US) → 9 jurisdiction'a genişletildi (CA/AU/JP/
+      // CODEX/SA/UK) — research/organic-certification-food-safety'den 6 gerçek belge paralel
+      // okunup çıkarılan sourced keyPrinciple ile (rulePacks.ts). Sertifika/SOP/CAPA/denetim
+      // export gerçek kural motoru gerektirir — henüz yok.
       status: (["done", "done", "done", "done", "done", "done", "todo", "todo", "todo", "todo", "todo", "done", "todo", "in_progress"][i]) as TaskStatus,
       title: ["Lot/operation/mass balance şeması", "Seed→hasat lot zinciri", "Paket/sevkiyat/alıcı zinciri", "Jurisdiction/RulePack motoru", "Sertifika kapsam/geçerlilik", "Organik iddia yayın kapısı", "Girdi uygunluk kontrolü", "Su testi uygunsuzluk akışı", "SOP ve kontrol noktası", "Hijyen/eğitim kayıtları", "Uygunsuzluk ve CAPA", "Geri çağırma soy ağacı", "Denetim dosyası export", "QR lot doğrulama sayfası"][i],
     })),
