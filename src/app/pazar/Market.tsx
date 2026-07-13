@@ -40,6 +40,7 @@ import {
   Calendar,
   Sparkles,
   Search,
+  Grid,
 } from "@/components/icons";
 import type { Role } from "@/lib/roles";
 import { can } from "@/lib/roles";
@@ -71,6 +72,16 @@ const HASAT_CATEGORY_META: Record<CropCategory, { label: string; color: string; 
   baklagil: { label: "Baklagil", color: "#5c7a26", emoji: "🫘" },
   meyve: { label: "Meyve", color: "#a83560", emoji: "🍓" },
   "agac-meyve": { label: "Ağaç meyvesi", color: "#6b4226", emoji: "🫒" },
+};
+
+// Kategori rozeti gerçek fotoğraf gösterir (emoji-üzerine-emoji değil) — kataloğun kendi
+// gerçek fotoğraflı ürünlerinden, kategori başına bir temsilci. Fotoğrafı olmayan bir
+// kategori seçilirse (bu kataloğun kapsamadığı) emoji'ye zarifçe düşülür.
+const CATEGORY_REPRESENTATIVE_CROP: Partial<Record<CropCategory, string>> = {
+  "meyveli-sebze": "cherry-domates-kompakt",
+  yaprakli: "roka",
+  aromatik: "feslegen",
+  meyve: "cilek",
 };
 
 const INITIAL_FORM_STATE: MarketFormState = {};
@@ -219,8 +230,8 @@ export function Market({ session, realListings, myListings, myOrders, incomingOr
               onClick={() => setCategoryFilter("hepsi")}
               aria-pressed={categoryFilter === "hepsi"}
             >
-              <span className="market-category-badge-icon" style={{ background: "var(--text-low)" }}>
-                ✦
+              <span className="market-category-badge-icon market-category-badge-icon-all">
+                <Grid size={22} />
               </span>
               <span>Tümü</span>
             </button>
@@ -229,6 +240,8 @@ export function Market({ session, realListings, myListings, myOrders, incomingOr
               .map((catId) => {
                 const meta = HASAT_CATEGORY_META[catId];
                 const on = categoryFilter === catId;
+                const repCropId = CATEGORY_REPRESENTATIVE_CROP[catId];
+                const repPhoto = repCropId ? cropPhotoPath(repCropId) : undefined;
                 return (
                   <button
                     key={catId}
@@ -238,7 +251,11 @@ export function Market({ session, realListings, myListings, myOrders, incomingOr
                     aria-pressed={on}
                   >
                     <span className="market-category-badge-icon" style={{ background: meta.color }}>
-                      {meta.emoji}
+                      {repPhoto ? (
+                        <Image src={repPhoto} alt="" fill sizes="56px" style={{ objectFit: "cover" }} />
+                      ) : (
+                        meta.emoji
+                      )}
                     </span>
                     <span>{meta.label}</span>
                   </button>
@@ -959,19 +976,25 @@ export function Market({ session, realListings, myListings, myOrders, incomingOr
         .market-category-badge:active { transform: scale(0.97); }
         .market-category-badge.is-on { background: color-mix(in srgb, #A1502E 10%, transparent); color: #7c3b21; }
         .market-category-badge-icon {
+          position: relative;
           width: 56px;
           height: 56px;
           border-radius: 999px;
           display: grid;
           place-items: center;
+          overflow: hidden;
           font-size: 24px;
           color: #fff;
           box-shadow: var(--shadow-sm, 0 1px 2px rgba(28,36,32,.08));
-          transition: box-shadow var(--dur-fast, 150ms) ease;
+          transition: box-shadow var(--dur-fast, 150ms) ease, transform var(--dur-fast, 150ms) ease;
+        }
+        .market-category-badge-icon-all {
+          background: linear-gradient(135deg, #7c3b21, #A1502E);
         }
         .market-category-badge.is-on .market-category-badge-icon,
         .market-category-badge:hover .market-category-badge-icon {
           box-shadow: 0 0 0 3px color-mix(in srgb, #A1502E 30%, transparent), var(--shadow-sm, 0 1px 2px rgba(28,36,32,.08));
+          transform: scale(1.05);
         }
 
         /* --- arama + kanal filtre araç çubuğu --- */
