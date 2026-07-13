@@ -4,7 +4,7 @@
 // fonksiyonlardır (Next'in kendi authentication.md rehberindeki DAL deseni).
 import "server-only";
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getDb } from "./db";
 import type { Role as AppRole } from "@/lib/roles";
@@ -33,11 +33,25 @@ function toAppRole(role: PrismaRole): AppRole {
   return PRISMA_ROLE_TO_APP_ROLE[role];
 }
 
+/**
+ * BUG DÜZELTMESİ (canlıda tespit edildi, 2026-07-13): `secure: NODE_ENV==="production"`
+ * yanlıştı — Coolify/Traefik'teki bu deploy şu an yalnız düz HTTP üzerinden servis ediyor
+ * (sslip.io alan adı için TLS sertifikası yok, HTTPS 503 dönüyor). Tarayıcı, `Secure`
+ * bayraklı bir cookie'yi güvensiz (HTTP) bağlantı üzerinden SAKLAMAZ/GÖNDERMEZ — yani
+ * oturum cookie'si sessizce kalıcı olmuyordu, her ziyaretçi bir sonraki istekte "çıkış
+ * yapmış" gibi davranılıyordu (yalnız NODE_ENV'e değil, GERÇEK bağlantı protokolüne bak).
+ */
+async function isRequestSecure(): Promise<boolean> {
+  const h = await headers();
+  return h.get("x-forwarded-proto") === "https";
+}
+
 export async function setSessionCookie(token: string, expiresAt: Date) {
   const store = await cookies();
+  const secure = await isRequestSecure();
   store.set(SESSION_COOKIE, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure,
     sameSite: "lax",
     expires: expiresAt,
     path: "/",
