@@ -62,6 +62,8 @@ model Workspace {
   lots         Lot[]
   devices      Device[]
   featureFlagOverrides FeatureFlagOverride[]
+  room         Room?
+  subscriptions Subscription[]
 }
 
 enum Role {
@@ -527,5 +529,33 @@ model FeatureFlagOverride {
   updatedAt       DateTime  @updatedAt
 
   @@unique([workspaceId, flagKey])
+  @@index([workspaceId])
+}
+
+// ---------- Mikro filiz oda/abonelik kapasitesi (Phase 6c: src/lib/microCapacity.ts) ----------
+// effectiveCapacity()/planBackwards() SAF kalır — bu tablolar yalnız gerçek oda profilini ve
+// restoran aboneliklerini saklar. Bir workspace'in TEK oda profili vardır (1:1, Plan modeliyle
+// aynı desen); abonelikler doğrudan workspaceId taşır (Room'a roomId ile bağlamak bu MVP'de
+// gereksiz bir dolaylama olurdu — tek oda varken).
+model Room {
+  id             String    @id @default(cuid())
+  workspaceId    String    @unique
+  workspace      Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  shelves        Int
+  levelsPerShelf Int
+  traysPerLevel  Int
+  airflowFactor  Float
+  updatedAt      DateTime  @updatedAt
+}
+
+model Subscription {
+  id           String    @id @default(cuid())
+  workspaceId  String
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  recipeId     String
+  traysPerWeek Int
+  deliveryDay  Int
+  createdAt    DateTime  @default(now())
+
   @@index([workspaceId])
 }

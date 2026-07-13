@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useActionState, useTransition } from "react";
+import Link from "next/link";
 import {
   MICROGREEN_RECIPES,
   BLOCKED_MICROGREENS,
@@ -10,6 +11,14 @@ import {
   type MicrogreenRecipe,
   type TrayCostInput,
 } from "@/data/microgreens";
+import type { RoomProfile, CapacityPlan } from "@/lib/microCapacity";
+import type { RealSubscription } from "@/server/repositories/microCapacity";
+import {
+  saveRoomAction,
+  addSubscriptionAction,
+  removeSubscriptionAction,
+  type MikrofilizFormState,
+} from "./actions";
 import {
   SoilLineStages,
   NumberedHeading,
@@ -323,9 +332,30 @@ function SliderField({
   );
 }
 
-export function Studio() {
+const INITIAL_FORM_STATE: MikrofilizFormState = {};
+
+export interface StudioProps {
+  hasSession: boolean;
+  room: RoomProfile | null;
+  subscriptions: RealSubscription[];
+  capacityPlan: CapacityPlan | null;
+}
+
+export function Studio({ hasSession, room, subscriptions, capacityPlan }: StudioProps) {
   const [input, setInput] = useState<TrayCostInput>(DEFAULT_TRAY_INPUT);
   const [openId, setOpenId] = useState<string | null>(null);
+
+  const [roomState, roomAction, roomPending] = useActionState(saveRoomAction, INITIAL_FORM_STATE);
+  const [subState, subAction, subPending] = useActionState(addSubscriptionAction, INITIAL_FORM_STATE);
+  const [removePending, startRemoveTransition] = useTransition();
+  const [removeMsg, setRemoveMsg] = useState<Record<string, string>>({});
+
+  function handleRemoveSubscription(id: string) {
+    startRemoveTransition(async () => {
+      const res = await removeSubscriptionAction(id);
+      setRemoveMsg((m) => ({ ...m, [id]: res.error ?? res.success ?? "" }));
+    });
+  }
 
   const recipe = useMemo(
     () => MICROGREEN_RECIPES.find((r) => r.id === input.recipeId) ?? MICROGREEN_RECIPES[0],
@@ -950,6 +980,137 @@ export function Studio() {
               </p>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* ==================== 6. GERÇEK KAPASİTE PLANLAMA ==================== */}
+      <section className="section" id="kapasite">
+        <div className="container-x">
+          <NumberedHeading
+            n="06"
+            eyebrow="Gerçek oda + abonelik"
+            title="Kendi odanın kapasitesini planla"
+          />
+          {!hasSession ? (
+            <div className="card mf-callout">
+              <span className="mf-callout-ic"><ShieldCheck size={18} /></span>
+              <p>
+                Kendi oda profilini ve restoran aboneliklerini kaydetmek için giriş yapmalısın.{" "}
+                <Link href="/giris" className="btn btn-primary btn-sm" style={{ marginLeft: 8 }}>
+                  Giriş yap
+                </Link>
+              </p>
+            </div>
+          ) : (
+            <div className="mf-calc">
+              <div className="card mf-inputs" style={{ position: "static" }}>
+                <span className="mf-group-title">Oda profili</span>
+                <form action={roomAction} style={{ display: "grid", gap: 10 }}>
+                  <label className="mf-field">
+                    <span className="mf-field-label">Raf sayısı</span>
+                    <input name="shelves" type="number" min={1} step={1} defaultValue={room?.shelves ?? 4} required className="btn btn-secondary" style={{ textAlign: "left" }} />
+                  </label>
+                  <label className="mf-field">
+                    <span className="mf-field-label">Raf başına kat</span>
+                    <input name="levelsPerShelf" type="number" min={1} step={1} defaultValue={room?.levelsPerShelf ?? 4} required className="btn btn-secondary" style={{ textAlign: "left" }} />
+                  </label>
+                  <label className="mf-field">
+                    <span className="mf-field-label">Kat başına tepsi</span>
+                    <input name="traysPerLevel" type="number" min={1} step={1} defaultValue={room?.traysPerLevel ?? 6} required className="btn btn-secondary" style={{ textAlign: "left" }} />
+                  </label>
+                  <label className="mf-field">
+                    <span className="mf-field-label">Hava akımı faktörü (0–1)</span>
+                    <input name="airflowFactor" type="number" min={0.1} max={1} step={0.05} defaultValue={room?.airflowFactor ?? 0.85} required className="btn btn-secondary" style={{ textAlign: "left" }} />
+                  </label>
+                  <button type="submit" disabled={roomPending} className="btn btn-primary btn-sm" style={{ justifySelf: "start" }}>
+                    Oda profilini kaydet
+                  </button>
+                  {(roomState.error || roomState.success) && (
+                    <p style={{ fontSize: "var(--fs-xs)", color: roomState.error ? "var(--color-danger)" : "var(--text-mid)" }}>
+                      {roomState.error ?? roomState.success}
+                    </p>
+                  )}
+                </form>
+
+                <span className="mf-group-title" style={{ marginTop: 18 }}>Restoran aboneliği ekle</span>
+                <form action={subAction} style={{ display: "grid", gap: 10 }}>
+                  <label className="mf-field">
+                    <span className="mf-field-label">Reçete</span>
+                    <select name="recipeId" className="btn btn-secondary" defaultValue={MICROGREEN_RECIPES[0]?.id}>
+                      {MICROGREEN_RECIPES.map((r) => (
+                        <option key={r.id} value={r.id}>{r.emoji} {r.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="mf-field">
+                    <span className="mf-field-label">Haftalık tepsi</span>
+                    <input name="traysPerWeek" type="number" min={1} step={1} defaultValue={4} required className="btn btn-secondary" style={{ textAlign: "left" }} />
+                  </label>
+                  <label className="mf-field">
+                    <span className="mf-field-label">Teslimat günü</span>
+                    <select name="deliveryDay" className="btn btn-secondary" defaultValue={5}>
+                      {WEEKDAYS_TR.map((d, i) => (
+                        <option key={d} value={i}>{d}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <button type="submit" disabled={subPending} className="btn btn-primary btn-sm" style={{ justifySelf: "start" }}>
+                    Abonelik ekle
+                  </button>
+                  {(subState.error || subState.success) && (
+                    <p style={{ fontSize: "var(--fs-xs)", color: subState.error ? "var(--color-danger)" : "var(--text-mid)" }}>
+                      {subState.error ?? subState.success}
+                    </p>
+                  )}
+                </form>
+              </div>
+
+              <div className="mf-results">
+                <div className="card" style={{ padding: 18 }}>
+                  <span className="mf-group-title">Aktif abonelikler</span>
+                  {subscriptions.length === 0 ? (
+                    <p className="mf-hint" style={{ marginTop: 10 }}>Henüz abonelik eklenmedi.</p>
+                  ) : (
+                    <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+                      {subscriptions.map((s) => {
+                        const r = MICROGREEN_RECIPES.find((rec) => rec.id === s.recipeId);
+                        return (
+                          <div key={s.id} style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid var(--border-hair)", paddingBottom: 8 }}>
+                            <p style={{ fontSize: "var(--fs-sm)" }}>
+                              {r?.emoji} {r?.name ?? s.recipeId} — {s.traysPerWeek} tepsi/hafta, {WEEKDAYS_TR[s.deliveryDay]} teslim
+                            </p>
+                            <button type="button" className="btn btn-ghost btn-sm" disabled={removePending} onClick={() => handleRemoveSubscription(s.id)}>
+                              Kaldır
+                            </button>
+                            {removeMsg[s.id] && <p style={{ width: "100%", fontSize: "var(--fs-xs)", color: "var(--text-mid)" }}>{removeMsg[s.id]}</p>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {!room ? (
+                  <div className="card mf-callout mf-callout--warn">
+                    <span className="mf-callout-ic"><Beaker size={18} /></span>
+                    <p>Kapasite hesaplanamıyor — önce sol taraftan bir oda profili kaydet.</p>
+                  </div>
+                ) : capacityPlan ? (
+                  <div className={`card mf-callout ${capacityPlan.feasible ? "" : "mf-callout--warn"}`}>
+                    <span className="mf-callout-ic">{capacityPlan.feasible ? <ShieldCheck size={18} /> : <X size={18} />}</span>
+                    <div>
+                      <p>
+                        Haftalık toplam <strong>{capacityPlan.totalTraysPerWeek} tepsi</strong> talep, oda kapasitesi{" "}
+                        <strong>{capacityPlan.capacity} tepsi</strong>.{" "}
+                        {capacityPlan.feasible ? "Kapasite yeterli." : `${capacityPlan.overflowTrays} tepsi kapasiteyi aşıyor.`}
+                      </p>
+                      {capacityPlan.suggestion && <p style={{ marginTop: 6 }}>{capacityPlan.suggestion}</p>}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          )}
         </div>
       </section>
 

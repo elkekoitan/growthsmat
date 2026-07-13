@@ -310,6 +310,10 @@ export const EPICS: Epic[] = [
       // turp, hardal, roka, amarant ve fesleğenin bazı alanlarında var (dosya başındaki
       // yorumda listelenmiştir); bu bir veri boşluğu değil, kaynağın kendi öngördüğü
       // varsayılan davranıştır — sahte kesinlik yok.
+      // 2026-07-13 (Phase 6c): "Oda/raf/ışık kapasite modeli" ve "Restoran aboneliğinden
+      // geriye ekim" ("done") önceden yalnız src/lib/microCapacity.ts'in SAF fonksiyonlarıydı
+      // (hiçbir workspace gerçek bir oda profili/abonelik kaydedemiyordu). Artık Room/
+      // Subscription tabloları + /mikrofiliz'deki gerçek form/kapasite sonucu bölümü var.
       status: (["done", "done", "done", "in_progress", "todo", "todo", "in_progress", "todo", "todo", "done", "done", "todo"][i]) as TaskStatus,
       title: ["MicrogreenRecipe şeması", "Güvenlik kataloğu (Solanaceae blok)", "Oda/raf/ışık kapasite modeli", "Tepsi reçetesi karşılaştırma UI", "Tohum/substrat lot kabulü", "Parti/tepsi QR üretimi", "Karartma/ışık/sulama görev dizisi", "Küf/sapma gözlem akışı", "Hasat/kalite/soğuk kayıtları", "Tepsi maliyet ve marj", "Restoran aboneliğinden geriye ekim", "Reçete A/B deneyi"][i],
     })),
