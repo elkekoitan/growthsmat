@@ -3,8 +3,9 @@ import { Footer } from "@/components/Footer";
 import { RevealProvider } from "@/components/ui";
 import { Tasks } from "./Tasks";
 import { requireMembership } from "@/server/session";
-import { listOrSeedTasks } from "@/server/repositories/tasks";
+import { listOrSeedTasks, listWorkspaceMembers } from "@/server/repositories/tasks";
 import { computeWorkspaceLaborCapacity } from "@/server/repositories/laborCapacity";
+import { can } from "@/lib/roles";
 
 export const metadata = {
   title: "Görev ve saha günlüğü",
@@ -18,12 +19,14 @@ export default async function GorevlerPage() {
   const { membership } = await requireMembership();
   const tasks = await listOrSeedTasks(membership.workspaceId);
   const laborCapacity = await computeWorkspaceLaborCapacity(membership.workspaceId);
+  const canAssign = can(membership.role, "task.assign");
+  const members = canAssign ? await listWorkspaceMembers(membership.workspaceId) : [];
 
   return (
     <RevealProvider>
       <Nav />
       <main>
-        <Tasks initialTasks={tasks} laborCapacity={laborCapacity} />
+        <Tasks initialTasks={tasks} laborCapacity={laborCapacity} members={members} canAssign={canAssign} />
       </main>
       <Footer />
     </RevealProvider>

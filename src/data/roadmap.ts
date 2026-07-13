@@ -257,9 +257,14 @@ export const EPICS: Epic[] = [
       // kalıcılaştırılmaz, her okunuşta runAssessment() ile yeniden hesaplanır). Task modeli, eski
       // Tasks.tsx'in yerel "gubreleme" yazım hatasını (taskTemplates.ts'in "gubre"siyle
       // tutarsızdı) düzeltti ve dekoratif/hiç işlevi olmayan "offline" alanını kasıtlı olarak
-      // düşürdü. "Görev atama ve takvim" hâlâ todo bırakıldı — gerçek olan tek-workspace görev
-      // listesi + tarih/bölge ataması; ekip üyesine (kişiye) atama kavramı henüz yok.
-      status: (["done", "done", "todo", "done", "todo", "todo", "todo", "todo", "done", "todo", "todo"][i]) as TaskStatus,
+      // düşürdü.
+      // 2026-07-14 (P06-05): "Görev atama ve takvim" done'a çekildi — haftalık takvim şeridi zaten
+      // vardı; asıl eksik olan ekip üyesine (kişiye) GERÇEK atamaydı. Task.assignedToUserId eklendi
+      // (onDelete: SetNull — üye ayrılırsa geçmiş atama kaydı silinmez), assignTask() hem
+      // task.assign izniyle HEM atanan kişinin O workspace'te aktif üyeliğiyle doğruluyor (başka
+      // workspace'ten rastgele bir userId atanamaz). /gorevler'de her satırda gerçek atanan kişi
+      // (veya "Atanmamış") görünür; izni olan roller için canlı bir üye seçici var.
+      status: (["done", "done", "todo", "done", "done", "todo", "todo", "todo", "done", "todo", "todo"][i]) as TaskStatus,
       title: ["SeasonPlan/Activity şeması", "Plan senaryosu karşılaştırma UI", "Yatak/parsel takvim yerleşimi", "Görev şablon motoru", "Görev atama ve takvim", "Fotoğraf/ses/ölçümle tamamlama", "Uygulama ve girdi lot kaydı", "Hava/sensör görev önerisi", "Gecikme ve aşağı akış etkisi", "QR/NFC üretim birimi açma", "Operasyon KPI"][i],
     })),
   },

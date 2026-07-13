@@ -18,8 +18,8 @@ import {
   MapPin,
   ArrowRight,
 } from "@/components/icons";
-import { createTaskAction, deleteTaskAction, toggleTaskAction } from "./actions";
-import type { RealTask as Task, TaskKind } from "@/server/repositories/tasks";
+import { createTaskAction, deleteTaskAction, toggleTaskAction, assignTaskAction } from "./actions";
+import type { RealTask as Task, TaskKind, WorkspaceMember } from "@/server/repositories/tasks";
 import { suggestRebalance, type LaborCapacityResult } from "@/lib/laborCapacity";
 
 /* ============================================================================
@@ -102,7 +102,17 @@ const DAY_OPTIONS: { off: number; label: string }[] = [
   { off: 9, label: "Gelecek hafta" },
 ];
 
-export function Tasks({ initialTasks, laborCapacity }: { initialTasks: Task[]; laborCapacity: LaborCapacityResult | null }) {
+export function Tasks({
+  initialTasks,
+  laborCapacity,
+  members,
+  canAssign,
+}: {
+  initialTasks: Task[];
+  laborCapacity: LaborCapacityResult | null;
+  members: WorkspaceMember[];
+  canAssign: boolean;
+}) {
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [taskPending, startTaskTransition] = useTransition();
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
@@ -201,6 +211,18 @@ export function Tasks({ initialTasks, laborCapacity }: { initialTasks: Task[]; l
   function removeTask(id: string) {
     setTasks((prev) => prev.filter((t) => t.id !== id));
     startTaskTransition(() => deleteTaskAction(id));
+  }
+
+  function assignTo(id: string, assigneeUserId: string | null) {
+    const assignee = members.find((m) => m.userId === assigneeUserId);
+    setTasks((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, assignedToUserId: assigneeUserId ?? undefined, assignedToEmail: assignee?.email } : t))
+    );
+    startTaskTransition(async () => {
+      const result = await assignTaskAction(id, assigneeUserId);
+      if (result.error) setAnnounce(result.error);
+      else if (result.success) setAnnounce(result.success);
+    });
   }
 
   function addTask(e: FormEvent) {
@@ -457,6 +479,9 @@ export function Tasks({ initialTasks, laborCapacity }: { initialTasks: Task[]; l
                   onToggle={toggleDone}
                   onRemove={removeTask}
                   onToggleLog={() => setOpenLog((o) => ({ ...o, [t.id]: !o[t.id] }))}
+                  members={members}
+                  canAssign={canAssign}
+                  onAssign={assignTo}
                 />
               ))}
             </ul>
@@ -475,6 +500,9 @@ export function Tasks({ initialTasks, laborCapacity }: { initialTasks: Task[]; l
                     onToggle={toggleDone}
                     onRemove={removeTask}
                     onToggleLog={() => setOpenLog((o) => ({ ...o, [t.id]: !o[t.id] }))}
+                    members={members}
+                    canAssign={canAssign}
+                    onAssign={assignTo}
                   />
                 ))}
               </ul>
@@ -575,6 +603,9 @@ function TaskRow({
   onToggle,
   onRemove,
   onToggleLog,
+  members,
+  canAssign,
+  onAssign,
 }: {
   task: EnrichedTask;
   justDone: boolean;
@@ -582,6 +613,9 @@ function TaskRow({
   onToggle: (id: string) => void;
   onRemove: (id: string) => void;
   onToggleLog: () => void;
+  members: WorkspaceMember[];
+  canAssign: boolean;
+  onAssign: (id: string, assigneeUserId: string | null) => void;
 }) {
   const crop = CROP_BY_ID[task.cropId];
   const meta = TYPE_META[task.type];
@@ -625,6 +659,26 @@ function TaskRow({
             </span>
             <span className="dotsep">·</span>
             <span style={{ color: "var(--text-low)" }}>{meta.label}</span>
+            {(canAssign || task.assignedToEmail) && <span className="dotsep">·</span>}
+            {canAssign ? (
+              <select
+                value={task.assignedToUserId ?? ""}
+                onChange={(e) => onAssign(task.id, e.target.value || null)}
+                className="assign-select"
+                aria-label={`${task.title} görevini bir kişiye ata`}
+              >
+                <option value="">Atanmamış</option>
+                {members.map((m) => (
+                  <option key={m.userId} value={m.userId}>
+                    {m.email}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              task.assignedToEmail && (
+                <span style={{ color: "var(--text-low)" }}>{task.assignedToEmail}</span>
+              )
+            )}
           </div>
         </div>
 
@@ -763,6 +817,13 @@ function StyleBlock() {
       .task-sub { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-top: 3px; font-size: var(--fs-sm); color: var(--text-low); }
       .task-zone { display: inline-flex; align-items: center; gap: 3px; color: var(--text-low); }
       .dotsep { color: var(--border-soft); }
+      .assign-select {
+        font: inherit; font-size: var(--fs-xs); color: var(--text-mid); background: var(--bg-surface-2);
+        border: 1px solid var(--border-hair); border-radius: 999px; padding: 2px 8px; max-width: 160px;
+        cursor: pointer;
+      }
+      .assign-select:hover { border-color: var(--primary); }
+      .assign-select:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
 
       .task-right { display: flex; align-items: center; gap: 6px; flex: none; }
 

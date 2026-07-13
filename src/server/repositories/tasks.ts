@@ -8,6 +8,7 @@
 import "server-only";
 
 import { getDb } from "../db";
+import { can, fromPrismaRole, type Role } from "@/lib/roles";
 
 export type TaskKind = "ekim" | "sulama" | "gubre" | "budama" | "gozlem" | "hasat";
 
@@ -26,6 +27,8 @@ export interface RealTask extends TaskInput {
   done: boolean;
   note?: string;
   measurement?: string;
+  assignedToUserId?: string;
+  assignedToEmail?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -42,6 +45,8 @@ function toRealTask(row: {
   critical: boolean;
   note: string | null;
   measurement: string | null;
+  assignedToUserId: string | null;
+  assignedTo?: { email: string } | null;
   createdAt: Date;
   updatedAt: Date;
 }): RealTask {
@@ -57,6 +62,8 @@ function toRealTask(row: {
     critical: row.critical,
     note: row.note ?? undefined,
     measurement: row.measurement ?? undefined,
+    assignedToUserId: row.assignedToUserId ?? undefined,
+    assignedToEmail: row.assignedTo?.email ?? undefined,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -116,8 +123,62 @@ export async function listOrSeedTasks(workspaceId: string): Promise<RealTask[]> 
       })),
     });
   }
-  const rows = await db.task.findMany({ where: { workspaceId }, orderBy: { date: "asc" } });
+  const rows = await db.task.findMany({
+    where: { workspaceId },
+    orderBy: { date: "asc" },
+    include: { assignedTo: { select: { email: true } } },
+  });
   return rows.map(toRealTask);
+}
+
+export interface WorkspaceMember {
+  userId: string;
+  email: string;
+  role: Role;
+}
+
+/** Görev atama seçici için gerçek workspace üyeleri (yalnız aktif üyelik). */
+export async function listWorkspaceMembers(workspaceId: string): Promise<WorkspaceMember[]> {
+  const db = getDb();
+  const rows = await db.membership.findMany({
+    where: { workspaceId, status: "aktif" },
+    include: { user: { select: { id: true, email: true } } },
+    orderBy: { createdAt: "asc" },
+  });
+  return rows.map((m) => ({ userId: m.user.id, email: m.user.email, role: fromPrismaRole(m.role) }));
+}
+
+export type AssignTaskResult = { applied: true; task: RealTask } | { applied: false; reason: string };
+
+/**
+ * Bir görevi gerçek bir workspace üyesine atar (veya assigneeUserId=null ile atamayı kaldırır).
+ * Yalnız task.assign izinli rol atayabilir; atanan kişi GERÇEKTEN bu workspace'in aktif
+ * üyesi olmalı (başka workspace'ten rastgele bir userId atanamaz).
+ */
+export async function assignTask(
+  id: string,
+  workspaceId: string,
+  actorRole: Role,
+  assigneeUserId: string | null
+): Promise<AssignTaskResult> {
+  if (!can(actorRole, "task.assign")) return { applied: false, reason: "Yetkisiz — task.assign izni gerekir." };
+  const db = getDb();
+  const existing = await db.task.findUnique({ where: { id } });
+  if (!existing || existing.workspaceId !== workspaceId) return { applied: false, reason: "Görev bulunamadı." };
+
+  if (assigneeUserId) {
+    const membership = await db.membership.findFirst({
+      where: { userId: assigneeUserId, workspaceId, status: "aktif" },
+    });
+    if (!membership) return { applied: false, reason: "Bu kişi bu işletmenin aktif üyesi değil." };
+  }
+
+  const row = await db.task.update({
+    where: { id },
+    data: { assignedToUserId: assigneeUserId },
+    include: { assignedTo: { select: { email: true } } },
+  });
+  return { applied: true, task: toRealTask(row) };
 }
 
 export async function createTask(workspaceId: string, input: TaskInput): Promise<RealTask> {
@@ -140,7 +201,11 @@ export async function toggleTaskDone(id: string, workspaceId: string): Promise<R
   const db = getDb();
   const existing = await db.task.findUnique({ where: { id } });
   if (!existing || existing.workspaceId !== workspaceId) return undefined;
-  const row = await db.task.update({ where: { id }, data: { done: !existing.done } });
+  const row = await db.task.update({
+    where: { id },
+    data: { done: !existing.done },
+    include: { assignedTo: { select: { email: true } } },
+  });
   return toRealTask(row);
 }
 

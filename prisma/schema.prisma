@@ -27,6 +27,7 @@ model User {
   sentInvites    Invite[]     @relation("InvitedBy")
   reviewedInvites AuditEvent[]
   buyerOrders    Order[]
+  assignedTasks  Task[]       @relation("TaskAssignee")
 }
 
 model Session {
@@ -321,12 +322,18 @@ model Task {
   critical    Boolean   @default(false)
   note        String?
   measurement String?
+  // Görev atama (P06-05, Phase 6b'de gerçek çok-kişili workspace'ler mümkün olduktan sonra
+  // anlamlı hale geldi) — atanan kişi workspace'ten AYRILIRSA/rolü değişirse bile geçmiş
+  // atama kaydı silinmez (SetNull ile yalnız referans temizlenir, görev kalır).
+  assignedToUserId String?
+  assignedTo       User?   @relation("TaskAssignee", fields: [assignedToUserId], references: [id], onDelete: SetNull)
 
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
   @@index([workspaceId])
   @@index([workspaceId, date])
+  @@index([assignedToUserId])
 }
 
 // ---------- Lot izlenebilirlik (Phase 3: src/lib/traceability.ts) ----------
