@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
   runAssessment,
   assessCrop,
@@ -14,6 +14,8 @@ import {
   type AssessmentResult,
   type Goal,
 } from "@/lib/suitability";
+import { savePlanAction } from "./actions";
+import type { RealPlan } from "@/server/repositories/plans";
 import {
   METHOD_LABELS,
   SEASON_LABELS,
@@ -46,8 +48,6 @@ import {
    /plan — Üretim planı sihirbazı + uygunluk sonuçları
    Dürüstlük ilkesi: uygunluk SKORU (0-100) ile veri GÜVENİ (0-1) ayrı gösterilir.
    ============================================================================ */
-
-const STORAGE_KEY = "sg-plan";
 
 const DEFAULT_PROFILE: SiteProfile = {
   city: "İstanbul",
@@ -143,52 +143,29 @@ const WarnMark = () => (
   </svg>
 );
 
-export function PlanWizard() {
+export function PlanWizard({ initialPlan }: { initialPlan?: RealPlan }) {
   const [step, setStep] = useState(0);
-  const [profile, setProfile] = useState<SiteProfile>(DEFAULT_PROFILE);
-  const [phMeasured, setPhMeasured] = useState(false);
-  const [phValue, setPhValue] = useState(6.5);
-  const [result, setResult] = useState<AssessmentResult | null>(null);
-  const [selectedScenario, setSelectedScenario] = useState<string | null>(null);
+  const [profile, setProfile] = useState<SiteProfile>(
+    initialPlan ? { ...DEFAULT_PROFILE, ...initialPlan.profile } : DEFAULT_PROFILE
+  );
+  const [phMeasured, setPhMeasured] = useState(initialPlan?.phMeasured ?? false);
+  const [phValue, setPhValue] = useState(initialPlan?.phValue ?? 6.5);
+  const [result, setResult] = useState<AssessmentResult | null>(() => {
+    if (!initialPlan?.completed) return null;
+    return runAssessment(resolveProfile(initialPlan.profile, initialPlan.phMeasured, initialPlan.phValue));
+  });
+  const [selectedScenario, setSelectedScenario] = useState<string | null>(() => result?.scenarios[0]?.id ?? null);
   const [runId, setRunId] = useState(0);
-
-  // localStorage'tan geri yükle
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return;
-      const saved = JSON.parse(raw);
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage SSR'da yok, post-hydration senkron kasıtlı
-      if (saved.profile) setProfile({ ...DEFAULT_PROFILE, ...saved.profile });
-      if (typeof saved.phMeasured === "boolean") setPhMeasured(saved.phMeasured);
-      if (typeof saved.phValue === "number") setPhValue(saved.phValue);
-      if (saved.completed && saved.profile) {
-        const res = runAssessment(
-          resolveProfile(
-            { ...DEFAULT_PROFILE, ...saved.profile },
-            saved.phMeasured ?? false,
-            saved.phValue ?? 6.5
-          )
-        );
-        setResult(res);
-        setSelectedScenario(res.scenarios[0]?.id ?? null);
-      }
-    } catch {
-      /* yok say */
-    }
-  }, []);
 
   const patch = (p: Partial<SiteProfile>) => setProfile((prev) => ({ ...prev, ...p }));
 
+  // Gerçek Postgres'e kaydeder (workspace başına tek, güncel Plan satırı — bkz.
+  // src/server/repositories/plans.ts). Sonucu beklemeden ateşlenir: sihirbaz zaten
+  // yerel state'i anında günceller, sunucudaki yazma arka planda tamamlanır.
   const persist = (completed: boolean) => {
-    try {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({ profile, phMeasured, phValue, completed })
-      );
-    } catch {
-      /* yok say */
-    }
+    void savePlanAction({ profile, phMeasured, phValue, completed }).catch(() => {
+      /* yok say — kalıcılık en iyi çaba, sihirbaz UI'ı yerel state'ten çalışmaya devam eder */
+    });
   };
 
   const generate = () => {

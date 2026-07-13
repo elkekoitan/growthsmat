@@ -51,6 +51,8 @@ model Workspace {
   certificates Certificate[]
   listings     Listing[]
   buyerOrders  Order[]
+  plan         Plan?
+  tasks        Task[]
 }
 
 enum Role {
@@ -210,4 +212,74 @@ model Order {
   @@index([listingId])
   @@index([buyerWorkspaceId])
   @@index([buyerUserId])
+}
+
+// ---------- Plan + Görevler (Phase 2: uygunluk sihirbazı + saha günlüğü) ----------
+// DÜRÜSTLÜK NOTU: Plan yalnız sihirbazın HAM girdisini (SiteProfile, src/lib/suitability.ts)
+// saklar — hesaplanan AssessmentResult (skor/güven/senaryo) hiçbir zaman kalıcılaştırılmaz,
+// her okunuşta runAssessment() ile YENİDEN hesaplanır. Bir workspace'in tek, güncel plan
+// satırı olur (localStorage'daki tek "sg-plan" anahtarıyla aynı anlam — upsert edilir).
+// method/goal/season: GrowMethod/Goal/Season TS union'larının düz string karşılığıdır;
+// Listing.format/stockType ile aynı desen — repository katmanında doğrulanır, DB seviyesinde
+// enum zorlanmaz (statik TS union tek doğruluk kaynağı kalır).
+
+model Plan {
+  id            String    @id @default(cuid())
+  workspaceId   String    @unique
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  city          String
+  method        String
+  areaM2        Float
+  sunHours      Float
+  containerL    Float?
+  waterAccess   Int
+  weeklyMinutes Int
+  experience    Int
+  goal          String
+  hasKidsOrPets Boolean
+  season        String
+  phMeasured    Boolean   @default(false)
+  phValue       Float     @default(6.5)
+  completed     Boolean   @default(false)
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+// ekim/sulama/gubre/budama/gozlem/hasat — src/lib/taskTemplates.ts'teki TaskKind ile birebir
+// aynı (eski Tasks.tsx'in "gubreleme" yazımı burada KASITLI OLARAK terk edildi — iki dosya
+// arasındaki gerçek bir yazım tutarsızlığıydı, tek kanonik değer bu enum'dur; Türkçe arayüz
+// etiketi "Gübreleme" değişmedi, yalnız alttaki değer değişti — bkz. src/lib/roles.ts'teki
+// @map deseniyle aynı "DB değeri ≠ görüntü etiketi" ilkesi).
+enum TaskKind {
+  ekim
+  sulama
+  gubre
+  budama
+  gozlem
+  hasat
+}
+
+model Task {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  type        TaskKind
+  title       String
+  // cropId: Listing.cropId ile aynı desen — src/data/crops.ts'e düz string referans, DB FK değil.
+  cropId      String
+  zone        String
+  date        DateTime  @db.Date
+  done        Boolean   @default(false)
+  critical    Boolean   @default(false)
+  note        String?
+  measurement String?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([workspaceId])
+  @@index([workspaceId, date])
 }

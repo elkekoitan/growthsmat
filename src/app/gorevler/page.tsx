@@ -2,19 +2,26 @@ import { Nav } from "@/components/Nav";
 import { Footer } from "@/components/Footer";
 import { RevealProvider } from "@/components/ui";
 import { Tasks } from "./Tasks";
+import { requireMembership } from "@/server/session";
+import { listOrSeedTasks } from "@/server/repositories/tasks";
 
 export const metadata = {
   title: "Görev ve saha günlüğü",
   description:
-    "Bahçeni bir defter gibi tut: güne göre gruplanan bakım ritüelleri, haftalık takvim şeridi ve çevrimdışı çalışan saha günlüğü.",
+    "Bahçeni bir defter gibi tut: güne göre gruplanan bakım ritüelleri, haftalık takvim şeridi ve kalıcı saha günlüğü.",
 };
 
-export default function GorevlerPage() {
+export const dynamic = "force-dynamic";
+
+export default async function GorevlerPage() {
+  const { membership } = await requireMembership();
+  const tasks = await listOrSeedTasks(membership.workspaceId);
+
   return (
     <RevealProvider>
       <Nav />
       <main>
-        <Tasks />
+        <Tasks initialTasks={tasks} />
       </main>
       <Footer />
     </RevealProvider>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import type { ComponentType, FormEvent } from "react";
 import { CROPS, CROP_BY_ID } from "@/data/crops";
 import { RadialGauge, BotanicalScene } from "@/components/graphics";
@@ -15,36 +15,22 @@ import {
   X,
   Calendar,
   Clipboard,
-  Wifi,
   MapPin,
   ArrowRight,
 } from "@/components/icons";
+import { createTaskAction, deleteTaskAction, toggleTaskAction } from "./actions";
+import type { RealTask as Task, TaskKind } from "@/server/repositories/tasks";
 
 /* ============================================================================
    /gorevler — Görev ve saha günlüğü ("bakım ritüeli" estetiği)
-   Görev tip modeli burada tanımlıdır (schema src/data'ya YAZILMAZ).
-   Durum: localStorage 'sg-tasks'. İlk açılışta seed görevleri.
+   Durum: gerçek Postgres (Task modeli, src/server/repositories/tasks.ts). Sayfa (Server
+   Component) workspace'in görevlerini getirir — ilk ziyarette workspace boşsa tohum
+   görevleriyle doldurulur (bkz. listOrSeedTasks). Bu bileşen o veriyi initialTasks
+   prop'uyla alır; mutasyonlar (ekle/tamamla/sil) Server Action'lara gider, yerel state
+   anında (iyimser) güncellenir.
    ============================================================================ */
 
-const STORAGE_KEY = "sg-tasks";
-
-type TaskType = "ekim" | "sulama" | "gubreleme" | "budama" | "gozlem" | "hasat";
-
-interface Task {
-  id: string;
-  type: TaskType;
-  title: string;
-  cropId: string; // @/data/crops id — göreve bitki bağlar
-  zone: string; // saha bölgesi (balkon/yatak/sıra)
-  date: string; // yyyy-mm-dd (yerel) — planlanan gün
-  done: boolean;
-  critical?: boolean; // kritik / hava-hassas görev
-  note?: string; // saha günlüğü notu (tamamlananlarda)
-  measurement?: string; // ölçüm kaydı (mock)
-  offline?: boolean; // çevrimdışı kaydedildi, senkron bekliyor
-}
-
-type IconType = ComponentType<{ size?: number }>;
+type TaskType = TaskKind;
 
 const TYPE_META: Record<
   TaskType,
@@ -52,13 +38,15 @@ const TYPE_META: Record<
 > = {
   ekim: { label: "Ekim", verb: "Fideyi dik", icon: Sprout, color: "var(--primary)" },
   sulama: { label: "Sulama", verb: "Derin sula", icon: Droplet, color: "var(--color-info)" },
-  gubreleme: { label: "Gübreleme", verb: "Organik besle", icon: Sparkles, color: "var(--accent)" },
+  gubre: { label: "Gübreleme", verb: "Organik besle", icon: Sparkles, color: "var(--accent)" },
   budama: { label: "Budama", verb: "Uç al, koltuk temizle", icon: Leaf, color: "var(--color-success)" },
   gozlem: { label: "Gözlem", verb: "Zararlı ve nem kontrolü", icon: Beaker, color: "var(--color-info)" },
   hasat: { label: "Hasat", verb: "Hasat penceresi", icon: Package, color: "var(--accent)" },
 };
 
-const TYPE_ORDER: TaskType[] = ["ekim", "sulama", "gubreleme", "budama", "gozlem", "hasat"];
+const TYPE_ORDER: TaskType[] = ["ekim", "sulama", "gubre", "budama", "gozlem", "hasat"];
+
+type IconType = ComponentType<{ size?: number }>;
 
 /* ---------- tarih yardımcıları (yerel gün) ---------- */
 function startOfDay(d: Date) {
@@ -90,49 +78,6 @@ function longDate(iso: string) {
   return fromIso(iso).toLocaleDateString("tr-TR", { day: "numeric", month: "long", weekday: "long" });
 }
 
-/* ---------- seed görevleri (bugüne göreli) ---------- */
-function seedTasks(): Task[] {
-  const t = startOfDay(new Date());
-  const d = (n: number) => isoDay(addDays(t, n));
-  return [
-    { id: "seed-01", type: "sulama", title: "Sabah suyu kaçtı", cropId: "feslegen", zone: "Mutfak pervazı", date: d(-1), done: false },
-    { id: "seed-02", type: "sulama", title: "Sıcak dalgasında kök nemi", cropId: "salatalik", zone: "Sera tüneli", date: d(0), done: false, critical: true },
-    { id: "seed-03", type: "budama", title: "Koltuk al ve bağla", cropId: "sirik-domates-beefsteak", zone: "Yatak A2", date: d(0), done: false },
-    { id: "seed-04", type: "gozlem", title: "Lahana kelebeği taraması", cropId: "lahana-brokoli", zone: "Yatak B1", date: d(0), done: false },
-    {
-      id: "seed-05",
-      type: "hasat",
-      title: "İlk kes-gelsin turu",
-      cropId: "roka",
-      zone: "Yükseltilmiş yatak",
-      date: d(0),
-      done: true,
-      measurement: "318 g",
-      offline: true,
-      note: "İlk kesim 318 g. Göbek bırakıldı; 10-12 gün sonra ikinci tur beklenir.",
-    },
-    {
-      id: "seed-06",
-      type: "gozlem",
-      title: "Seyreltme ve aralık ölçümü",
-      cropId: "havuc",
-      zone: "Saksı sırası 3",
-      date: d(0),
-      done: true,
-      measurement: "6 cm aralık",
-      note: "Fideler seyreltildi, sıra üzeri 6 cm bırakıldı. Toprak taşsız.",
-    },
-    { id: "seed-07", type: "ekim", title: "İkinci parti tohum", cropId: "turp-bahce", zone: "Saksı sırası 3", date: d(1), done: false },
-    { id: "seed-08", type: "gubreleme", title: "Çiçek sonrası besleme", cropId: "cilek", zone: "Dikey saksı kulesi", date: d(1), done: false, critical: true },
-    { id: "seed-09", type: "hasat", title: "Dış yapraklardan hasat", cropId: "marul", zone: "Balkon — Kuzey", date: d(2), done: false },
-    { id: "seed-10", type: "sulama", title: "Rizom saksısını kontrol et", cropId: "nane", zone: "Saksı (sınırlı)", date: d(3), done: false },
-    { id: "seed-11", type: "budama", title: "Uç alma ile çalılaştır", cropId: "feslegen", zone: "Mutfak pervazı", date: d(4), done: false },
-    { id: "seed-12", type: "gubreleme", title: "Sıvı besleme turu", cropId: "biber-carliston", zone: "Balkon — Güney", date: d(6), done: false },
-    { id: "seed-13", type: "ekim", title: "Sırık fasulye çıkımı", cropId: "fasulye-sirik", zone: "Sırık hattı", date: d(8), done: false },
-    { id: "seed-14", type: "hasat", title: "Şeker bezelye ilk toplama", cropId: "bezelye", zone: "Yatak C", date: d(9), done: false },
-  ];
-}
-
 /* ---------- durum tayini ---------- */
 type Status = "done" | "overdue" | "critical" | "pending";
 function statusOf(t: Task, diff: number): Status {
@@ -156,9 +101,9 @@ const DAY_OPTIONS: { off: number; label: string }[] = [
   { off: 9, label: "Gelecek hafta" },
 ];
 
-export function Tasks() {
-  const [tasks, setTasks] = useState<Task[] | null>(null);
-  const [hydrated, setHydrated] = useState(false);
+export function Tasks({ initialTasks }: { initialTasks: Task[] }) {
+  const [tasks, setTasks] = useState<Task[]>(initialTasks);
+  const [taskPending, startTaskTransition] = useTransition();
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [justDone, setJustDone] = useState<string | null>(null);
   const [openLog, setOpenLog] = useState<Record<string, boolean>>({});
@@ -173,39 +118,9 @@ export function Tasks() {
   const [fTitle, setFTitle] = useState("");
   const formRef = useRef<HTMLDivElement>(null);
 
-  /* hydrate + seed */
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as Task[];
-        // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage SSR'da yok, post-hydration senkron kasıtlı
-        setTasks(Array.isArray(parsed) && parsed.length ? parsed : seedTasks());
-      } else {
-        const s = seedTasks();
-        setTasks(s);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
-      }
-    } catch {
-      setTasks(seedTasks());
-    }
-    setHydrated(true);
-  }, []);
-
-  /* persist */
-  useEffect(() => {
-    if (!hydrated || !tasks) return;
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
-    } catch {
-      /* sessiz */
-    }
-  }, [tasks, hydrated]);
-
   const todayIso = isoDay(startOfDay(new Date()));
 
   const enriched: EnrichedTask[] = useMemo(() => {
-    if (!tasks) return [];
     return tasks
       .map((t) => {
         const diff = dayDiff(t.date, todayIso);
@@ -272,36 +187,34 @@ export function Tasks() {
 
   /* handlers */
   function toggleDone(id: string) {
-    const current = tasks?.find((x) => x.id === id);
-    setTasks((prev) => (prev ? prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t)) : prev));
+    const current = tasks.find((x) => x.id === id);
+    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
     if (current && !current.done) {
       setJustDone(id);
       setAnnounce(`${current.title} tamamlandı ve saha günlüğüne işlendi.`);
       window.setTimeout(() => setJustDone((cur) => (cur === id ? null : cur)), 560);
     }
+    startTaskTransition(() => toggleTaskAction(id));
   }
 
   function removeTask(id: string) {
-    setTasks((prev) => (prev ? prev.filter((t) => t.id !== id) : prev));
+    setTasks((prev) => prev.filter((t) => t.id !== id));
+    startTaskTransition(() => deleteTaskAction(id));
   }
 
   function addTask(e: FormEvent) {
     e.preventDefault();
     const base = startOfDay(new Date());
     const title = fTitle.trim() || TYPE_META[fType].verb;
-    const next: Task = {
-      id: `t-${Date.now().toString(36)}`,
-      type: fType,
-      title,
-      cropId: fCrop,
-      zone: fZone.trim() || "Belirtilmedi",
-      date: isoDay(addDays(base, fDay)),
-      done: false,
-    };
-    setTasks((prev) => (prev ? [...prev, next] : [next]));
-    setAnnounce(`${title} görevi eklendi.`);
+    const zone = fZone.trim() || "Belirtilmedi";
+    const date = isoDay(addDays(base, fDay));
     setFTitle("");
     setFZone("");
+    startTaskTransition(async () => {
+      const created = await createTaskAction({ type: fType, title, cropId: fCrop, zone, date });
+      setTasks((prev) => [...prev, created]);
+      setAnnounce(`${title} görevi eklendi.`);
+    });
   }
 
   function openFormFocus() {
@@ -325,221 +238,215 @@ export function Tasks() {
           </h1>
           <p className="reveal text-pretty" style={{ marginTop: 14, fontSize: "var(--fs-lead)", color: "var(--text-mid)", maxWidth: 620 }}>
             Bahçe bir defter gibi tutulur. Bugünün küçük ritüellerini işaretle; her tamamlanan
-            satır, bir sonraki hasadın kanıtı olsun. Kayıtlar çevrimdışı da tutulur, ağ gelince
-            senkronlanır.
+            satır, bir sonraki hasadın kanıtı olsun. Kayıtların artık işletmenin hesabında kalıcı
+            olarak tutulur — cihaz değiştirsen de kaybolmaz.
           </p>
         </header>
 
-        {!hydrated || !tasks ? (
-          <Skeleton />
-        ) : (
-          <>
-            {/* --- Ritüel + KPI --- */}
-            <div className="ritual-head" style={{ marginTop: 34 }}>
-              <div className="card" style={{ padding: "20px 22px", display: "flex", alignItems: "center", gap: 20 }}>
-                <RadialGauge
-                  value={kpi.ritualPct}
-                  size={116}
-                  label={`${kpi.todayDone}/${kpi.todayAll}`}
-                  sub="bugün"
-                  color={kpi.overdue > 0 ? "var(--accent)" : "var(--primary)"}
-                />
-                <div>
-                  <div style={{ fontSize: "var(--fs-xs)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text-low)", fontWeight: 700 }}>
-                    Bugünün ritüeli
-                  </div>
-                  <div style={{ fontSize: "var(--fs-lg)", fontWeight: 600, marginTop: 6, lineHeight: 1.35, color: "var(--text-hi)" }}>
-                    {kpi.todayAll === 0
-                      ? "Bugüne planlanmış iş yok — nefes al."
-                      : kpi.todayPending === 0
-                        ? "Bugünün defteri kapandı. Tertemiz."
-                        : `${kpi.todayPending} satır seni bekliyor.`}
-                  </div>
-                </div>
+        {/* --- Ritüel + KPI --- */}
+        <div className="ritual-head" style={{ marginTop: 34 }}>
+          <div className="card" style={{ padding: "20px 22px", display: "flex", alignItems: "center", gap: 20 }}>
+            <RadialGauge
+              value={kpi.ritualPct}
+              size={116}
+              label={`${kpi.todayDone}/${kpi.todayAll}`}
+              sub="bugün"
+              color={kpi.overdue > 0 ? "var(--accent)" : "var(--primary)"}
+            />
+            <div>
+              <div style={{ fontSize: "var(--fs-xs)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text-low)", fontWeight: 700 }}>
+                Bugünün ritüeli
               </div>
-
-              <div className="stat-grid">
-                <StatChip icon={Clipboard} tone="neutral" value={kpi.todayPending} label="bugün bekleyen" />
-                <StatChip icon={Calendar} tone={kpi.overdue > 0 ? "danger" : "neutral"} value={kpi.overdue} label="gecikmiş görev" />
-                <StatChip icon={Check} tone="ok" value={kpi.weekDone} label="bu hafta tamamlanan" />
+              <div style={{ fontSize: "var(--fs-lg)", fontWeight: 600, marginTop: 6, lineHeight: 1.35, color: "var(--text-hi)" }}>
+                {kpi.todayAll === 0
+                  ? "Bugüne planlanmış iş yok — nefes al."
+                  : kpi.todayPending === 0
+                    ? "Bugünün defteri kapandı. Tertemiz."
+                    : `${kpi.todayPending} satır seni bekliyor.`}
               </div>
             </div>
+          </div>
 
-            {/* --- Haftalık takvim şeridi --- */}
-            <div className="card week-strip" style={{ marginTop: 18, padding: "16px 14px 12px" }} role="group" aria-label="Haftalık görev şeridi">
-              {week.cells.map((c) => {
-                const isToday = c.iso === todayIso;
-                const isSel = selectedDay === c.iso;
-                const barH = c.total === 0 ? 4 : 8 + Math.round((c.total / week.max) * 34);
-                return (
-                  <button
-                    key={c.iso}
-                    type="button"
-                    onClick={() => setSelectedDay((cur) => (cur === c.iso ? null : c.iso))}
-                    className={`week-cell${isSel ? " is-sel" : ""}${isToday ? " is-today" : ""}`}
-                    aria-pressed={isSel}
-                    aria-label={`${longDate(c.iso)} — ${c.total} görev${c.crit ? ", kritik var" : ""}`}
-                  >
-                    <span className="week-dow">{isToday ? "Bugün" : weekdayShort(c.iso)}</span>
-                    <span className="week-dom font-mono">{fromIso(c.iso).getDate()}</span>
-                    <span className="week-track" aria-hidden="true">
-                      <span
-                        className="week-bar"
-                        style={{
-                          height: barH,
-                          background: c.total === 0 ? "var(--border-soft)" : c.crit ? "var(--accent)" : "color-mix(in srgb, var(--primary) 55%, transparent)",
-                        }}
-                      />
-                    </span>
-                    <span className="week-count font-mono" aria-hidden="true">
-                      {c.total > 0 ? c.total : "·"}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+          <div className="stat-grid">
+            <StatChip icon={Clipboard} tone="neutral" value={kpi.todayPending} label="bugün bekleyen" />
+            <StatChip icon={Calendar} tone={kpi.overdue > 0 ? "danger" : "neutral"} value={kpi.overdue} label="gecikmiş görev" />
+            <StatChip icon={Check} tone="ok" value={kpi.weekDone} label="bu hafta tamamlanan" />
+          </div>
+        </div>
 
-            {/* --- Araç çubuğu --- */}
-            <div className="toolbar">
-              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                <span className="chip">
-                  <Sprout size={13} /> {totalActive} aktif satır
-                </span>
-                {selectedDay && (
-                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSelectedDay(null)}>
-                    <X size={15} /> Tüm haftaya dön
-                  </button>
-                )}
-              </div>
+        {/* --- Haftalık takvim şeridi --- */}
+        <div className="card week-strip" style={{ marginTop: 18, padding: "16px 14px 12px" }} role="group" aria-label="Haftalık görev şeridi">
+          {week.cells.map((c) => {
+            const isToday = c.iso === todayIso;
+            const isSel = selectedDay === c.iso;
+            const barH = c.total === 0 ? 4 : 8 + Math.round((c.total / week.max) * 34);
+            return (
               <button
+                key={c.iso}
                 type="button"
-                className="btn btn-primary btn-sm"
-                onClick={() => (formOpen ? setFormOpen(false) : openFormFocus())}
-                aria-expanded={formOpen}
+                onClick={() => setSelectedDay((cur) => (cur === c.iso ? null : c.iso))}
+                className={`week-cell${isSel ? " is-sel" : ""}${isToday ? " is-today" : ""}`}
+                aria-pressed={isSel}
+                aria-label={`${longDate(c.iso)} — ${c.total} görev${c.crit ? ", kritik var" : ""}`}
               >
-                {formOpen ? <X size={16} /> : <Sparkles size={16} />}
-                {formOpen ? "Formu kapat" : "Yeni görev"}
+                <span className="week-dow">{isToday ? "Bugün" : weekdayShort(c.iso)}</span>
+                <span className="week-dom font-mono">{fromIso(c.iso).getDate()}</span>
+                <span className="week-track" aria-hidden="true">
+                  <span
+                    className="week-bar"
+                    style={{
+                      height: barH,
+                      background: c.total === 0 ? "var(--border-soft)" : c.crit ? "var(--accent)" : "color-mix(in srgb, var(--primary) 55%, transparent)",
+                    }}
+                  />
+                </span>
+                <span className="week-count font-mono" aria-hidden="true">
+                  {c.total > 0 ? c.total : "·"}
+                </span>
               </button>
-            </div>
+            );
+          })}
+        </div>
 
-            {/* --- Yeni görev formu --- */}
-            {formOpen && (
-              <div ref={formRef} className="card newform" style={{ padding: "20px 22px", marginTop: 4 }}>
-                <form onSubmit={addTask}>
-                  <div className="form-grid">
-                    <label className="field">
-                      <span className="field-label">Görev tipi</span>
-                      <select value={fType} onChange={(e) => setFType(e.target.value as TaskType)} className="control">
-                        {TYPE_ORDER.map((tp) => (
-                          <option key={tp} value={tp}>
-                            {TYPE_META[tp].label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-
-                    <label className="field">
-                      <span className="field-label">Bitki</span>
-                      <select value={fCrop} onChange={(e) => setFCrop(e.target.value)} className="control">
-                        {CROPS.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.emoji} {c.name}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-
-                    <label className="field">
-                      <span className="field-label">Ne zaman</span>
-                      <select value={fDay} onChange={(e) => setFDay(Number(e.target.value))} className="control">
-                        {DAY_OPTIONS.map((d) => (
-                          <option key={d.off} value={d.off}>
-                            {d.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-
-                    <label className="field">
-                      <span className="field-label">Bölge</span>
-                      <input
-                        value={fZone}
-                        onChange={(e) => setFZone(e.target.value)}
-                        placeholder="Balkon — Güney"
-                        className="control"
-                      />
-                    </label>
-
-                    <label className="field field-wide">
-                      <span className="field-label">
-                        Başlık <span style={{ color: "var(--text-low)", fontWeight: 400 }}>· boş bırakırsan “{TYPE_META[fType].verb}” yazılır</span>
-                      </span>
-                      <input
-                        value={fTitle}
-                        onChange={(e) => setFTitle(e.target.value)}
-                        placeholder={TYPE_META[fType].verb}
-                        className="control"
-                      />
-                    </label>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 16 }}>
-                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => setFormOpen(false)}>
-                      Vazgeç
-                    </button>
-                    <button type="submit" className="btn btn-primary btn-sm">
-                      <Check size={16} /> Deftere ekle
-                    </button>
-                  </div>
-                </form>
-              </div>
+        {/* --- Araç çubuğu --- */}
+        <div className="toolbar">
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <span className="chip">
+              <Sprout size={13} /> {totalActive} aktif satır
+            </span>
+            {selectedDay && (
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSelectedDay(null)}>
+                <X size={15} /> Tüm haftaya dön
+              </button>
             )}
+          </div>
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            onClick={() => (formOpen ? setFormOpen(false) : openFormFocus())}
+            aria-expanded={formOpen}
+          >
+            {formOpen ? <X size={16} /> : <Sparkles size={16} />}
+            {formOpen ? "Formu kapat" : "Yeni görev"}
+          </button>
+        </div>
 
-            {/* --- Duyuru (a11y) --- */}
-            <p aria-live="polite" className={`live-note${announce ? " show" : ""}`}>
-              {announce}
-            </p>
-
-            {/* --- Liste --- */}
-            {totalActive === 0 ? (
-              <EmptyState onAdd={openFormFocus} />
-            ) : selectedDay ? (
-              <section style={{ marginTop: 10 }}>
-                <GroupHeader label={longDate(selectedDay)} hint={`${dayView?.length ?? 0} görev`} />
-                <ul className="task-list">
-                  {(dayView ?? []).map((t) => (
-                    <TaskRow
-                      key={t.id}
-                      task={t}
-                      justDone={justDone === t.id}
-                      logOpen={!!openLog[t.id]}
-                      onToggle={toggleDone}
-                      onRemove={removeTask}
-                      onToggleLog={() => setOpenLog((o) => ({ ...o, [t.id]: !o[t.id] }))}
-                    />
-                  ))}
-                </ul>
-              </section>
-            ) : (
-              groups.map((g) => (
-                <section key={g.key} style={{ marginTop: 10 }}>
-                  <GroupHeader label={g.label} hint={g.hint} count={g.items.length} />
-                  <ul className="task-list">
-                    {g.items.map((t) => (
-                      <TaskRow
-                        key={t.id}
-                        task={t}
-                        justDone={justDone === t.id}
-                        logOpen={!!openLog[t.id]}
-                        onToggle={toggleDone}
-                        onRemove={removeTask}
-                        onToggleLog={() => setOpenLog((o) => ({ ...o, [t.id]: !o[t.id] }))}
-                      />
+        {/* --- Yeni görev formu --- */}
+        {formOpen && (
+          <div ref={formRef} className="card newform" style={{ padding: "20px 22px", marginTop: 4 }}>
+            <form onSubmit={addTask}>
+              <div className="form-grid">
+                <label className="field">
+                  <span className="field-label">Görev tipi</span>
+                  <select value={fType} onChange={(e) => setFType(e.target.value as TaskType)} className="control">
+                    {TYPE_ORDER.map((tp) => (
+                      <option key={tp} value={tp}>
+                        {TYPE_META[tp].label}
+                      </option>
                     ))}
-                  </ul>
-                </section>
-              ))
-            )}
-          </>
+                  </select>
+                </label>
+
+                <label className="field">
+                  <span className="field-label">Bitki</span>
+                  <select value={fCrop} onChange={(e) => setFCrop(e.target.value)} className="control">
+                    {CROPS.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.emoji} {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="field">
+                  <span className="field-label">Ne zaman</span>
+                  <select value={fDay} onChange={(e) => setFDay(Number(e.target.value))} className="control">
+                    {DAY_OPTIONS.map((d) => (
+                      <option key={d.off} value={d.off}>
+                        {d.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="field">
+                  <span className="field-label">Bölge</span>
+                  <input
+                    value={fZone}
+                    onChange={(e) => setFZone(e.target.value)}
+                    placeholder="Balkon — Güney"
+                    className="control"
+                  />
+                </label>
+
+                <label className="field field-wide">
+                  <span className="field-label">
+                    Başlık <span style={{ color: "var(--text-low)", fontWeight: 400 }}>· boş bırakırsan “{TYPE_META[fType].verb}” yazılır</span>
+                  </span>
+                  <input
+                    value={fTitle}
+                    onChange={(e) => setFTitle(e.target.value)}
+                    placeholder={TYPE_META[fType].verb}
+                    className="control"
+                  />
+                </label>
+              </div>
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 16 }}>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setFormOpen(false)}>
+                  Vazgeç
+                </button>
+                <button type="submit" className="btn btn-primary btn-sm" disabled={taskPending}>
+                  <Check size={16} /> Deftere ekle
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* --- Duyuru (a11y) --- */}
+        <p aria-live="polite" className={`live-note${announce ? " show" : ""}`}>
+          {announce}
+        </p>
+
+        {/* --- Liste --- */}
+        {totalActive === 0 ? (
+          <EmptyState onAdd={openFormFocus} />
+        ) : selectedDay ? (
+          <section style={{ marginTop: 10 }}>
+            <GroupHeader label={longDate(selectedDay)} hint={`${dayView?.length ?? 0} görev`} />
+            <ul className="task-list">
+              {(dayView ?? []).map((t) => (
+                <TaskRow
+                  key={t.id}
+                  task={t}
+                  justDone={justDone === t.id}
+                  logOpen={!!openLog[t.id]}
+                  onToggle={toggleDone}
+                  onRemove={removeTask}
+                  onToggleLog={() => setOpenLog((o) => ({ ...o, [t.id]: !o[t.id] }))}
+                />
+              ))}
+            </ul>
+          </section>
+        ) : (
+          groups.map((g) => (
+            <section key={g.key} style={{ marginTop: 10 }}>
+              <GroupHeader label={g.label} hint={g.hint} count={g.items.length} />
+              <ul className="task-list">
+                {g.items.map((t) => (
+                  <TaskRow
+                    key={t.id}
+                    task={t}
+                    justDone={justDone === t.id}
+                    logOpen={!!openLog[t.id]}
+                    onToggle={toggleDone}
+                    onRemove={removeTask}
+                    onToggleLog={() => setOpenLog((o) => ({ ...o, [t.id]: !o[t.id] }))}
+                  />
+                ))}
+              </ul>
+            </section>
+          ))
         )}
       </section>
 
@@ -646,7 +553,7 @@ function TaskRow({
   const crop = CROP_BY_ID[task.cropId];
   const meta = TYPE_META[task.type];
   const Ico = meta.icon;
-  const hasLog = !!(task.done && (task.note || task.measurement || task.offline));
+  const hasLog = !!(task.done && (task.note || task.measurement));
 
   return (
     <li className={`task-row${task.done ? " is-done" : ""}${justDone ? " pop" : ""}${task.status === "overdue" ? " is-overdue" : ""}`}>
@@ -708,11 +615,6 @@ function TaskRow({
           <div className="fieldlog-head">
             <Clipboard size={14} />
             <span>Saha günlüğü</span>
-            {task.offline && (
-              <span className="chip offline-chip" title="Bağlantı gelince otomatik senkronlanır">
-                <Wifi size={13} /> Çevrimdışı kaydedildi · senkron bekliyor
-              </span>
-            )}
           </div>
           {task.note && <p className="fieldlog-note">{task.note}</p>}
           <div className="fieldlog-actions">
@@ -751,18 +653,6 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
       <button type="button" className="btn btn-primary" onClick={onAdd}>
         <Sprout size={18} /> İlk görevini ekle <ArrowRight size={16} />
       </button>
-    </div>
-  );
-}
-
-function Skeleton() {
-  return (
-    <div style={{ marginTop: 34, display: "grid", gap: 12 }} aria-hidden="true">
-      <div className="sk" style={{ height: 116, borderRadius: "var(--radius-card)" }} />
-      <div className="sk" style={{ height: 78, borderRadius: "var(--radius-card)" }} />
-      {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="sk" style={{ height: 66, borderRadius: "var(--radius-card)" }} />
-      ))}
     </div>
   );
 }
@@ -862,7 +752,6 @@ function StyleBlock() {
 
       .fieldlog { border-top: 1px dashed var(--border-soft); background: var(--bg-surface-2); padding: 14px 16px 16px; }
       .fieldlog-head { display: flex; align-items: center; gap: 8px; font-size: var(--fs-sm); font-weight: 600; color: var(--text-mid); flex-wrap: wrap; }
-      .offline-chip { margin-left: auto; background: color-mix(in srgb, var(--color-warning) 12%, transparent); color: var(--color-warning); border-color: color-mix(in srgb, var(--color-warning) 28%, transparent); }
       .fieldlog-note { margin: 10px 0 12px; font-size: var(--fs-base); color: var(--text-mid); line-height: 1.55; padding-left: 22px; border-left: 2px solid var(--color-forest-300); }
       .fieldlog-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
@@ -885,8 +774,6 @@ function StyleBlock() {
       .tcheck input:focus-visible + .tcheck-box { outline: 2px solid var(--ring); outline-offset: 2px; }
 
       .empty { text-align: center; display: flex; flex-direction: column; align-items: center; }
-
-      .sk { background: linear-gradient(100deg, var(--bg-inset) 30%, var(--bg-surface-2) 50%, var(--bg-inset) 70%); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
 
       @media (max-width: 860px) {
         .ritual-head { grid-template-columns: 1fr; }
@@ -915,7 +802,7 @@ function StyleBlock() {
       }
 
       @media (prefers-reduced-motion: reduce) {
-        .task-row.pop, .tcheck input:checked + .tcheck-box svg, .week-bar, .sk { animation: none !important; transition: none !important; }
+        .task-row.pop, .tcheck input:checked + .tcheck-box svg, .week-bar { animation: none !important; transition: none !important; }
       }
     `}</style>
   );

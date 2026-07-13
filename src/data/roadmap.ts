@@ -186,7 +186,15 @@ export const EPICS: Epic[] = [
       ...t,
       // /plan'da gerçek 3-senaryo karşılaştırma UI'ı zaten çalışıyordu (önceki turda işaretlenmemiş);
       // görev şablon motoru + gecikme/aşağı akış etkisi (applyTaskDelay) test edilerek implement edildi.
-      status: (["todo", "done", "todo", "done", "todo", "todo", "todo", "todo", "done", "todo", "todo"][i]) as TaskStatus,
+      // 2026-07-13 (DB göç Phase 2): /plan ve /gorevler artık localStorage DEĞİL, gerçek Postgres
+      // (Plan + Task modelleri, prisma/schema.prisma) — workspace başına kalıcı, cihaz-bağımsız.
+      // Plan yalnız sihirbazın HAM SiteProfile girdisini saklar (hesaplanan sonuç asla
+      // kalıcılaştırılmaz, her okunuşta runAssessment() ile yeniden hesaplanır). Task modeli, eski
+      // Tasks.tsx'in yerel "gubreleme" yazım hatasını (taskTemplates.ts'in "gubre"siyle
+      // tutarsızdı) düzeltti ve dekoratif/hiç işlevi olmayan "offline" alanını kasıtlı olarak
+      // düşürdü. "Görev atama ve takvim" hâlâ todo bırakıldı — gerçek olan tek-workspace görev
+      // listesi + tarih/bölge ataması; ekip üyesine (kişiye) atama kavramı henüz yok.
+      status: (["done", "done", "todo", "done", "todo", "todo", "todo", "todo", "done", "todo", "todo"][i]) as TaskStatus,
       title: ["SeasonPlan/Activity şeması", "Plan senaryosu karşılaştırma UI", "Yatak/parsel takvim yerleşimi", "Görev şablon motoru", "Görev atama ve takvim", "Fotoğraf/ses/ölçümle tamamlama", "Uygulama ve girdi lot kaydı", "Hava/sensör görev önerisi", "Gecikme ve aşağı akış etkisi", "QR/NFC üretim birimi açma", "Operasyon KPI"][i],
     })),
   },
