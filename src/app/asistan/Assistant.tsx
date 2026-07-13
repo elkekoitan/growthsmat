@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
 import { askAssistant, EXAMPLE_QUESTIONS, type AssistantAnswer } from "@/lib/assistant";
+import { suggestSpecialtyForQuery, SPECIALTY_LABELS } from "@/lib/expertConsult";
 import { Reveal } from "@/components/ui";
 import { Sparkles, ShieldCheck, Check, ArrowRight, Globe } from "@/components/icons";
 
@@ -112,6 +113,18 @@ export function Assistant() {
                       <p style={{ fontSize: "var(--fs-xs)", color: "var(--text-low)", marginTop: 8 }}>
                         {m.answer.suggestedAction}
                       </p>
+                    )}
+                    {m.answer?.safetyBlocked && (
+                      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 8 }}>
+                        <Link href="/uzman-danisma" className="btn btn-secondary btn-sm">
+                          Uzmana danışmanlık talep et <ArrowRight size={14} />
+                        </Link>
+                        {suggestSpecialtyForQuery(m.answer.query) && (
+                          <span className="chip chip-info">
+                            Önerilen alan: {SPECIALTY_LABELS[suggestSpecialtyForQuery(m.answer.query)!]}
+                          </span>
+                        )}
+                      </div>
                     )}
                   </div>
                 )

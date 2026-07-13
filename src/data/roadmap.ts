@@ -250,8 +250,14 @@ export const EPICS: Epic[] = [
     tasks: todos("P11", 11).map((t, i) => ({
       ...t,
       // Kural-tabanlı (LLM'siz) güvenlik sınıflandırma + kaynaklı Q&A motoru ve /asistan UI'ı
-      // test edilerek implement edildi; gerçek model gateway/RAG/uzman akışı henüz yok.
-      status: (["todo", "done", "todo", "in_progress", "done", "todo", "todo", "todo", "todo", "todo", "in_progress"][i]) as TaskStatus,
+      // test edilerek implement edildi; gerçek model gateway/RAG akışı henüz yok.
+      // Uzman danışma vaka akışı (açık→atandı→yanıtlandı→kapatıldı, compliance.review rol
+      // kapısı, doğrulanmış+uzmanlık-eşleşmeli atama, yanıt kanıt seviyesi sessizce
+      // yükseltilemez) test edilerek implement edildi (src/lib/expertConsult.ts,
+      // /uzman-danisma). Asistanın güvenlik bloğu artık gerçek bir sonraki adıma bağlanıyor
+      // (classifySafetyBlock ile önerilen uzmanlık alanı). Görsel gözlem vaka akışı (P11-07,
+      // fotoğraf/ölçüm ekli vakalar) ayrı kapsam — henüz yok.
+      status: (["todo", "done", "todo", "in_progress", "done", "todo", "todo", "done", "todo", "todo", "in_progress"][i]) as TaskStatus,
       title: ["Model gateway ve adaptör", "Politika/risk sınıflandırma", "Domain tool registry", "Sürümlü kaynak/RAG indeksi", "Kaynaklı sohbet UI/API", "Yazma taslağı ve onay", "Görsel gözlem vaka akışı", "Uzman profil ve görüş", "Topluluk/deney paylaşımı", "Moderasyon ve itiraz", "AI altın set ve eval"][i],
     })),
   },

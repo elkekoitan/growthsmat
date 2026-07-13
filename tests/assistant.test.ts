@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { askAssistant, EXAMPLE_QUESTIONS } from "../src/lib/assistant.ts";
+import { askAssistant, classifySafetyBlock, EXAMPLE_QUESTIONS } from "../src/lib/assistant.ts";
 
 test("GÜVENLİK: pestisit dozu sorusu bloklanır, cevap üretilmez", () => {
   const r = askAssistant("Domateste mildiyö için kaç ml ilaçlama yapmalıyım?");
@@ -74,4 +74,16 @@ test("EXAMPLE_QUESTIONS her biri gerçek bir yanıt üretir (kırık örnek yok)
     const r = askAssistant(q);
     assert.ok(r.answer.length > 0);
   }
+});
+
+test("classifySafetyBlock: pestisit dozu deseniyle eşleşince 'girdi-dozu' döner", () => {
+  assert.equal(classifySafetyBlock("Domateste mildiyö için kaç ml ilaçlama yapmalıyım?"), "girdi-dozu");
+});
+
+test("classifySafetyBlock: tıbbi iddia deseniyle eşleşince 'tibbi-iddia' döner", () => {
+  assert.equal(classifySafetyBlock("Bu mikro filiz kanseri tedavi eder mi?"), "tibbi-iddia");
+});
+
+test("classifySafetyBlock: sıradan soruda undefined döner (yanlış pozitif yok)", () => {
+  assert.equal(classifySafetyBlock("Balkonda cherry domates yetişir mi?"), undefined);
 });

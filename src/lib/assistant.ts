@@ -40,15 +40,29 @@ const MEDICAL_CLAIM_PATTERNS = [
   /iyileştirir mi/i,
 ];
 
+export type SafetyBlockCategory = "girdi-dozu" | "tibbi-iddia";
+
+/**
+ * Bir sorgunun hangi güvenlik kategorisine girdiğini döner (checkSafety ile aynı desenler).
+ * Dışa açık — uzman danışma akışı (expertConsult.ts) bloklanan bir soru için sensible bir
+ * uzmanlık alanı önerebilsin diye.
+ */
+export function classifySafetyBlock(query: string): SafetyBlockCategory | undefined {
+  if (PESTICIDE_DOSE_PATTERNS.some((p) => p.test(query))) return "girdi-dozu";
+  if (MEDICAL_CLAIM_PATTERNS.some((p) => p.test(query))) return "tibbi-iddia";
+  return undefined;
+}
+
 function checkSafety(query: string): { blocked: boolean; reason?: string } {
-  if (PESTICIDE_DOSE_PATTERNS.some((p) => p.test(query))) {
+  const category = classifySafetyBlock(query);
+  if (category === "girdi-dozu") {
     return {
       blocked: true,
       reason:
         "Pestisit/girdi dozu ülke ve ürüne göre resmi olarak doğrulanmadan önerilemez. Etikette veya yetkili kaynakta olmayan doz/karışım AI tarafından üretilmez.",
     };
   }
-  if (MEDICAL_CLAIM_PATTERNS.some((p) => p.test(query))) {
+  if (category === "tibbi-iddia") {
     return {
       blocked: true,
       reason:
