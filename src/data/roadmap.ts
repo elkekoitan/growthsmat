@@ -218,7 +218,18 @@ export const EPICS: Epic[] = [
       // gerçek hastalık verisiyle familya-özel minimum süre uygulanıyor (ör. Brassicaceae/
       // kökboğan → 7 yıl, sert kısıt yalnız SIKILAŞTIRILIR asla gevşetilmez) — /rotasyon'da
       // gerekçesiyle gösteriliyor.
-      status: (["in_progress", "done", "done", "done", "done", "done", "done", "done", "done", "done", "done", "done", "done", "todo"][i]) as TaskStatus,
+      // 2026-07-13 (dokümantasyon denetimi, P05-12): "Birlikte ekim ilişki motoru" "done"
+      // etiketliydi ama 03-TEKNIK-MIMARI.md §8 ve 05-URUN-VE-BILGI-MODELI.md §6'nın istediği
+      // ÇOK BOYUTLU CropRelation (relation_type: intercrop|rotation|trap_crop|border|succession;
+      // controlled mechanism enum; spatial_pattern; temporal_pattern; climate_scope; sources;
+      // ayrı confidence) HİÇ implemente edilmedi — src/data/crops.ts'teki gerçek CompanionRelation
+      // hâlâ tek-boyutlu bir listedir (yalnız effect/mechanism-serbest-metin/evidence, bkz. satır
+      // 43-48). docs/04-GOREV-MATRISI.md'de bu görev zaten "todo" — roadmap.ts'in "done" etiketi
+      // kendi üstündeki "prototip aşamasında" yorumuyla da çelişiyordu. Durum düzeltildi;
+      // çok-boyutlu ilişki verisi UYDURULMADI (her crop çifti için relation_type/spatial_pattern
+      // gibi alanları gerçek agronomik kaynak olmadan icat etmek "sahte kesinlik" olurdu) —
+      // bu, gerçek araştırma gerektiren, ayrı bir ileri iş kalemi olarak açıkça bırakılıyor.
+      status: (["in_progress", "done", "done", "done", "done", "done", "done", "done", "done", "done", "done", "in_progress", "done", "todo"][i]) as TaskStatus,
       title: ["Değerlendirme input snapshot", "Birim/özellik normalizasyonu", "Sert kısıt motoru", "İklim alt skoru", "Toprak/su alt skoru", "Yöntem/operasyon alt skoru", "Risk/sürdürülebilirlik skoru", "Pazar/ekonomi alt skoru", "Güven ve belirsizlik hesabı", "Açıklama ve veri boşluğu", "Ne-olursa senaryo motoru", "Birlikte ekim ilişki motoru", "Rotasyon çözücü", "Karar geri bildirimi"][i],
     })),
   },
