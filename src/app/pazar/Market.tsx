@@ -2,6 +2,7 @@
 
 import { useActionState, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   CATALOG_WITH_EMOJI,
   CHANNELS,
@@ -19,7 +20,8 @@ import {
   type ChannelId,
   type PaymentCountry,
 } from "@/data/commerce";
-import { CROPS } from "@/data/crops";
+import { CROPS, type CropCategory } from "@/data/crops";
+import { cropPhotoPath, primaryCredit } from "@/data/photoCredits";
 import { NumberedHeading, StampBadge, WaveDivider } from "@/components/graphics";
 import { SpotlightCard, KpiCard } from "@/components/visuals";
 import { Reveal } from "@/components/ui";
@@ -57,13 +59,18 @@ export interface MarketProps {
   incomingOrdersByListing: Record<string, RealOrder[]>;
 }
 
-const CATEGORY_QUICK_FILTERS = [
-  { id: "sebze", label: "Sebze", emoji: "🍅" },
-  { id: "yesillik", label: "Yeşillik", emoji: "🥬" },
-  { id: "meyve", label: "Meyve", emoji: "🍓" },
-  { id: "mikrofiliz", label: "Mikro Filiz", emoji: "🌱" },
-  { id: "kurutulmus", label: "Kurutulmuş", emoji: "🫙" },
-] as const;
+// "Hasat Pazarı" kategori kimliği — ADR-009 (Ekosistem ve görsel kimlik) ve
+// docs/design/hasat-pazari-gorsel-yon.html referans önizlemesiyle BİREBİR aynı renkler.
+// Yeni palet İCAT EDİLMEDİ — bu tam olarak urunler/Explorer.tsx'teki CATEGORY_META.
+const HASAT_CATEGORY_META: Record<CropCategory, { label: string; color: string; emoji: string }> = {
+  "meyveli-sebze": { label: "Meyveli sebze", color: "#b23f26", emoji: "🍅" },
+  yaprakli: { label: "Yapraklı", color: "#2b7a4b", emoji: "🥬" },
+  aromatik: { label: "Aromatik", color: "#0f7a71", emoji: "🌿" },
+  "kok-yumru": { label: "Kök & yumru", color: "#9a6410", emoji: "🥕" },
+  baklagil: { label: "Baklagil", color: "#5c7a26", emoji: "🫘" },
+  meyve: { label: "Meyve", color: "#a83560", emoji: "🍓" },
+  "agac-meyve": { label: "Ağaç meyvesi", color: "#6b4226", emoji: "🫒" },
+};
 
 const INITIAL_FORM_STATE: MarketFormState = {};
 
@@ -172,22 +179,25 @@ export function Market({ session, realListings, myListings, myOrders, incomingOr
       </section>
       <WaveDivider fill="var(--color-paper-50)" />
 
-      {/* ---------- GERÇEK VİTRİN (canlı Postgres — statik demo değil) ---------- */}
-      {/* Tasarım kaynağı: kullanıcının kendi kaydettiği Pinterest pinleri (bkz. vault
-          25-Design-Research-Log-Pinterest.md) — "100% PURE ORGANIC" / "Fresh Organic Food"
-          / "Shop Fresh Fruits Online": canlı/doygun yeşil bant, dairesel kategori rozetleri,
-          güven-rozeti şeridi, gerçek fiyat+sepet kartı deseni. Yalnız bu bölüme özel, scoped
-          — Evergreen Ledger'ın orman/altın kimliği sayfanın geri kalanında değişmedi. */}
+      {/* ---------- HASAT PAZARI VİTRİNİ (canlı Postgres — statik demo değil) ---------- */}
+      {/* Görsel kimlik kaynağı: ADR-009 (Ekosistem önceliklendirmesi ve iki katmanlı görsel
+          kimlik) + docs/design/hasat-pazari-gorsel-yon.html referans önizlemesi — kullanıcının
+          kendi Pinterest panosu (pin.it/3hy0iVoBY, "Organic Store Website Design" ve ilişkili
+          onlarca organik market tasarımı) temel alınarak hazırlandı. "Hasat Pazarı": toprak/
+          terracotta birincil + hasat altını aksan + krem zemin; orman yeşili YALNIZ doğrulanmış
+          "sertifikalı organik" rozetinde kullanılır (renk = kanıt sinyali). Evergreen Ledger'ın
+          orman/altın kimliği profesyonel/üretici yüzeylerinde (plan, rotasyon, izlenebilirlik,
+          sensör, kurasyon, uzman danışma, roller) AYNEN kalır — bu yalnız /pazar'a scoped. */}
       <section className="market-hero-band">
         <div className="container-x">
           <div style={{ textAlign: "center", marginBottom: 28 }}>
-            <span className="eyebrow" style={{ color: "#F3F9F0" }}>
-              CANLI VİTRİN
+            <span className="eyebrow market-hero-eyebrow">
+              HASAT PAZARI
             </span>
-            <h2 style={{ fontSize: "var(--fs-h2)", color: "#fff", marginTop: 10, marginBottom: 10 }}>
-              Gerçek üreticiler, gerçek ilanlar
+            <h2 style={{ fontSize: "var(--fs-h2)", marginTop: 10, marginBottom: 10 }}>
+              Ürettiğini <em style={{ fontStyle: "italic", color: "#A1502E" }}>kaçırmadan</em> sat, aradığını güvenle bul.
             </h2>
-            <p style={{ color: "rgba(255,255,255,.82)", maxWidth: 560, margin: "0 auto" }}>
+            <p style={{ color: "var(--text-mid)", maxWidth: 560, margin: "0 auto" }}>
               Aşağıdaki ilanlar veritabanından geliyor — gerçek üreticiler ekliyor, gerçek
               alıcılar sipariş veriyor. Ödeme tahsilatı henüz entegre değil (bkz. not); sipariş
               iki gerçek hesap arasında kalıcı bir talep kaydı oluşturur.
@@ -195,12 +205,17 @@ export function Market({ session, realListings, myListings, myOrders, incomingOr
           </div>
 
           <div className="market-category-row">
-            {CATEGORY_QUICK_FILTERS.map((c) => (
-              <div key={c.id} className="market-category-badge">
-                <span className="market-category-badge-icon">{c.emoji}</span>
-                <span>{c.label}</span>
-              </div>
-            ))}
+            {(Object.keys(HASAT_CATEGORY_META) as CropCategory[]).map((catId) => {
+              const meta = HASAT_CATEGORY_META[catId];
+              return (
+                <div key={catId} className="market-category-badge">
+                  <span className="market-category-badge-icon" style={{ background: meta.color }}>
+                    {meta.emoji}
+                  </span>
+                  <span>{meta.label}</span>
+                </div>
+              );
+            })}
           </div>
 
           <div className="market-trust-row">
@@ -225,12 +240,20 @@ export function Market({ session, realListings, myListings, myOrders, incomingOr
             ) : (
               realListings.map((l) => {
                 const crop = l.cropId ? CROPS.find((c) => c.id === l.cropId) : undefined;
+                const photoPath = l.cropId ? cropPhotoPath(l.cropId) : undefined;
+                const credit = l.cropId ? primaryCredit(l.cropId) : undefined;
                 const incoming = incomingOrdersByListing[l.id] ?? [];
                 const isMine = myListings.some((m) => m.id === l.id);
                 return (
-                  <div key={l.id} className="card card-hover market-real-card" style={{ padding: 18 }}>
+                  <div key={l.id} className="card card-hover market-real-card">
+                    {photoPath ? (
+                      <div className="market-real-card-photo">
+                        <Image src={photoPath} alt={credit?.isApproximation ? `${l.title} (analog görsel)` : l.title} fill sizes="280px" style={{ objectFit: "cover" }} />
+                      </div>
+                    ) : null}
+                    <div style={{ padding: 16 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                      <span className="market-real-card-emoji">{crop?.emoji ?? "🌱"}</span>
+                      {!photoPath && <span className="market-real-card-emoji">{crop?.emoji ?? "🌱"}</span>}
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: 600 }}>{l.title}</div>
                         <div style={{ fontSize: "var(--fs-xs)", color: "var(--text-low)" }}>
@@ -238,7 +261,7 @@ export function Market({ session, realListings, myListings, myOrders, incomingOr
                         </div>
                       </div>
                     </div>
-                    <div className="font-mono" style={{ fontSize: "var(--fs-lg)", fontWeight: 600 }}>
+                    <div className="font-mono" style={{ fontSize: "var(--fs-lg)", fontWeight: 600, color: "#7c3b21" }}>
                       {l.priceTRY.toLocaleString("tr-TR")} ₺
                     </div>
                     <div style={{ fontSize: "var(--fs-xs)", color: "var(--text-low)", marginBottom: 12 }}>{l.unitLabel}</div>
@@ -288,12 +311,14 @@ export function Market({ session, realListings, myListings, myOrders, incomingOr
                     {orderMsg[l.id] && (
                       <p style={{ fontSize: "var(--fs-xs)", marginTop: 8, color: "var(--text-mid)" }}>{orderMsg[l.id]}</p>
                     )}
+                    </div>
                   </div>
                 );
               })
             )}
           </div>
         </div>
+        <WaveDivider fill="var(--color-paper-50)" />
       </section>
 
       {/* --- Vitrinim / Siparişlerim (yalnız giriş yapılmışsa) --- */}
@@ -760,13 +785,16 @@ export function Market({ session, realListings, myListings, myOrders, incomingOr
       </section>
 
       <style>{`
-        /* "Gerçek Vitrin" — kullanıcının kendi Pinterest kaydettikleri referans al: canlı/
-           doygun yeşil (mevcut --primary-700'den daha canlı bir ton), gerçek ürün rozetleri,
-           güven şeridi. Yalnız bu bant/kart setine scoped, global token'lar değişmedi. */
+        /* "Hasat Pazarı" — ADR-009 + docs/design/hasat-pazari-gorsel-yon.html referans
+           önizlemesiyle BİREBİR: altın→krem→orman yeşili degrade hero (koyu solid yeşil DEĞİL),
+           toprak/terracotta vurgu metni, kategoriye-özel renkli rozetler (Explorer.tsx'teki
+           CATEGORY_META ile aynı palet), gerçek ürün fotoğrafları. Yalnız bu bant/kart setine
+           scoped — Evergreen Ledger'ın global token'ları değişmedi. */
         .market-hero-band {
-          padding: 56px 0;
-          background: linear-gradient(160deg, #1f7a4d 0%, #145c38 100%);
+          padding: 56px 0 0;
+          background: linear-gradient(135deg, #f7de9f 0%, #F9F8F3 55%, #dcede1 100%);
         }
+        .market-hero-eyebrow { color: #7c3b21; }
         .market-category-row {
           display: flex;
           justify-content: center;
@@ -780,7 +808,7 @@ export function Market({ session, realListings, myListings, myOrders, incomingOr
           align-items: center;
           gap: 6px;
           font-size: var(--fs-xs);
-          color: #fff;
+          color: var(--text-mid);
           font-weight: 600;
         }
         .market-category-badge-icon {
@@ -789,9 +817,9 @@ export function Market({ session, realListings, myListings, myOrders, incomingOr
           border-radius: 999px;
           display: grid;
           place-items: center;
-          font-size: 26px;
-          background: rgba(255,255,255,.16);
-          border: 1px solid rgba(255,255,255,.28);
+          font-size: 24px;
+          color: #fff;
+          box-shadow: var(--shadow-sm, 0 1px 2px rgba(28,36,32,.08));
         }
         .market-trust-row {
           display: flex;
@@ -800,21 +828,33 @@ export function Market({ session, realListings, myListings, myOrders, incomingOr
           flex-wrap: wrap;
           margin-bottom: 28px;
           font-size: var(--fs-xs);
-          color: rgba(255,255,255,.82);
+          color: var(--text-low);
         }
         .market-trust-row span { display: inline-flex; align-items: center; gap: 6px; }
         .market-real-grid {
           display: grid;
           grid-template-columns: repeat(4, minmax(0, 1fr));
           gap: 14px;
+          padding-bottom: 8px;
         }
         .market-real-card {
           background: #FDFCF8 !important;
+          padding: 0 !important;
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+        }
+        .market-real-card-photo {
+          position: relative;
+          width: 100%;
+          height: 132px;
+          background: var(--bg-surface-2);
+          flex-shrink: 0;
         }
         .market-real-card-emoji {
           width: 40px; height: 40px; border-radius: 999px;
           display: grid; place-items: center; font-size: 20px;
-          background: color-mix(in srgb, #1f7a4d 12%, transparent);
+          background: color-mix(in srgb, #A1502E 12%, transparent);
         }
         @media (max-width: 1100px) { .market-real-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } }
         @media (max-width: 560px) { .market-real-grid { grid-template-columns: 1fr; } }
