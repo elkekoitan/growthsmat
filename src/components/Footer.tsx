@@ -16,9 +16,9 @@ const COLUMNS = [
   {
     title: "Platform",
     links: [
-      { href: "/panel", label: "Proje paneli" },
+      { href: "/panel", label: "Yol haritası" },
       { href: "/plan", label: "Uygunluk motoru" },
-      { href: "/mikrofiliz", label: "Maliyet hesaplayıcı" },
+      { href: "/maliyet", label: "Maliyet ve marj" },
       { href: "/urunler", label: "Bilgi grafiği" },
       { href: "/izlenebilirlik", label: "Lot izlenebilirlik" },
       { href: "/rotasyon", label: "Rotasyon planlayıcı" },
