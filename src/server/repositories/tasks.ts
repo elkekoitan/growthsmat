@@ -209,6 +209,26 @@ export async function toggleTaskDone(id: string, workspaceId: string): Promise<R
   return toRealTask(row);
 }
 
+/** Tamamlanmış bir görevin saha günlüğünü (not/ölçüm) yazar — boş string alan temizler. */
+export async function updateTaskLog(
+  id: string,
+  workspaceId: string,
+  input: { note?: string; measurement?: string }
+): Promise<RealTask | undefined> {
+  const db = getDb();
+  const existing = await db.task.findUnique({ where: { id } });
+  if (!existing || existing.workspaceId !== workspaceId) return undefined;
+  const row = await db.task.update({
+    where: { id },
+    data: {
+      note: input.note?.trim() ? input.note.trim() : null,
+      measurement: input.measurement?.trim() ? input.measurement.trim() : null,
+    },
+    include: { assignedTo: { select: { email: true } } },
+  });
+  return toRealTask(row);
+}
+
 export async function deleteTask(id: string, workspaceId: string): Promise<boolean> {
   const db = getDb();
   const existing = await db.task.findUnique({ where: { id } });

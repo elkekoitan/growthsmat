@@ -264,7 +264,13 @@ export const EPICS: Epic[] = [
       // task.assign izniyle HEM atanan kişinin O workspace'te aktif üyeliğiyle doğruluyor (başka
       // workspace'ten rastgele bir userId atanamaz). /gorevler'de her satırda gerçek atanan kişi
       // (veya "Atanmamış") görünür; izni olan roller için canlı bir üye seçici var.
-      status: (["done", "done", "todo", "done", "done", "todo", "todo", "todo", "done", "todo", "todo"][i]) as TaskStatus,
+      // 2026-07-14: "Fotoğraf/ses/ölçümle tamamlama" in_progress'e çekildi — "Ölçüm gir"/"Ses notu"
+      // butonları önceden disabled+"Yakında" sahte placeholder'dı. Ölçüm ve saha notu girişi artık
+      // GERÇEK: updateTaskLog() Postgres'e yazıyor, /gorevler'de tamamlanan her görevin altında
+      // düzenlenebilir bir form var. Fotoğraf/ses kaydı KASITLI OLARAK hâlâ yapılmadı — bunlar
+      // dosya/blob depolama altyapısı (bucket + upload akışı) gerektirir, bu henüz kurulu değil;
+      // sahte bir "yüklendi" göstermek yerine dürüstçe disabled bırakıldı.
+      status: (["done", "done", "todo", "done", "done", "in_progress", "todo", "todo", "done", "todo", "todo"][i]) as TaskStatus,
       title: ["SeasonPlan/Activity şeması", "Plan senaryosu karşılaştırma UI", "Yatak/parsel takvim yerleşimi", "Görev şablon motoru", "Görev atama ve takvim", "Fotoğraf/ses/ölçümle tamamlama", "Uygulama ve girdi lot kaydı", "Hava/sensör görev önerisi", "Gecikme ve aşağı akış etkisi", "QR/NFC üretim birimi açma", "Operasyon KPI"][i],
     })),
   },

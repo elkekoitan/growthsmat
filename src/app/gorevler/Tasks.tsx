@@ -18,7 +18,7 @@ import {
   MapPin,
   ArrowRight,
 } from "@/components/icons";
-import { createTaskAction, deleteTaskAction, toggleTaskAction, assignTaskAction } from "./actions";
+import { createTaskAction, deleteTaskAction, toggleTaskAction, assignTaskAction, updateTaskLogAction } from "./actions";
 import type { RealTask as Task, TaskKind, WorkspaceMember } from "@/server/repositories/tasks";
 import { suggestRebalance, type LaborCapacityResult } from "@/lib/laborCapacity";
 
@@ -222,6 +222,16 @@ export function Tasks({
       const result = await assignTaskAction(id, assigneeUserId);
       if (result.error) setAnnounce(result.error);
       else if (result.success) setAnnounce(result.success);
+    });
+  }
+
+  function saveLog(id: string, note: string, measurement: string) {
+    setTasks((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, note: note.trim() || undefined, measurement: measurement.trim() || undefined } : t))
+    );
+    setAnnounce("Saha günlüğü kaydedildi.");
+    startTaskTransition(async () => {
+      await updateTaskLogAction(id, note, measurement);
     });
   }
 
@@ -482,6 +492,7 @@ export function Tasks({
                   members={members}
                   canAssign={canAssign}
                   onAssign={assignTo}
+                  onSaveLog={saveLog}
                 />
               ))}
             </ul>
@@ -503,6 +514,7 @@ export function Tasks({
                     members={members}
                     canAssign={canAssign}
                     onAssign={assignTo}
+                    onSaveLog={saveLog}
                   />
                 ))}
               </ul>
@@ -606,6 +618,7 @@ function TaskRow({
   members,
   canAssign,
   onAssign,
+  onSaveLog,
 }: {
   task: EnrichedTask;
   justDone: boolean;
@@ -616,11 +629,15 @@ function TaskRow({
   members: WorkspaceMember[];
   canAssign: boolean;
   onAssign: (id: string, assigneeUserId: string | null) => void;
+  onSaveLog: (id: string, note: string, measurement: string) => void;
 }) {
   const crop = CROP_BY_ID[task.cropId];
   const meta = TYPE_META[task.type];
   const Ico = meta.icon;
-  const hasLog = !!(task.done && (task.note || task.measurement));
+  const canLog = task.done;
+  const hasLogContent = !!(task.note || task.measurement);
+  const [draftNote, setDraftNote] = useState(task.note ?? "");
+  const [draftMeasurement, setDraftMeasurement] = useState(task.measurement ?? "");
 
   return (
     <li className={`task-row${task.done ? " is-done" : ""}${justDone ? " pop" : ""}${task.status === "overdue" ? " is-overdue" : ""}`}>
@@ -685,8 +702,14 @@ function TaskRow({
         {/* durum + aksiyonlar */}
         <div className="task-right">
           <StatusPill status={task.status} type={task.type} />
-          {hasLog && (
-            <button type="button" className="log-toggle" onClick={onToggleLog} aria-expanded={logOpen} aria-label="Saha günlüğünü aç/kapat">
+          {canLog && (
+            <button
+              type="button"
+              className="log-toggle"
+              onClick={onToggleLog}
+              aria-expanded={logOpen}
+              aria-label={hasLogContent ? "Saha günlüğünü aç/kapat" : "Saha günlüğü ekle"}
+            >
               <Clipboard size={15} />
             </button>
           )}
@@ -697,30 +720,51 @@ function TaskRow({
       </div>
 
       {/* saha günlüğü */}
-      {hasLog && logOpen && (
-        <div className="fieldlog">
+      {canLog && logOpen && (
+        <form
+          className="fieldlog"
+          onSubmit={(e: FormEvent) => {
+            e.preventDefault();
+            onSaveLog(task.id, draftNote, draftMeasurement);
+          }}
+        >
           <div className="fieldlog-head">
             <Clipboard size={14} />
             <span>Saha günlüğü</span>
           </div>
-          {task.note && <p className="fieldlog-note">{task.note}</p>}
+          <label className="field" style={{ marginBottom: 10 }}>
+            <span className="field-label">Not</span>
+            <textarea
+              value={draftNote}
+              onChange={(e) => setDraftNote(e.target.value)}
+              className="control"
+              rows={2}
+              placeholder="Ne gözlemledin? (ör. ilk kesim 318 g, göbek bırakıldı)"
+            />
+          </label>
           <div className="fieldlog-actions">
-            {task.measurement && (
-              <span className="chip">
-                <Beaker size={13} /> {task.measurement}
+            <label className="field" style={{ flex: 1, minWidth: 160 }}>
+              <span className="field-label">
+                <Beaker size={12} /> Ölçüm
               </span>
-            )}
-            <button type="button" className="btn btn-secondary btn-sm" disabled title="Yakında">
+              <input
+                value={draftMeasurement}
+                onChange={(e) => setDraftMeasurement(e.target.value)}
+                className="control"
+                placeholder="318 g, 6 cm aralık…"
+              />
+            </label>
+            <button type="submit" className="btn btn-primary btn-sm">
+              <Check size={14} /> Kaydet
+            </button>
+            <button type="button" className="btn btn-secondary btn-sm" disabled title="Dosya depolama altyapısı henüz yok">
               Fotoğraf ekle
             </button>
-            <button type="button" className="btn btn-secondary btn-sm" disabled title="Yakında">
-              <Beaker size={14} /> Ölçüm gir
-            </button>
-            <button type="button" className="btn btn-secondary btn-sm" disabled title="Yakında">
+            <button type="button" className="btn btn-secondary btn-sm" disabled title="Dosya depolama altyapısı henüz yok">
               Ses notu
             </button>
           </div>
-        </div>
+        </form>
       )}
     </li>
   );
@@ -847,7 +891,9 @@ function StyleBlock() {
       .fieldlog { border-top: 1px dashed var(--border-soft); background: var(--bg-surface-2); padding: 14px 16px 16px; }
       .fieldlog-head { display: flex; align-items: center; gap: 8px; font-size: var(--fs-sm); font-weight: 600; color: var(--text-mid); flex-wrap: wrap; }
       .fieldlog-note { margin: 10px 0 12px; font-size: var(--fs-base); color: var(--text-mid); line-height: 1.55; padding-left: 22px; border-left: 2px solid var(--color-forest-300); }
-      .fieldlog-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+      .fieldlog-actions { display: flex; align-items: flex-end; gap: 8px; flex-wrap: wrap; }
+      .fieldlog textarea.control { height: auto; min-height: 42px; padding: 10px 12px; resize: vertical; font-family: var(--font-sans); }
+      .fieldlog .field-label { display: flex; align-items: center; gap: 4px; }
 
       /* tamamlama mikro geri bildirimi */
       @keyframes task-pop { 0% { transform: scale(1); } 40% { transform: scale(0.985); } 100% { transform: scale(1); } }
