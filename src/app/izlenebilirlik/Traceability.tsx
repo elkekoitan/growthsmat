@@ -11,6 +11,7 @@ import {
   type Lot,
   type LotType,
 } from "@/lib/traceability";
+import type { RealLot } from "@/server/repositories/lots";
 import { NumberedHeading } from "@/components/graphics";
 import { Reveal } from "@/components/ui";
 import {
@@ -60,7 +61,7 @@ function LotChip({ lot, onClick }: { lot: Lot; onClick?: () => void }) {
   );
 }
 
-export function Traceability({ initialLots, canCreateLot }: { initialLots: Lot[]; canCreateLot: boolean }) {
+export function Traceability({ initialLots, canCreateLot }: { initialLots: RealLot[]; canCreateLot: boolean }) {
   const lots = initialLots;
   const [selectedId, setSelectedId] = useState<string>(lots[3]?.id ?? lots[0]?.id ?? "");
   const [recallOpen, setRecallOpen] = useState(false);
@@ -229,6 +230,11 @@ export function Traceability({ initialLots, canCreateLot }: { initialLots: Lot[]
                   <Calendar size={13} style={{ verticalAlign: -2, marginRight: 4 }} />
                   {lot.producedAt} · <span className="font-mono">{lot.quantity} {lot.unit}</span>
                 </div>
+                {lot.createdByEmail && (
+                  <div style={{ fontSize: "var(--fs-xs)", color: "var(--text-low)" }}>
+                    Kaydeden: {lot.createdByEmail} <span title="Serbest metin 'Sahip' alanının aksine, bu gerçek oturumdan gelen değiştirilemez bir denetim izidir.">ⓘ</span>
+                  </div>
+                )}
               </div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 18 }}>
                 <span className={`chip chip-${STATUS_TONE[lot.status]}`}>{lot.status}</span>

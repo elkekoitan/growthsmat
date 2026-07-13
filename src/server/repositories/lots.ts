@@ -36,11 +36,25 @@ export interface LotInput {
   certifiedOrigin: boolean;
   ownerLabel: string;
   parentCodes: string[];
+  createdByUserId?: string;
+  createdByEmail?: string;
+}
+
+/**
+ * `Lot` (src/lib/traceability.ts) saf motorun ihtiyaç duyduğu alanlarla sınırlıdır — bu
+ * yüzden denetim-izi alanları (kim kaydetti) motoru KİRLETMEMEK için burada, RealListing/
+ * RealOrder/RealCertificate ile AYNI desende, ayrı bir genişletme olarak tutulur. `RealLot[]`
+ * yapısal olarak `Lot[]`e uyduğu için traceability.ts'in 7 saf fonksiyonuna hiç değişiklik
+ * gerekmeden geçilebilir (bkz. o dosyadaki `lots: Lot[] = LOTS` varsayılan parametresi).
+ */
+export interface RealLot extends Lot {
+  createdByUserId?: string;
+  createdByEmail?: string;
 }
 
 export interface CreateLotResult {
   applied: boolean;
-  lot?: Lot;
+  lot?: RealLot;
   reason?: string;
 }
 
@@ -56,9 +70,11 @@ function toDomainLot(
     status: string;
     certifiedOrigin: boolean;
     ownerLabel: string;
+    createdByUserId: string | null;
+    createdByEmail: string | null;
   },
   parentLotIds: string[]
-): Lot {
+): RealLot {
   return {
     id: row.code,
     type: row.type as LotType,
@@ -71,10 +87,12 @@ function toDomainLot(
     status: fromPrismaLotStatus(row.status),
     certifiedOrigin: row.certifiedOrigin,
     ownerLabel: row.ownerLabel,
+    createdByUserId: row.createdByUserId ?? undefined,
+    createdByEmail: row.createdByEmail ?? undefined,
   };
 }
 
-export async function listLots(workspaceId: string): Promise<Lot[]> {
+export async function listLots(workspaceId: string): Promise<RealLot[]> {
   const db = getDb();
   const rows = await db.lot.findMany({ where: { workspaceId }, orderBy: { producedAt: "asc" } });
   const idToCode = new Map(rows.map((r) => [r.id, r.code]));
@@ -123,6 +141,8 @@ export async function createLot(workspaceId: string, input: LotInput): Promise<C
       status: toPrismaLotStatus(input.status ?? "aktif"),
       certifiedOrigin: input.certifiedOrigin,
       ownerLabel: input.ownerLabel,
+      createdByUserId: input.createdByUserId,
+      createdByEmail: input.createdByEmail,
       parentEdges: { create: parentRows.map((p) => ({ parentId: p.id })) },
     },
   });
@@ -150,7 +170,7 @@ async function seedDemoChain(workspaceId: string) {
 }
 
 /** Bir workspace'in lotlarını döner; hiç lotu yoksa (ilk ziyaret) örnek zincirle doldurur. */
-export async function listOrSeedLots(workspaceId: string): Promise<Lot[]> {
+export async function listOrSeedLots(workspaceId: string): Promise<RealLot[]> {
   const db = getDb();
   const count = await db.lot.count({ where: { workspaceId } });
   if (count === 0) await seedDemoChain(workspaceId);

@@ -10,7 +10,7 @@ export interface LotFormState {
 }
 
 export async function createLotAction(_prev: LotFormState, formData: FormData): Promise<LotFormState> {
-  const { membership } = await requireMembership();
+  const { user, membership } = await requireMembership();
 
   const code = String(formData.get("code") ?? "").trim();
   const label = String(formData.get("label") ?? "").trim();
@@ -39,6 +39,10 @@ export async function createLotAction(_prev: LotFormState, formData: FormData): 
     certifiedOrigin: formData.get("certifiedOrigin") === "on",
     ownerLabel,
     parentCodes,
+    // 03-TEKNIK-MIMARI.md §6.5 operations(...performed_by): ownerLabel serbest metin (kim
+    // bunu YAZDIĞINI iddia ediyor), bu ise gerçek oturumdan gelen, sahtelenemez kimlik.
+    createdByUserId: user.id,
+    createdByEmail: user.email,
   };
 
   const result = await createLot(membership.workspaceId, input);

@@ -366,6 +366,14 @@ model Lot {
   status          LotStatus @default(aktif)
   certifiedOrigin Boolean   @default(false)
   ownerLabel      String
+  // 03-TEKNIK-MIMARI.md §6.5'in operations(...performed_by) alanına karşılık gelen, GERÇEK
+  // (kullanıcı tarafından yazılabilen serbest metin ownerLabel'dan farklı olarak) bir denetim
+  // izi — bu lotu GERÇEKTEN kim, hangi hesapla kaydetti. Var olan tek lot-mutasyonu (createLot)
+  // için ayrı bir genel "Operation" tablosu kurmak bu aşamada aşırı mühendislik olurdu (tek
+  // kullanım noktası) — ikinci bir mutasyon türü (ör. gerçek geri çağırma yürütme) eklendiğinde
+  // yeniden değerlendirilmeli.
+  createdByUserId String?
+  createdByEmail  String?
 
   parentEdges LotGenealogy[] @relation("ChildLot")
   childEdges  LotGenealogy[] @relation("ParentLot")

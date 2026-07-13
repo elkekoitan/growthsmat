@@ -264,6 +264,17 @@ export const EPICS: Epic[] = [
       // directChildren/traceBackward/traceForward/validateMassBalance/checkOrganicClaimChain/
       // simulateRecall) artık workspace'in gerçek lotlarını da kabul eden isteğe bağlı `lots`
       // parametresi alıyor — 300 testin tamamı değişmeden geçiyor (varsayılan hâlâ sabit LOTS).
+      // 2026-07-13 (dokümantasyon incelemesi): "Lot/operation/mass balance şeması" done
+      // etiketliydi ama şemanın "operation" yarısı hiç yoktu — 03-TEKNIK-MIMARI.md §6.5
+      // operations(...performed_by) alanına karşılık gelen tek şey serbest metin, kullanıcının
+      // yazdığı ownerLabel'dı; gerçek "bunu HANGİ hesap kaydetti" denetim izi yoktu. Lot.
+      // createdByUserId/createdByEmail eklendi (createLotAction artık requireMembership()'ten
+      // gelen GERÇEK kullanıcıyı yazıyor, sahtelenemez). DÜRÜSTLÜK NOTU: bu, docs'un tam
+      // istediği genel operations/mass_balance_entries/quality_checks/recall_cases şeması
+      // DEĞİL — tek bir mutasyon türü (lot oluşturma) için ayrı bir "Operation" tablosu kurmak
+      // aşırı mühendislik olurdu; gerçek bir geri çağırma YÜRÜTME akışı (şu an yalnız
+      // simulateRecall ile önizleme var, UI'da dürüstçe "simüle et" diye işaretli) eklenirse
+      // genel Operation tablosu o zaman yeniden değerlendirilmeli (bkz. task #40 hafıza notu).
       status: (["done", "done", "done", "done", "done", "done", "todo", "todo", "todo", "todo", "todo", "done", "todo", "in_progress"][i]) as TaskStatus,
       title: ["Lot/operation/mass balance şeması", "Seed→hasat lot zinciri", "Paket/sevkiyat/alıcı zinciri", "Jurisdiction/RulePack motoru", "Sertifika kapsam/geçerlilik", "Organik iddia yayın kapısı", "Girdi uygunluk kontrolü", "Su testi uygunsuzluk akışı", "SOP ve kontrol noktası", "Hijyen/eğitim kayıtları", "Uygunsuzluk ve CAPA", "Geri çağırma soy ağacı", "Denetim dosyası export", "QR lot doğrulama sayfası"][i],
     })),
