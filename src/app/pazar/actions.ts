@@ -2,7 +2,7 @@
 // SmartGrowth OS — /pazar gerçek ilan ve sipariş Server Action'ları.
 import { revalidatePath } from "next/cache";
 import { requireMembership } from "@/server/session";
-import { createListing, setListingActive } from "@/server/repositories/listings";
+import { createListing, setListingActive, setListingStock } from "@/server/repositories/listings";
 import { placeOrder, updateOrderStatus, type OrderStatus } from "@/server/repositories/orders";
 import {
   createCertificate,
@@ -45,6 +45,7 @@ export async function createListingAction(_prev: MarketFormState, formData: Form
   const region = String(formData.get("region") ?? "").trim();
   const unitLabel = String(formData.get("unitLabel") ?? "").trim();
   const priceTRY = Number(formData.get("priceTRY") ?? 0);
+  const stockQty = Math.round(Number(formData.get("stockQty") ?? 0));
   const cropId = String(formData.get("cropId") ?? "").trim() || undefined;
   const requestedClaim = String(formData.get("claim") ?? "yontem-kayitli") as OrganicClaimStatus;
 
@@ -53,6 +54,9 @@ export async function createListingAction(_prev: MarketFormState, formData: Form
   }
   if (!(priceTRY > 0)) {
     return { error: "Fiyat sıfırdan büyük olmalı." };
+  }
+  if (!(stockQty >= 0)) {
+    return { error: "Stok adedi 0 veya daha büyük olmalı." };
   }
 
   // FR-126 / ADR-008: sertifika doğrulanmadan "sertifikali"/"gecis-sureci" iddiası
@@ -89,6 +93,7 @@ export async function createListingAction(_prev: MarketFormState, formData: Form
     unitLabel,
     priceTRY,
     stockType: (String(formData.get("stockType") ?? "mevcut")) as StockType,
+    stockQty,
     channels: ["yerel-vitrin"] as ChannelId[],
     claim: finalClaim,
     shelfLifeDays: Number(formData.get("shelfLifeDays") ?? 7),
@@ -103,6 +108,14 @@ export async function toggleListingActiveAction(listingId: string, active: boole
   const { membership } = await requireMembership();
   await setListingActive(listingId, membership.workspaceId, active);
   revalidatePath("/pazar");
+}
+
+export async function setListingStockAction(listingId: string, stockQty: number): Promise<MarketFormState> {
+  const { membership } = await requireMembership();
+  const updated = await setListingStock(listingId, membership.workspaceId, stockQty);
+  revalidatePath("/pazar");
+  if (!updated) return { error: "İlan bulunamadı." };
+  return { success: `Stok güncellendi: ${updated.stockQty} adet.` };
 }
 
 export async function placeOrderAction(listingId: string, quantity: number): Promise<MarketFormState> {

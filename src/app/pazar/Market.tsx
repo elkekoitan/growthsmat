@@ -54,6 +54,7 @@ import {
   createListingAction,
   placeOrderAction,
   toggleListingActiveAction,
+  setListingStockAction,
   updateOrderStatusAction,
   createCertificateAction,
   reviewCertificateAction,
@@ -148,11 +149,22 @@ export function Market({ session, realListings, myListings, myOrders, incomingOr
   const [qtyByListing, setQtyByListing] = useState<Record<string, number>>({});
   const [reviewPending, startReviewTransition] = useTransition();
   const [reviewMsg, setReviewMsg] = useState<Record<string, string>>({});
+  const [stockDraft, setStockDraft] = useState<Record<string, number>>({});
+  const [stockMsg, setStockMsg] = useState<Record<string, string>>({});
+  const [stockPending, startStockTransition] = useTransition();
 
   function handleCertReview(certificateId: string, decision: "onayla" | "reddet") {
     startReviewTransition(async () => {
       const res = await reviewCertificateAction(certificateId, decision);
       setReviewMsg((m) => ({ ...m, [certificateId]: res.error ?? res.success ?? "" }));
+    });
+  }
+
+  function handleStockUpdate(listingId: string, currentQty: number) {
+    const next = stockDraft[listingId] ?? currentQty;
+    startStockTransition(async () => {
+      const res = await setListingStockAction(listingId, next);
+      setStockMsg((m) => ({ ...m, [listingId]: res.error ?? res.success ?? "" }));
     });
   }
 
@@ -449,9 +461,14 @@ export function Market({ session, realListings, myListings, myOrders, incomingOr
                       {l.priceTRY.toLocaleString("tr-TR")} ₺
                     </div>
                     <div style={{ fontSize: "var(--fs-xs)", color: "var(--text-low)", marginBottom: 8 }}>{l.unitLabel}</div>
-                    <span className={`chip chip-${CLAIM_LABELS[l.claim].tone}`} style={{ width: "fit-content", marginBottom: 12 }}>
-                      <ShieldCheck size={11} /> {CLAIM_LABELS[l.claim].label}
-                    </span>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
+                      <span className={`chip chip-${CLAIM_LABELS[l.claim].tone}`}>
+                        <ShieldCheck size={11} /> {CLAIM_LABELS[l.claim].label}
+                      </span>
+                      <span className={`chip ${l.stockQty > 0 ? (l.stockQty <= 3 ? "chip-warn" : "chip-ok") : "chip-danger"}`}>
+                        <Package size={11} /> {l.stockQty > 0 ? `${l.stockQty} adet stokta` : "Tükendi"}
+                      </span>
+                    </div>
 
                     {isMine ? (
                       <div style={{ display: "grid", gap: 6 }}>
@@ -476,13 +493,16 @@ export function Market({ session, realListings, myListings, myOrders, incomingOr
                           </div>
                         )}
                       </div>
+                    ) : l.stockQty <= 0 ? (
+                      <span className="chip chip-danger" style={{ width: "fit-content" }}>Stok tükendi</span>
                     ) : (
                       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                         <input
                           type="number"
                           min={1}
+                          max={l.stockQty}
                           defaultValue={1}
-                          onChange={(e) => setQtyByListing((q) => ({ ...q, [l.id]: Math.max(1, Number(e.target.value) || 1) }))}
+                          onChange={(e) => setQtyByListing((q) => ({ ...q, [l.id]: Math.min(l.stockQty, Math.max(1, Number(e.target.value) || 1)) }))}
                           style={{ width: 56, padding: "6px 8px", borderRadius: 8, border: "1px solid var(--border-soft)" }}
                           aria-label="Miktar"
                         />
@@ -521,6 +541,7 @@ export function Market({ session, realListings, myListings, myOrders, incomingOr
                   <input name="region" placeholder="Bölge (ör. İzmir, Ege)" required className="btn btn-secondary" style={{ textAlign: "left" }} />
                   <input name="unitLabel" placeholder="Birim (ör. 500 g file)" required className="btn btn-secondary" style={{ textAlign: "left" }} />
                   <input name="priceTRY" type="number" min={1} step={1} placeholder="Fiyat (₺)" required className="btn btn-secondary" style={{ textAlign: "left" }} />
+                  <input name="stockQty" type="number" min={0} step={1} placeholder="Stok adedi (ör. 25)" required className="btn btn-secondary" style={{ textAlign: "left" }} />
                   <select name="cropId" className="btn btn-secondary" defaultValue="">
                     <option value="">Ürün kataloğundan seç (opsiyonel)</option>
                     {CROPS.map((c) => (
@@ -552,19 +573,37 @@ export function Market({ session, realListings, myListings, myOrders, incomingOr
               {myListings.length > 0 && (
                 <div style={{ display: "grid", gap: 8 }}>
                   {myListings.map((l) => (
-                    <div key={l.id} className="card" style={{ padding: 12, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                      <span style={{ fontSize: "var(--fs-sm)" }}>{l.title} — {l.priceTRY.toLocaleString("tr-TR")} ₺</span>
-                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                        <span className={`chip chip-${CLAIM_LABELS[l.claim].tone}`}>
-                          <ShieldCheck size={11} /> {CLAIM_LABELS[l.claim].label}
-                        </span>
-                        <button
-                          className={`chip ${l.active ? "chip-ok" : "chip-danger"}`}
-                          style={{ border: "none", cursor: "pointer" }}
-                          onClick={() => startOrderTransition(() => toggleListingActiveAction(l.id, !l.active))}
-                        >
-                          {l.active ? "Aktif" : "Pasif"}
+                    <div key={l.id} className="card" style={{ padding: 12, display: "grid", gap: 8 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                        <span style={{ fontSize: "var(--fs-sm)" }}>{l.title} — {l.priceTRY.toLocaleString("tr-TR")} ₺</span>
+                        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                          <span className={`chip chip-${CLAIM_LABELS[l.claim].tone}`}>
+                            <ShieldCheck size={11} /> {CLAIM_LABELS[l.claim].label}
+                          </span>
+                          <button
+                            className={`chip ${l.active ? "chip-ok" : "chip-danger"}`}
+                            style={{ border: "none", cursor: "pointer" }}
+                            onClick={() => startOrderTransition(() => toggleListingActiveAction(l.id, !l.active))}
+                          >
+                            {l.active ? "Aktif" : "Pasif"}
+                          </button>
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                        <Package size={13} style={{ color: "var(--text-low)" }} />
+                        <span style={{ fontSize: "var(--fs-xs)", color: "var(--text-low)" }}>Stok:</span>
+                        <input
+                          type="number"
+                          min={0}
+                          defaultValue={l.stockQty}
+                          onChange={(e) => setStockDraft((d) => ({ ...d, [l.id]: Math.max(0, Math.round(Number(e.target.value) || 0)) }))}
+                          style={{ width: 64, padding: "4px 6px", borderRadius: 8, border: "1px solid var(--border-soft)" }}
+                          aria-label={`${l.title} stok adedi`}
+                        />
+                        <button className="btn btn-ghost btn-sm" disabled={stockPending} onClick={() => handleStockUpdate(l.id, l.stockQty)}>
+                          Güncelle
                         </button>
+                        {stockMsg[l.id] && <span style={{ fontSize: "var(--fs-xs)", color: "var(--text-mid)" }}>{stockMsg[l.id]}</span>}
                       </div>
                     </div>
                   ))}

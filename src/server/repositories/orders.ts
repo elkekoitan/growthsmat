@@ -72,6 +72,22 @@ export async function placeOrder(
   if (listing.workspaceId === buyerWorkspaceId) {
     return { applied: false, reason: "Kendi ilanına sipariş veremezsin." };
   }
+  if (quantity > listing.stockQty) {
+    return { applied: false, reason: `Stokta yalnız ${listing.stockQty} adet var.` };
+  }
+
+  // Stok, sipariş TALEP edilirken hemen rezerve edilir (satıcı onayını beklerken başka
+  // bir alıcı aynı stoğu sipariş edemesin diye) — koşullu updateMany (stockQty >= quantity)
+  // aynı anda gelen iki siparişte de yarış durumunu (race condition) engeller: yalnız BİRİ
+  // 1 satır etkiler, diğeri 0 satır görüp reddedilir. İptal edilirse stok geri eklenir
+  // (bkz. updateOrderStatus), onaylanırsa zaten düşülmüş olan miktar aynen kalır.
+  const reserved = await db.listing.updateMany({
+    where: { id: listingId, stockQty: { gte: quantity } },
+    data: { stockQty: { decrement: quantity } },
+  });
+  if (reserved.count === 0) {
+    return { applied: false, reason: "Stok az önce değişti, tekrar dene." };
+  }
 
   const row = await db.order.create({
     data: {
@@ -131,6 +147,12 @@ export async function updateOrderStatus(
   }
   if (newStatus === "iptal" && !isSeller && !isBuyerCancelling) {
     return { applied: false, reason: "Yalnızca satıcı veya siparişi veren alıcı iptal edebilir." };
+  }
+
+  // İptalde rezerve edilen stok geri eklenir — placeOrder() zaten talep anında düşmüştü.
+  // Onayda hiçbir stok değişikliği gerekmez (miktar zaten düşülmüş durumda kalır).
+  if (newStatus === "iptal") {
+    await db.listing.update({ where: { id: order.listingId }, data: { stockQty: { increment: order.quantity } } });
   }
 
   const row = await db.order.update({ where: { id: orderId }, data: { status: newStatus } });

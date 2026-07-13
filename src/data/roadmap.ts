@@ -281,6 +281,16 @@ export const EPICS: Epic[] = [
       // görünür. DÜRÜSTLÜK NOTU: belge URL'i (documentUrl) hâlâ kendi kendine beyan —
       // yalnız bir bağlantı olarak saklanır, içeriği doğrulanmaz; gerçek kimlik/belge
       // doğrulaması (üçüncü taraf API, dosya yükleme+inceleme) bu MVP'nin kapsamı dışında.
+      // 2026-07-13 (3. tur — kullanıcı geri bildirimi: "stok takibi" gerçek olmalı): Listing.
+      // stockQty eklendi — stockType önceden yalnız kategorik bir etiketti (mevcut/tahmini-
+      // hasat/on-siparis), GERÇEK bir adet sayacı yoktu. placeOrder() artık koşullu bir
+      // updateMany (stockQty >= miktar) ile ATOMİK olarak stok düşer — aynı anda gelen iki
+      // siparişte yarış durumu (race condition) oluşmaz. Sipariş iptal edilirse stok geri
+      // eklenir. Gerçek ilan kartlarında kalan stok sayısı görünür, tükenince sipariş
+      // engellenir. Vitrinim'de üretici stoğu elle güncelleyebilir (yeniden stoklama).
+      // DÜRÜSTLÜK NOTU: bu migration ÖNCESİ var olan ilanlar stockQty=0 ile başlar (0 =
+      // tükendi görünür) — üreticinin bunu Vitrinim'den elle güncellemesi gerekir, geçmiş
+      // stok miktarı kod tarafından TAHMİN EDİLMEZ.
       // Ek (görev listesinde ayrı satırı yok, epic'e genel katkı): ABD "cottage food" (ev
       // mutfağı üretimi) yasa kataloğu — Georgia/Texas/New Mexico, 3 gerçek 2024-2025 eyalet
       // yasasından (cottageFoodLaws.ts) — ev üreticisinin fazla ürün/ev-işlenmiş gıda satışının

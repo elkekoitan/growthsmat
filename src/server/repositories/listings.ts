@@ -21,6 +21,7 @@ export interface ListingInput {
   unitLabel: string;
   priceTRY: number;
   stockType: StockType;
+  stockQty: number;
   channels: ChannelId[];
   claim: OrganicClaimStatus;
   shelfLifeDays: number;
@@ -47,6 +48,7 @@ function toRealListing(row: {
   unitLabel: string;
   priceTRY: number;
   stockType: string;
+  stockQty: number;
   channels: string[];
   claim: string;
   shelfLifeDays: number;
@@ -67,6 +69,7 @@ function toRealListing(row: {
     unitLabel: row.unitLabel,
     priceTRY: row.priceTRY,
     stockType: row.stockType as StockType,
+    stockQty: row.stockQty,
     channels: row.channels as ChannelId[],
     claim: row.claim as OrganicClaimStatus,
     shelfLifeDays: row.shelfLifeDays,
@@ -91,6 +94,7 @@ export async function createListing(workspaceId: string, input: ListingInput): P
       unitLabel: input.unitLabel,
       priceTRY: input.priceTRY,
       stockType: input.stockType,
+      stockQty: input.stockQty,
       channels: input.channels,
       claim: input.claim,
       shelfLifeDays: input.shelfLifeDays,
@@ -129,5 +133,14 @@ export async function setListingActive(id: string, workspaceId: string, active: 
   const existing = await db.listing.findUnique({ where: { id } });
   if (!existing || existing.workspaceId !== workspaceId) return undefined;
   const row = await db.listing.update({ where: { id }, data: { active } });
+  return toRealListing(row);
+}
+
+/** Yalnız ilanın kendi workspace'i stok adedini elle güncelleyebilir (yeniden stoklama). */
+export async function setListingStock(id: string, workspaceId: string, stockQty: number): Promise<RealListing | undefined> {
+  const db = getDb();
+  const existing = await db.listing.findUnique({ where: { id } });
+  if (!existing || existing.workspaceId !== workspaceId) return undefined;
+  const row = await db.listing.update({ where: { id }, data: { stockQty: Math.max(0, Math.round(stockQty)) } });
   return toRealListing(row);
 }

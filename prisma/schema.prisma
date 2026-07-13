@@ -197,6 +197,10 @@ model Listing {
   unitLabel       String
   priceTRY        Float
   stockType       String
+  // Gerçek envanter adedi — stockType yalnız kategorik bir etikettir (ör. "tahmini-hasat"),
+  // GERÇEK stok takibi (siparişte azalt, iptalde geri ekle, tükenince sipariş engelle) bu
+  // alana bağlıdır. 0 = tükendi. placeOrder() atomik olarak azaltır (bkz. orders.ts).
+  stockQty        Int      @default(0)
   channels        String[]
   claim           String
   shelfLifeDays   Int
