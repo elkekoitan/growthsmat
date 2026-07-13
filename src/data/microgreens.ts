@@ -24,6 +24,18 @@ export interface MicrogreenRecipe {
   evidence: "A" | "B" | "C" | "D";
   commonFailures: string[];
   note: string;
+  // ---- 05 §7 MicrogreenRecipe şemasını tamamlayan alanlar ----
+  // Kaynak: research/microgreens/report.md §5 (çapraz kesişen genel tablo) ve §6
+  // (türe özel profil). Hangi kaynağın kullanıldığı her reçetede satır içi yorumla
+  // belirtilir — bkz. MICROGREEN_RECIPES üstündeki açıklama.
+  substrateTypeAndDepth: string; // ortam tipi ve derinlik (05 §7 substrate_type_and_depth)
+  germinationTempC: [number, number]; // çimlenme evresi ortam/substrat sıcaklığı (°C)
+  growthTempC: [number, number]; // karartma sonrası büyüme evresi hava sıcaklığı (°C)
+  growthHumidityPct: [number, number]; // büyüme evresi bağıl nem (%)
+  lightDLI?: [number, number]; // mol/m²/gün — yalnız tür-özel/genel kaynakta sayısal DLI varsa dolu
+  photoperiodHours?: [number, number]; // gün içi aydınlatma süresi (saat) — yalnız kaynakta varsa dolu
+  irrigationMethod: string; // sulama yöntemi/sıklığı (05 §7 irrigation_method/frequency)
+  foodSafetyNote: string; // gıda güvenliği notu (05 §7 food_safety_SOP)
 }
 
 // Uygun olmayan / toksik türler — reçete motorunda sert blok (FR-110, 05 §7)
@@ -34,6 +46,26 @@ export const BLOCKED_MICROGREENS: { name: string; family: string; reason: string
   { name: "Patlıcan", family: "Solanaceae", reason: "Solanaceae fide toksisitesi — uygun değil." },
   { name: "Rhubarb", family: "Polygonaceae", reason: "Yaprakta oksalik asit — uygun değil." },
 ];
+
+// ---- 05 §7 şema tamamlama notu (kaynak: research/microgreens/report.md) ----
+// substrateTypeAndDepth/germinationTempC/growthTempC/growthHumidityPct/lightDLI/
+// photoperiodHours/irrigationMethod/foodSafetyNote alanları, rapor §5'teki "aksi
+// belirtilmedikçe TÜM türlere uygulanan" çapraz kesişen genel tablodan veya §6'daki
+// türe özel profil tablosundan alınır; hangisi kullanıldığı her reçetede satır içi
+// yorumla belirtilir. Genel tabloya düşen alanlar bir veri eksikliği değildir —
+// kaynağın kendisinin öngördüğü açık varsayılan davranıştır.
+// Türe özel SOURCED (genel tablonun ötesinde) değer taşıyanlar: brokoli (ışık+
+// sulama), turp (fotoperiyot, tek çalışma), hardal (ışık DLI + Kanada alerjen
+// notu), roka (ışık DLI + musilaj), amarant (substrat + büyüme sıcaklığı/nemi —
+// tek Brezilya saha denemesinin ortam ölçümü, kaynakta "test edilmiş optimum
+// değil" diye açıkça işaretli), fesleğen (fotoperiyot, tek çalışma). Geri kalanı
+// (bezelye, ayçiçeği, kale, kişniş çoğu alanda) genel tabloya düşer.
+// 05 §7'nin seed_lot_requirements ve tray_dimensions alanları tüm türler için
+// ortaktır; 29 kez tekrarlanmadan aşağıdaki paylaşılan sabitlerde tutulur.
+export const STANDARD_TRAY_DIMENSIONS =
+  "10x20 inç (25.4×50.8 cm), ~0.129 m² — standart 1020 tepsi (report.md tanım notu)";
+export const SEED_LOT_GENERAL_NOTE =
+  "Tohum lotu izlenebilir ve gıda güvenliği açısından test edilmiş/onaylı olmalı — 100+ tür ticari mikro filiz üretiminde kullanıldığından bu ilke tür-spesifik değil, geneldir (Alberta Agriculture, report.md §4 [S10]).";
 
 export const MICROGREEN_RECIPES: MicrogreenRecipe[] = [
   {
@@ -53,6 +85,14 @@ export const MICROGREEN_RECIPES: MicrogreenRecipe[] = [
     evidence: "A",
     commonFailures: ["Aşırı yoğunlukta küf", "Yetersiz hava akımıyla sararma"],
     note: "Başlangıç için en güvenilir tür; yüksek ve tutarlı verim.",
+    substrateTypeAndDepth: "Topraksız karışım / hindistan cevizi lifi / hidroponik mat, 2.5–5 cm derinlik — report.md §6.1 [S9][S16]",
+    germinationTempC: [15.5, 24], // genel tablo; brokoliye özel kaynak da aynı aralığı doğruluyor — report.md §5/§6.1 [S7][S15]
+    growthTempC: [16, 21], // genel tablo — report.md §5 [S7][S17]
+    growthHumidityPct: [50, 70], // genel tablo — report.md §5 [S17][S18]
+    lightDLI: [9, 16], // genel çapraz-çalışma sentezi; brokoli profilinde de aynı genel değer anılıyor — report.md §5/§6.1
+    photoperiodHours: [12, 18], // genel tablo — report.md §5/§6.1
+    irrigationMethod: "Alttan/kılcal sulama; çimlenme öncesi yalnız püskürtme, büyümüş yapraklara üstten su verilmez — report.md §6.1 [S16]",
+    foodSafetyNote: "Standart Brassicaceae hijyeni; musilajlı (jel) tohum değildir; glukosinolat bakımından zengin — report.md §6.1 [S5][S10].",
   },
   {
     id: "turp",
@@ -71,6 +111,13 @@ export const MICROGREEN_RECIPES: MicrogreenRecipe[] = [
     evidence: "A",
     commonFailures: ["Nemli ortamda sap uzaması", "Erken ışıkla renk kaybı"],
     note: "En hızlı türlerden; restoran garnitüründe yoğun talep.",
+    substrateTypeAndDepth: "Topraksız karışım, 2.5–5 cm derinlik — report.md §6.2 [S9][S16]",
+    germinationTempC: [15.5, 24], // genel tablo, turpa özel geçersiz kılma yok — report.md §5 [S7]
+    growthTempC: [16, 21], // genel tablo — report.md §5
+    growthHumidityPct: [50, 70], // genel tablo — report.md §5
+    photoperiodHours: [8, 8], // tek çalışma: 8 saat/gün @200 µmol/m²/s PPFD (DLI birimine çevrilmedi) — report.md §6.2 [S17], kanıt C
+    irrigationMethod: "Alttan/kılcal sulama (genel tablo, turpa özel kaynak yok) — report.md §5",
+    foodSafetyNote: "İnce tohum kabuğu, musilajlı değildir; standart Brassicaceae hijyeni; gecikmiş hasatta keskinlik hızla artar — report.md §6.2 [S5][S10].",
   },
   {
     id: "bezelye",
@@ -89,6 +136,14 @@ export const MICROGREEN_RECIPES: MicrogreenRecipe[] = [
     evidence: "A",
     commonFailures: ["Ön ıslatma eksikse düzensiz çimlenme", "Yüksek nemde kök küfü"],
     note: "Ön ıslatma zorunlu; ağır tohumla en yüksek gram verim.",
+    substrateTypeAndDepth: "Topraksız karışım, 2.5–5 cm; tohum/ağırlık sıkı ortam temasına bastırılmalı — report.md §6.3 [S8][S9]",
+    germinationTempC: [15.5, 24], // genel tablo — bezelyeye özel optimum kaynakta bulunamadı, kanıt C (fallback) — report.md §6.3 [S7]
+    growthTempC: [16, 21], // genel tablo — report.md §5
+    growthHumidityPct: [50, 70], // genel tablo — report.md §5
+    lightDLI: [9, 16], // tür-özel veri yok, genel tablo — report.md §5
+    photoperiodHours: [12, 18], // tür-özel veri yok, genel tablo — report.md §5
+    irrigationMethod: "Alttan/kılcal sulama (genel tablo, bezelyeye özel kaynak yok) — report.md §5",
+    foodSafetyNote: "Kalın/sert tohum kabuğu nedeniyle ön ıslatma zorunlu; ıslatma sırasında 1–2 kez durulama önerilir (hijyen + oksijen) — report.md §6.3 [S8].",
   },
   {
     id: "aycicegi",
@@ -107,6 +162,14 @@ export const MICROGREEN_RECIPES: MicrogreenRecipe[] = [
     evidence: "B",
     commonFailures: ["Kabuk atmama (tohum başlığı takılı kalır)", "Yüksek yoğunlukta çürüme"],
     note: "İşlem görmemiş, gıda sınıfı ayçiçeği tohumu doğrulanmalı.",
+    substrateTypeAndDepth: "Topraksız karışım, 2.5–5 cm — report.md §6.4 [S9]",
+    germinationTempC: [15.5, 24], // genel tablo, ayçiçeğine özel kaynak yok, kanıt C (fallback) — report.md §6.4 [S7]
+    growthTempC: [16, 21], // genel tablo (tür-özel satır yok) — report.md §5
+    growthHumidityPct: [50, 70], // genel tablo
+    lightDLI: [9, 16], // tür-özel veri yok, genel tablo
+    photoperiodHours: [12, 18], // tür-özel veri yok, genel tablo
+    irrigationMethod: "Alttan/kılcal sulama (genel tablo, tür-özel kaynak yok) — report.md §5",
+    foodSafetyNote: "Kabuk (hull) kotiledona yapışık kalabilir — fiziksel kontaminasyon/boğulma riski ve nem cebinde küf riski; ağırlıklama tekniği veya hasat sonrası elle kabuk giderme/durulama gerekir — report.md §6.4 [S8][S10].",
   },
   {
     id: "hardal",
@@ -125,6 +188,14 @@ export const MICROGREEN_RECIPES: MicrogreenRecipe[] = [
     evidence: "A",
     commonFailures: ["Mus­ilaj (jel) tohum yapışması", "Fazla sulamada küf"],
     note: "Hızlı ve keskin lezzet; salata karışımlarına renk katar.",
+    substrateTypeAndDepth: "Topraksız karışım (turba/hindistan cevizi lifi bazlı), 2.5–5 cm — genel tablo, hardala özel kaynak yok — report.md §5",
+    germinationTempC: [15.5, 24], // genel tablo — report.md §5
+    growthTempC: [16, 21], // genel tablo
+    growthHumidityPct: [50, 70], // genel tablo
+    lightDLI: [12, 12], // tür-özel: "Mizuna ve Hardal" için 12 mol/m²/gün "ya da daha yüksek" — report.md §6.5 [S17], kanıt C (tek çalışma)
+    photoperiodHours: [12, 18], // tür-özel fotoperiyot verisi yok, genel tablo
+    irrigationMethod: "Alttan/kılcal sulama (genel tablo, tür-özel kaynak yok) — report.md §5",
+    foodSafetyNote: "Kanada'da tanınan öncelikli alerjen (hardal) — etiketleme ve çapraz bulaşmayı önleyecek ayrıştırma doğrulanmalı — report.md §6.5 [S11].",
   },
   {
     id: "kale",
@@ -143,6 +214,14 @@ export const MICROGREEN_RECIPES: MicrogreenRecipe[] = [
     evidence: "B",
     commonFailures: ["Yavaş çimlenmede yosun", "Düşük ışıkta soluk renk"],
     note: "Besin yoğun; mavi-yeşil renk sunum değeri yüksek.",
+    substrateTypeAndDepth: "Topraksız karışım, 2.5–5 cm — report.md §6.6 [S9]",
+    germinationTempC: [15.5, 24], // genel tablo, kale için tür-özel satır yok — report.md §5
+    growthTempC: [16, 21], // genel tablo
+    growthHumidityPct: [50, 70], // genel tablo
+    lightDLI: [9, 16], // tür-özel veri yok, genel tablo
+    photoperiodHours: [12, 18], // tür-özel veri yok, genel tablo
+    irrigationMethod: "Alttan/kılcal sulama (genel tablo, tür-özel kaynak yok) — report.md §5",
+    foodSafetyNote: "Standart Brassicaceae hijyeni; C vitamini bakımından zengin (turp, roka, brokoli ile birlikte hakemli derlemede anılıyor) — report.md §6.6 [S17][S18].",
   },
   {
     id: "roka",
@@ -161,6 +240,14 @@ export const MICROGREEN_RECIPES: MicrogreenRecipe[] = [
     evidence: "B",
     commonFailures: ["Mus­ilaj tohum yapışması", "Aşırı nemde kök boğazı çürümesi"],
     note: "Küçük tohum; su püskürtme yöntemi jelleşmeyi azaltır.",
+    substrateTypeAndDepth: "Topraksız karışım, 2.5–5 cm — report.md §6.7 [S9]",
+    germinationTempC: [15.5, 24], // genel tablo, rokaya özel satır yok — report.md §5
+    growthTempC: [16, 21], // genel tablo; 18°C'de 28°C'ye göre daha fazla gövde uzaması bildiren tek çalışma var ama aralık değiştirilmedi — report.md §6.7 [S18]
+    growthHumidityPct: [50, 70], // genel tablo
+    lightDLI: [9, 9], // tür-özel: bulunan en düşük DLI değeri, UMD'nin bağımsız "düşük ışıkta da iyi büyür" gözlemiyle tutarlı — report.md §6.7 [S17][S15]
+    photoperiodHours: [12, 18], // tür-özel fotoperiyot verisi yok (yalnız DLI var), genel tablo
+    irrigationMethod: "Alttan/kılcal sulama; musilaj nedeniyle üstten sulama ve ön ıslatma yapılmaz — report.md §5/§6.7",
+    foodSafetyNote: "Musilajlı tohum: jel tabakası yüzey nemini uzun tutar — yetersiz hava akımı/drenajda küf/kök çürümesi riski yüksek — report.md §6.7 [S10].",
   },
   {
     id: "amarant",
@@ -179,6 +266,12 @@ export const MICROGREEN_RECIPES: MicrogreenRecipe[] = [
     evidence: "C",
     commonFailures: ["Çok küçük tohum — düzensiz dağılım", "Yavaş büyümede kuruma"],
     note: "Canlı kırmızı rengiyle premium tabak sunumu; sabır ister.",
+    substrateTypeAndDepth: "Hindistan cevizi lifi — tek kontrollü çalışmada fenolik köpüğe göre anlamlı derecede daha iyi performans; derinlik ~2.5–5 cm (genel tablo) — report.md §6.8 [S19], kanıt C",
+    germinationTempC: [15.5, 24], // tür-özel doğrulanmış kaynak yok, genel tabloya düşüldü — sıcak iklim tercihi olası ama doğrulanmamış (D/E), kullanılmadı — report.md §6.8
+    growthTempC: [24.5, 33.8], // tek Brezilya seragövde ortam ölçümü (ortalama 27.5°C) — TEST EDİLMİŞ/ONAYLI BİR OPTİMUM DEĞİL, dolaylı destek olarak işaretli — report.md §6.8 [S19], kanıt C
+    growthHumidityPct: [66, 95], // aynı çalışma, ortam ölçümü (ortalama %86.6) — endorse edilmiş optimum değil — report.md §6.8 [S19], kanıt C
+    irrigationMethod: "Alttan/kılcal sulama (genel tablo, amaranta özel kaynak yok) — report.md §5",
+    foodSafetyNote: "Tür-özel gıda güvenliği/alerjen bulgusu yok (gerçek veri boşluğu, güvenlik kanıtı değil); aşırı ekim yoğunluğu hipokotil uzamasına ve daha kırılgan/çürümeye yatkın fidelere yol açabilir — report.md §6.8 [S19].",
   },
   {
     id: "kisnis",
@@ -197,6 +290,14 @@ export const MICROGREEN_RECIPES: MicrogreenRecipe[] = [
     evidence: "C",
     commonFailures: ["Bütün tohum kırılmazsa çift çıkış", "Uzun döngüde küf riski"],
     note: "En uzun döngü; tohum kabuğunu kırmak (çatlatmak) çimlenmeyi hızlandırır.",
+    substrateTypeAndDepth: "Topraksız karışım, 2.5–5 cm — genel tablo, kişnişe özel satır yok — report.md §5",
+    germinationTempC: [15.5, 24], // genel tablo; doğrulanmamış grower kaynağı daha serin tercih iddia ediyor ama kaynak D ve kullanılmadı — report.md §6.9
+    growthTempC: [16, 21], // genel tablo
+    growthHumidityPct: [50, 70], // genel tablo
+    lightDLI: [9, 16], // tür-özel veri yok, genel tablo
+    photoperiodHours: [12, 18], // tür-özel veri yok, genel tablo
+    irrigationMethod: "Alttan/kılcal sulama (genel tablo, tür-özel kaynak yok) — report.md §5",
+    foodSafetyNote: "Tür-özel bulgu yok; alışılmadık uzun karartma (7–14 gün) süresince tepsi daha uzun süre sıcak/nemli/karanlık kalır — genel küf/kök çürümesi riski bu nedenle diğer türlere göre daha uzun süre geçerlidir (çıkarım) — report.md §6.9 [S9][S4][S7].",
   },
   {
     id: "feslegen",
@@ -215,6 +316,13 @@ export const MICROGREEN_RECIPES: MicrogreenRecipe[] = [
     evidence: "C",
     commonFailures: ["Mus­ilaj tohum — üstten sulama zorunlu", "Düşük sıcaklıkta çok yavaş"],
     note: "Yüksek katma değer; ıslak tohum jeli nedeniyle alttan sulama önerilir.",
+    substrateTypeAndDepth: "Topraksız karışım, 2.5–5 cm — report.md §6.10 [S9]",
+    germinationTempC: [15.5, 24], // genel tablo; fesleğenin "serin seven brassicalardan" daha yüksek çimlenme sıcaklığı istediği belirtiliyor ama kesin rakam yok — report.md §6.10
+    growthTempC: [16, 21], // genel tablo, tür-özel satır yok
+    growthHumidityPct: [50, 70], // genel tablo
+    photoperiodHours: [16, 16], // tek çalışma: 16 saat/gün @231 PPFD, hasada 3 gün kala 300 µmol/m²/s kırmızı ışığa çıkarılıyor — report.md §6.10 [S17], kanıt C
+    irrigationMethod: "Alttan sulama zorunlu (musilaj nedeniyle üstten sulama ve ön ıslatma yapılmaz) — report.md §5/§6.10 [S10]",
+    foodSafetyNote: "Musilajlı tohum (roka ile aynı risk sınıfı): jel tabakası nem tutar; sıcaklık tercihiyle birleşince (kaynakta kesin rakam yok) küf/kök çürümesi riski artabilir (yazarın sentezi, doğrudan çalışma değil) — report.md §6.10 [S10][S14].",
   },
 ];
 

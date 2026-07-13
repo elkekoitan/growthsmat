@@ -249,6 +249,20 @@ export const EPICS: Epic[] = [
     tasks: todos("P09", 12).map((t, i) => ({
       ...t,
       // Reçete şeması, Solanaceae güvenlik bloğu ve tepsi maliyet/marj: implement + test edildi.
+      // 2026-07-13 (dürüstlük düzeltmesi): MicrogreenRecipe artık 05 §7'nin TAM şemasını
+      // taşıyor — substrateTypeAndDepth, germinationTempC, growthTempC, growthHumidityPct,
+      // lightDLI, photoperiodHours, irrigationMethod, foodSafetyNote eklendi (öncesinde
+      // yalnız yoğunluk/ıslatma/karartma/hasat/verim vardı, "done" etiketi şemayla
+      // TUTARSIZDI). Kaynak: research/microgreens/report.md §5-6 (10 tür, evidence A-D).
+      // DÜRÜSTLÜK NOTU: MICROGREEN_RECIPES hâlâ yalnız 10 tür (brokoli→fesleğen, Round 1) —
+      // araştırma kütüphanesi 3 dosyada 29 türe çıkmış olsa da (05 §7, round2/round3), o 19
+      // ek tür henüz koda taşınmadı; bu ayrı, işaretlenmemiş bir kapsam boşluğudur, bu tur
+      // yalnız MEVCUT 10 reçetenin şema alanları tamamlandı. Yeni alanların çoğu (bezelye,
+      // ayçiçeği, kale, kişniş gibi türlerde ışık/sıcaklık) rapor §5'in "aksi belirtilmedikçe
+      // tüm türlere uygulanır" genel tablosuna düşüyor — türe özel kaynak yalnız brokoli,
+      // turp, hardal, roka, amarant ve fesleğenin bazı alanlarında var (dosya başındaki
+      // yorumda listelenmiştir); bu bir veri boşluğu değil, kaynağın kendi öngördüğü
+      // varsayılan davranıştır — sahte kesinlik yok.
       status: (["done", "done", "done", "in_progress", "todo", "todo", "in_progress", "todo", "todo", "done", "done", "todo"][i]) as TaskStatus,
       title: ["MicrogreenRecipe şeması", "Güvenlik kataloğu (Solanaceae blok)", "Oda/raf/ışık kapasite modeli", "Tepsi reçetesi karşılaştırma UI", "Tohum/substrat lot kabulü", "Parti/tepsi QR üretimi", "Karartma/ışık/sulama görev dizisi", "Küf/sapma gözlem akışı", "Hasat/kalite/soğuk kayıtları", "Tepsi maliyet ve marj", "Restoran aboneliğinden geriye ekim", "Reçete A/B deneyi"][i],
     })),

@@ -37,6 +37,23 @@ test("reçete alanları aralık (min<=max) ve tutarlı", () => {
   }
 });
 
+test("05 §7 şema alanları (substrat/sıcaklık/nem/ışık/sulama/gıda güvenliği) dolu ve aralık tutarlı", () => {
+  for (const r of MICROGREEN_RECIPES) {
+    assert.ok(r.substrateTypeAndDepth.length > 0, `${r.id} substrat notu`);
+    assert.ok(r.irrigationMethod.length > 0, `${r.id} sulama yöntemi`);
+    assert.ok(r.foodSafetyNote.length > 0, `${r.id} gıda güvenliği notu`);
+    assert.ok(r.germinationTempC[0] <= r.germinationTempC[1], `${r.id} çimlenme sıcaklığı`);
+    assert.ok(r.growthTempC[0] <= r.growthTempC[1], `${r.id} büyüme sıcaklığı`);
+    assert.ok(r.growthHumidityPct[0] <= r.growthHumidityPct[1], `${r.id} büyüme nemi`);
+    assert.ok(r.growthHumidityPct[0] >= 0 && r.growthHumidityPct[1] <= 100, `${r.id} nem % aralığında`);
+    if (r.lightDLI) assert.ok(r.lightDLI[0] <= r.lightDLI[1], `${r.id} DLI`);
+    if (r.photoperiodHours) {
+      assert.ok(r.photoperiodHours[0] <= r.photoperiodHours[1], `${r.id} fotoperiyot`);
+      assert.ok(r.photoperiodHours[0] >= 0 && r.photoperiodHours[1] <= 24, `${r.id} fotoperiyot 24 saati aşmaz`);
+    }
+  }
+});
+
 test("computeTrayCost — kâr = gelir - toplam maliyet, marj tutarlı", () => {
   const r = computeTrayCost(DEFAULT_TRAY_INPUT);
   const sumCosts = r.seedCost + r.substrateCost + r.laborCost + r.energyCost + r.packagingCost;
