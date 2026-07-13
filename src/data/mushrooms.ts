@@ -1,7 +1,9 @@
 // SmartGrowth OS — Mantar yetiştiriciliği kataloğu (yeni ürün kategorisi, PRD P04 kapsam genişletmesi)
 // Kaynak: research/mushroom-cultivation/ — Cornell/NC State/SARE shiitake rehberleri, Penn State
 // istiridye mantarı yetiştirme kılavuzu, Thammasat Üniversitesi Hericium çalışması, Penn State +
-// Mississippi State agaricus kaynakları (2026-07-12 paralel araştırma okuması).
+// Mississippi State agaricus kaynakları (2026-07-12 paralel araştırma okuması), MDPI Horticulturae
+// Stropharia/şarap mantarı çalışması + 21 CFR 112.3 (2026-07-13 dokümantasyon doğruluğu turu —
+// research/mushroom-cultivation/report.md §5'in belgelediği 5. tür koda hiç taşınmamıştı).
 //
 // Mantarlar crops.ts'teki Crop arayüzüne UYMAZ (fotosentez/güneş/toprak pH yerine substrat,
 // nem, karanlık/ışık döngüsü belirleyici) — bu yüzden ayrı bir arayüz (microgreens.ts'in
@@ -110,6 +112,31 @@ export const MUSHROOM_CATALOG: MushroomProfile[] = [
       "Meyvelenme sıcaklığı, nem, hasada gün sayısı ve verim kaynak belgelerde YOK — yalnızca laboratuvar spawn/tohumluk üretimi bilgisi mevcut; bu yüzden fruitingTempC/fruitingHumidityPct/daysToFirstHarvest alanları boş bırakıldı.",
       "incubationTempC (23°C) kompost/meyvelenme aşamasına DEĞİL, tahıl spawn üretimi (miselyum inkübasyonu) aşamasına aittir — karıştırılmamalı.",
       "Kaynak, ev ölçeği üreticiye önerilmediğini açıkça belirtiyor (ciddi sermaye/yönetim gerektirir).",
+    ],
+  },
+  {
+    id: "sarap-mantari",
+    name: "Şarap mantarı (Kral Stropharia)",
+    scientificName: "Stropharia rugosoannulata",
+    substrates: [
+      "Bahçe yatağı yöntemi: sert ağaç yongası + tahıl samanı (~%50:50), çürümüş ahır gübresiyle zenginleştirilebilir — akçaağaç, kavak, karaağaç, manolya önerilir",
+      "Ticari/laboratuvar ölçek (hakemli): %55 talaş + %43 mısır koçanı + %2 kireç, ~%75 nem",
+    ],
+    incubationTempC: { min: 25, max: 25 },
+    fruitingTempC: { min: 16, max: 21 },
+    fruitingHumidityPct: { min: 85, max: 95 },
+    daysToFirstHarvest: [55, 90],
+    yieldNote:
+      "Biyolojik etkinlik talaş bazlı substratta ~%51-52 (hakemli); ayrı bir çalışmada %50 pirinç samanı + %50 pirinç kavuzunda %81,74 BE bildirilmiş (tek çalışma). 3-4 aylık üretken sezonda 3-4 flaş (2-6 hafta arayla); bahçe yatakları yıllık taze odun eklemesiyle yıllarca üretken kalabilir.",
+    foodSafetyNotes:
+      "Substrat kaynağı gıda güvenliğini doğrudan etkiler: jenerik/karışık talaşta yetişen mantarlarda Çin gıda güvenliği sınırları kadmiyum (1,27 vs 1,0 mg/kg) ve arsenik (2,56 vs 1,0 mg/kg) için aşılmış, izlenebilir tek-kaynaklı (kış hünnabı) talaşta aşılmamış — substrat izlenebilirliği somut bir gıda güvenliği kontrol noktasıdır. Trichoderma (yeşil küf) bu türde de hakemli literatürde doğrulanmış (2024, Guizhou). Hasat şapka hâlâ çan şeklindeyken ve kısmi örtü/solungaçlar yırtılmadan önce yapılmalı — geç hasatta kalite düşer. Diğer dört türle paylaşılan genel uyarı: 21 CFR 112.3 mantarları kapsanan ürün (\"covered produce\") sayar ve taze paketlemede Clostridium botulinum'u açıkça isimlendirilmiş bir tehlike olarak tanır.",
+    difficultyLevel: 1,
+    sourceOrg: "MDPI Horticulturae (hakemli, 2024); US FDA/eCFR 21 CFR 112.3",
+    sourceFiles: ["fda_21cfr112_produce_safety_rule.pdf"],
+    dataGaps: [
+      "Birincil agronomik kaynak (MDPI Horticulturae, Stropharia/kış hünnabı çalışması) otomatik PDF indirmeyi engelliyor — tam metin yalnız HTML makale sayfası üzerinden incelendi, diğer 4 türden farklı olarak yerel bir PDF kopyası documents/ klasöründe YOK.",
+      "Hasat sonrası raf ömrü (gün, saklama sıcaklığı) hiçbir üniversite/hakemli kaynakta bulunamadı — foodSafetyNotes'a uydurma bir değer eklenmedi.",
+      "daysToFirstHarvest aralığı iki farklı yöntemi TEK aralıkta birleştiriyor: açık hava bahçe yatağı (~2 ay, mevsime bağlı, kanıt C/D) ile hakemli laboratuvar protokolü (~55-60 gün, kanıt B) — ayrı ayrı okunmalı, tek kesin sayı değildir.",
     ],
   },
 ];

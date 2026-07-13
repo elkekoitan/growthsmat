@@ -153,9 +153,12 @@ export const EPICS: Epic[] = [
       // (Brassica ITC'lerinin toprak patojenlerini baskılaması) clubroot+Verticillium yönetim
       // notlarına eklendi; yalnız özet erişilebildiği açıkça belirtildi (tam metin engellendi).
       // Takson şeması ayrıca YENİ bir kategoriyle genişledi: mantar yetiştiriciliği (mushrooms.ts,
-      // 4 tür — shiitake/istiridye/aslan yelesi/beyaz mantar), Cornell/NC State/SARE/Penn State/
-      // Thammasat araştırmalarından. Agaricus'ta kaynakların yalnız laboratuvar spawn verisi
-      // içerdiği (meyvelenme sıcaklık/nem/verim YOK) dataGaps ile açıkça işaretli — uydurulmadı.
+      // 5 tür — shiitake/istiridye/aslan yelesi/beyaz mantar/şarap mantarı), Cornell/NC State/
+      // SARE/Penn State/Thammasat/MDPI araştırmalarından (research/mushroom-cultivation/
+      // report.md §1-5'in belgelediği 5 türün tamamı artık kodda — 2026-07-13'e kadar şarap
+      // mantarı/Stropharia rugosoannulata koda hiç taşınmamıştı, dokümantasyon incelemesinde
+      // bulundu ve eklendi). Agaricus'ta kaynakların yalnız laboratuvar spawn verisi içerdiği
+      // (meyvelenme sıcaklık/nem/verim YOK) dataGaps ile açıkça işaretli — uydurulmadı.
       // 2026-07-13 (DB göç Phase 4): /kurasyon artık gerçek Postgres (CorrectionSubmission,
       // platform-geneli). Gönder/incele/onayla/reddet/geri-çek AKIŞININ TAMAMI gerçek ve
       // işlevsel (uzman-danışmadan farklı olarak burada dead-code kalan bir adım yok).

@@ -2,8 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { MUSHROOM_CATALOG, mushroomById, dataGapCount, DIFFICULTY_LABELS, type MushroomProfile } from "../src/data/mushrooms.ts";
 
-test("katalog 4 gerçek, kaynaklı tür içerir", () => {
-  assert.equal(MUSHROOM_CATALOG.length, 4);
+test("katalog 5 gerçek, kaynaklı tür içerir", () => {
+  assert.equal(MUSHROOM_CATALOG.length, 5);
   for (const m of MUSHROOM_CATALOG) {
     assert.ok(m.sourceFiles.length > 0, `${m.id} sourceFiles boş`);
     assert.ok(m.sourceOrg.length > 0, `${m.id} sourceOrg boş`);
@@ -45,6 +45,18 @@ test("istiridye mantarı: belirsiz kaynak değeri (baskı hatası) fruitingTempC
   const oyster = mushroomById("istiridye-mantari");
   assert.equal(oyster?.fruitingTempC, undefined);
   assert.ok(oyster?.dataGaps?.some((g) => /baskı hatası/.test(g)));
+});
+
+test("şarap mantarı (Stropharia rugosoannulata): report.md §5'in belgelediği 5. tür koda taşındı", () => {
+  const wineCap = mushroomById("sarap-mantari");
+  assert.equal(wineCap?.scientificName, "Stropharia rugosoannulata");
+  assert.ok(wineCap?.fruitingTempC);
+  assert.ok(wineCap?.daysToFirstHarvest);
+});
+
+test("şarap mantarı: yerel PDF'i olmayan birincil kaynak dataGaps'te AÇIKÇA belirtilir", () => {
+  const wineCap = mushroomById("sarap-mantari");
+  assert.ok(wineCap?.dataGaps?.some((g) => /PDF/.test(g)));
 });
 
 test("dataGapCount: veri boşluğu olmayan bir profil 0 döner (varsayımsal tam profil)", () => {
