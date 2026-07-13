@@ -187,3 +187,10 @@ export const Globe = (p: IconProps) => (
     <path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18" />
   </Base>
 );
+
+export const Search = (p: IconProps) => (
+  <Base {...p}>
+    <circle cx="11" cy="11" r="7" />
+    <path d="M21 21l-4.2-4.2" />
+  </Base>
+);

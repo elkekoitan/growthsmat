@@ -19,9 +19,11 @@ import {
   USD_TO_TRY_REFERENCE,
   type ChannelId,
   type PaymentCountry,
+  type CatalogListing,
 } from "@/data/commerce";
-import { CROPS, type CropCategory } from "@/data/crops";
+import { CROPS, CROP_BY_ID, type CropCategory } from "@/data/crops";
 import { cropPhotoPath, primaryCredit } from "@/data/photoCredits";
+import { microgreenPhotoPath } from "@/data/microgreenPhotoCredits";
 import { NumberedHeading, StampBadge, WaveDivider } from "@/components/graphics";
 import { SpotlightCard, KpiCard } from "@/components/visuals";
 import { Reveal } from "@/components/ui";
@@ -37,8 +39,7 @@ import {
   MapPin,
   Calendar,
   Sparkles,
-  Leaf,
-  Sprout,
+  Search,
 } from "@/components/icons";
 import type { Role } from "@/lib/roles";
 import { can } from "@/lib/roles";
@@ -95,6 +96,20 @@ const COUNTRY_LABELS: Record<PaymentCountry, string> = {
   UK: "Birleşik Krallık",
 };
 
+function catalogCategory(l: CatalogListing): CropCategory | undefined {
+  return l.cropId ? CROP_BY_ID[l.cropId]?.category : undefined;
+}
+
+function catalogPhoto(l: CatalogListing): { path?: string; isApprox: boolean } {
+  if (l.cropId) return { path: cropPhotoPath(l.cropId), isApprox: primaryCredit(l.cropId)?.isApproximation ?? false };
+  if (l.microgreenId) return { path: microgreenPhotoPath(l.microgreenId), isApprox: false };
+  return { path: undefined, isApprox: false };
+}
+
+function trLower(s: string) {
+  return s.toLocaleLowerCase("tr");
+}
+
 export function Market({ session, realListings, myListings, myOrders, incomingOrdersByListing }: MarketProps) {
   const [createState, createAction, createPending] = useActionState(createListingAction, INITIAL_FORM_STATE);
   const [orderPending, startOrderTransition] = useTransition();
@@ -118,13 +133,30 @@ export function Market({ session, realListings, myListings, myOrders, incomingOr
   const canManageCommerce = session ? can(session.role, "commerce.manage") : false;
 
   const [channelFilter, setChannelFilter] = useState<ChannelId | "hepsi">("hepsi");
+  const [categoryFilter, setCategoryFilter] = useState<CropCategory | "hepsi">("hepsi");
+  const [query, setQuery] = useState("");
+
+  const catalogCounts = useMemo(() => {
+    const m: Partial<Record<CropCategory, number>> = {};
+    for (const l of CATALOG_WITH_EMOJI) {
+      const cat = catalogCategory(l);
+      if (cat) m[cat] = (m[cat] ?? 0) + 1;
+    }
+    return m;
+  }, []);
+
+  const q = trLower(query.trim());
   const filteredCatalog = useMemo(
     () =>
-      channelFilter === "hepsi"
-        ? CATALOG_WITH_EMOJI
-        : CATALOG_WITH_EMOJI.filter((l) => l.channels.includes(channelFilter)),
-    [channelFilter]
+      CATALOG_WITH_EMOJI.filter((l) => {
+        if (channelFilter !== "hepsi" && !l.channels.includes(channelFilter)) return false;
+        if (categoryFilter !== "hepsi" && catalogCategory(l) !== categoryFilter) return false;
+        if (q && !(trLower(l.title).includes(q) || trLower(l.producer).includes(q))) return false;
+        return true;
+      }),
+    [channelFilter, categoryFilter, q]
   );
+  const anyMarketFilter = channelFilter !== "hepsi" || categoryFilter !== "hepsi" || query.trim() !== "";
 
   // --- Etsy ücret simülatörü ---
   const [etsyPrice, setEtsyPrice] = useState(12);
@@ -155,31 +187,7 @@ export function Market({ session, realListings, myListings, myOrders, incomingOr
 
   return (
     <>
-      {/* ---------- HERO ---------- */}
-      <section className="mesh-light grain section" style={{ position: "relative", overflow: "hidden" }}>
-        <div className="container-x hero-stagger" style={{ position: "relative", maxWidth: 820, margin: "0 auto", textAlign: "center" }}>
-          <span className="eyebrow">TİCARET VE KANAL MERKEZİ</span>
-          <h1 style={{ fontSize: "var(--fs-h1)", marginTop: 18, marginBottom: 16 }} className="text-balance">
-            Ürettiğini <em style={{ fontStyle: "italic", color: "var(--primary)" }}>kaçırmadan</em> sat.
-          </h1>
-          <p style={{ color: "var(--text-mid)", fontSize: "var(--fs-lead)", maxWidth: 640, margin: "0 auto 28px" }} className="text-pretty">
-            Yerel vitrin, restoran aboneliği, topluluk destekli tarım kutusu ve Etsy — tek master
-            katalogdan yönet. Her kanalın ücreti ayrı ve şeffaf gösterilir; sertifikasız ürün
-            &quot;organik&quot; olarak yayınlanamaz.
-          </p>
-          <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-            <Link href="/plan" className="btn btn-accent btn-lg">
-              Üretim planını oluştur <ArrowRight size={16} />
-            </Link>
-            <a href="#kanallar" className="btn btn-secondary btn-lg">
-              Kanalları karşılaştır
-            </a>
-          </div>
-        </div>
-      </section>
-      <WaveDivider fill="var(--color-paper-50)" />
-
-      {/* ---------- HASAT PAZARI VİTRİNİ (canlı Postgres — statik demo değil) ---------- */}
+      {/* ---------- HASAT PAZARI HERO + KEŞFET ---------- */}
       {/* Görsel kimlik kaynağı: ADR-009 (Ekosistem önceliklendirmesi ve iki katmanlı görsel
           kimlik) + docs/design/hasat-pazari-gorsel-yon.html referans önizlemesi — kullanıcının
           kendi Pinterest panosu (pin.it/3hy0iVoBY, "Organic Store Website Design" ve ilişkili
@@ -187,42 +195,172 @@ export function Market({ session, realListings, myListings, myOrders, incomingOr
           terracotta birincil + hasat altını aksan + krem zemin; orman yeşili YALNIZ doğrulanmış
           "sertifikalı organik" rozetinde kullanılır (renk = kanıt sinyali). Evergreen Ledger'ın
           orman/altın kimliği profesyonel/üretici yüzeylerinde (plan, rotasyon, izlenebilirlik,
-          sensör, kurasyon, uzman danışma, roller) AYNEN kalır — bu yalnız /pazar'a scoped. */}
+          sensör, kurasyon, uzman danışma, roller) AYNEN kalır — bu yalnız /pazar'a scoped.
+          Kullanıcı geri bildirimi (2026-07-13): önce güçlü, alışverişe-hazır bir vitrin —
+          kanal/ücret araçları önemli ama ikinci sırada. Tek hero, gerçek fotoğraflı ürün
+          grid'i, çalışan arama+kategori+kanal filtresi buraya taşındı. */}
       <section className="market-hero-band">
         <div className="container-x">
           <div style={{ textAlign: "center", marginBottom: 28 }}>
-            <span className="eyebrow market-hero-eyebrow">
-              HASAT PAZARI
-            </span>
-            <h2 style={{ fontSize: "var(--fs-h2)", marginTop: 10, marginBottom: 10 }}>
+            <span className="eyebrow market-hero-eyebrow">HASAT PAZARI</span>
+            <h1 style={{ fontSize: "var(--fs-h1)", marginTop: 10, marginBottom: 10 }} className="text-balance">
               Ürettiğini <em style={{ fontStyle: "italic", color: "#A1502E" }}>kaçırmadan</em> sat, aradığını güvenle bul.
-            </h2>
-            <p style={{ color: "var(--text-mid)", maxWidth: 560, margin: "0 auto" }}>
-              Aşağıdaki ilanlar veritabanından geliyor — gerçek üreticiler ekliyor, gerçek
-              alıcılar sipariş veriyor. Ödeme tahsilatı henüz entegre değil (bkz. not); sipariş
-              iki gerçek hesap arasında kalıcı bir talep kaydı oluşturur.
+            </h1>
+            <p style={{ color: "var(--text-mid)", fontSize: "var(--fs-lead)", maxWidth: 580, margin: "0 auto" }}>
+              Yerel vitrin, restoran aboneliği, CSA kutusu ve Etsy — tek master katalogdan.
+              Sertifikasız ürün &quot;organik&quot; olarak yayınlanamaz.
             </p>
           </div>
 
           <div className="market-category-row">
-            {(Object.keys(HASAT_CATEGORY_META) as CropCategory[]).map((catId) => {
-              const meta = HASAT_CATEGORY_META[catId];
-              return (
-                <div key={catId} className="market-category-badge">
-                  <span className="market-category-badge-icon" style={{ background: meta.color }}>
-                    {meta.emoji}
-                  </span>
-                  <span>{meta.label}</span>
-                </div>
-              );
-            })}
+            <button
+              type="button"
+              className={`market-category-badge${categoryFilter === "hepsi" ? " is-on" : ""}`}
+              onClick={() => setCategoryFilter("hepsi")}
+              aria-pressed={categoryFilter === "hepsi"}
+            >
+              <span className="market-category-badge-icon" style={{ background: "var(--text-low)" }}>
+                ✦
+              </span>
+              <span>Tümü</span>
+            </button>
+            {(Object.keys(HASAT_CATEGORY_META) as CropCategory[])
+              .filter((catId) => (catalogCounts[catId] ?? 0) > 0)
+              .map((catId) => {
+                const meta = HASAT_CATEGORY_META[catId];
+                const on = categoryFilter === catId;
+                return (
+                  <button
+                    key={catId}
+                    type="button"
+                    className={`market-category-badge${on ? " is-on" : ""}`}
+                    onClick={() => setCategoryFilter((cur) => (cur === catId ? "hepsi" : catId))}
+                    aria-pressed={on}
+                  >
+                    <span className="market-category-badge-icon" style={{ background: meta.color }}>
+                      {meta.emoji}
+                    </span>
+                    <span>{meta.label}</span>
+                  </button>
+                );
+              })}
           </div>
 
-          <div className="market-trust-row">
-            <span><ShieldCheck size={15} /> Gerçek üretici hesabı</span>
-            <span><Leaf size={15} /> Sertifika durumu şeffaf</span>
-            <span><Sprout size={15} /> Ödeme entegrasyonu yok — yalnız talep kaydı</span>
+          <div className="market-toolbar">
+            <div className="market-search-wrap">
+              <span className="market-search-icon" aria-hidden>
+                <Search size={17} />
+              </span>
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Ürün veya üretici ara…"
+                aria-label="Pazarda ara"
+                className="market-search-input"
+              />
+            </div>
+            <div className="market-channel-chips">
+              <button
+                type="button"
+                onClick={() => setChannelFilter("hepsi")}
+                className={`market-chip${channelFilter === "hepsi" ? " is-on" : ""}`}
+                aria-pressed={channelFilter === "hepsi"}
+              >
+                Tüm kanallar
+              </button>
+              {CHANNELS.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setChannelFilter((cur) => (cur === c.id ? "hepsi" : c.id))}
+                  className={`market-chip${channelFilter === c.id ? " is-on" : ""}`}
+                  aria-pressed={channelFilter === c.id}
+                >
+                  {CHANNEL_LABEL_SHORT[c.id]}
+                </button>
+              ))}
+              {anyMarketFilter && (
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => {
+                    setChannelFilter("hepsi");
+                    setCategoryFilter("hepsi");
+                    setQuery("");
+                  }}
+                >
+                  <X size={14} /> Temizle
+                </button>
+              )}
+            </div>
           </div>
+
+          <div className="market-result-bar">
+            <strong className="tnum">{filteredCatalog.length}</strong> ürün
+            {anyMarketFilter && <span style={{ color: "var(--text-low)" }}> · {CATALOG_WITH_EMOJI.length} içinde</span>}
+          </div>
+
+          {/* --- Ana ürün listeleme grid'i (master katalog, gerçek fotoğraflar) --- */}
+          {filteredCatalog.length === 0 ? (
+            <div className="card" style={{ padding: 28, textAlign: "center" }}>
+              <p style={{ color: "var(--text-mid)", margin: 0 }}>Bu filtrelerle eşleşen ürün yok.</p>
+            </div>
+          ) : (
+            <div className="market-shop-grid">
+              {filteredCatalog.map((l) => {
+                const photo = catalogPhoto(l);
+                const stock = STOCK_LABELS[l.stockType];
+                const claim = CLAIM_LABELS[l.claim];
+                const cat = catalogCategory(l);
+                const catMeta = cat ? HASAT_CATEGORY_META[cat] : undefined;
+                return (
+                  <div key={l.id} className="market-shop-card">
+                    <div className="market-shop-photo">
+                      {photo.path ? (
+                        <Image src={photo.path} alt={l.title} fill sizes="280px" style={{ objectFit: "cover" }} />
+                      ) : (
+                        <span className="market-shop-photo-fallback">{l.emoji}</span>
+                      )}
+                      {catMeta && (
+                        <span className="market-shop-cat-tag" style={{ background: catMeta.color }}>
+                          {catMeta.label}
+                        </span>
+                      )}
+                      {photo.isApprox && <span className="market-shop-approx">≈ analog görsel</span>}
+                    </div>
+                    <div className="market-shop-body">
+                      <div className="market-shop-producer">{l.producer} · {l.region}</div>
+                      <div className="market-shop-title">{l.title}</div>
+                      <div className="market-shop-price-row">
+                        <span className="market-shop-price">{l.priceTRY.toLocaleString("tr-TR")} ₺</span>
+                        <span className="market-shop-unit">{l.unitLabel}</span>
+                      </div>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 }}>
+                        <span className={`chip chip-${stock.tone}`}>{stock.label}</span>
+                        <span className={`chip chip-${claim.tone}`}>
+                          <ShieldCheck size={11} /> {claim.label}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        <WaveDivider fill="var(--color-paper-50)" />
+      </section>
+
+      {/* ---------- GERÇEK İLANLAR (canlı Postgres — statik katalog değil) ---------- */}
+      <section className="section" style={{ paddingTop: "clamp(2rem, 4vw, 3rem)" }}>
+        <div className="container-x">
+          <NumberedHeading n="00" eyebrow="Canlı, veritabanından" title="Az önce eklenen gerçek ilanlar" />
+          <p style={{ color: "var(--text-mid)", maxWidth: 620, marginBottom: 24 }}>
+            Yukarıdaki katalog örnek bir vitrindir; buradaki ilanlar gerçek üreticilerin
+            hesaplarından geliyor. Ödeme tahsilatı henüz entegre değil — sipariş iki gerçek
+            hesap arasında kalıcı bir talep kaydı oluşturur.
+          </p>
 
           {/* --- Gerçek ilan grid'i (Postgres) --- */}
           <div className="market-real-grid">
@@ -810,7 +948,16 @@ export function Market({ session, realListings, myListings, myOrders, incomingOr
           font-size: var(--fs-xs);
           color: var(--text-mid);
           font-weight: 600;
+          background: none;
+          border: none;
+          cursor: pointer;
+          padding: 4px;
+          border-radius: 12px;
+          transition: transform var(--dur-instant, 100ms) var(--ease-out, ease), background var(--dur-fast, 150ms) ease;
         }
+        .market-category-badge:hover { transform: translateY(-2px); }
+        .market-category-badge:active { transform: scale(0.97); }
+        .market-category-badge.is-on { background: color-mix(in srgb, #A1502E 10%, transparent); color: #7c3b21; }
         .market-category-badge-icon {
           width: 56px;
           height: 56px;
@@ -820,17 +967,79 @@ export function Market({ session, realListings, myListings, myOrders, incomingOr
           font-size: 24px;
           color: #fff;
           box-shadow: var(--shadow-sm, 0 1px 2px rgba(28,36,32,.08));
+          transition: box-shadow var(--dur-fast, 150ms) ease;
         }
-        .market-trust-row {
-          display: flex;
-          justify-content: center;
-          gap: 20px;
-          flex-wrap: wrap;
-          margin-bottom: 28px;
-          font-size: var(--fs-xs);
-          color: var(--text-low);
+        .market-category-badge.is-on .market-category-badge-icon,
+        .market-category-badge:hover .market-category-badge-icon {
+          box-shadow: 0 0 0 3px color-mix(in srgb, #A1502E 30%, transparent), var(--shadow-sm, 0 1px 2px rgba(28,36,32,.08));
         }
-        .market-trust-row span { display: inline-flex; align-items: center; gap: 6px; }
+
+        /* --- arama + kanal filtre araç çubuğu --- */
+        .market-toolbar {
+          display: flex; gap: 14px; flex-wrap: wrap; align-items: center;
+          justify-content: space-between; margin: 8px 0 18px;
+        }
+        .market-search-wrap { position: relative; flex: 1; min-width: 240px; max-width: 420px; }
+        .market-search-icon {
+          position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+          color: var(--color-ink-500, var(--text-low)); pointer-events: none;
+        }
+        .market-search-input {
+          width: 100%; height: 46px; padding: 0 16px 0 42px;
+          border-radius: 999px; border: 1.5px solid color-mix(in srgb, #A1502E 20%, var(--border-soft));
+          background: #fff; color: var(--color-ink-900, var(--text-hi)); font-size: var(--fs-base);
+          transition: border-color var(--dur-fast, 150ms) ease, box-shadow var(--dur-fast, 150ms) ease;
+        }
+        .dark .market-search-input { background: var(--bg-surface); color: var(--text-hi); }
+        .market-search-input:focus-visible { outline: none; border-color: #A1502E; box-shadow: 0 0 0 3px color-mix(in srgb, #A1502E 18%, transparent); }
+        .market-channel-chips { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+        .market-chip {
+          height: 38px; padding: 0 16px; border-radius: 999px; cursor: pointer;
+          font-size: var(--fs-sm); font-weight: 600; white-space: nowrap;
+          border: 1.5px solid color-mix(in srgb, #A1502E 20%, var(--border-soft));
+          background: #fff; color: var(--color-ink-700, var(--text-mid));
+          transition: background var(--dur-fast, 150ms) ease, color var(--dur-fast, 150ms) ease;
+        }
+        .dark .market-chip { background: var(--bg-surface); }
+        .market-chip:hover { border-color: #A1502E; }
+        .market-chip.is-on { background: #A1502E; border-color: #A1502E; color: #fff; }
+        .market-result-bar { font-size: var(--fs-sm); color: var(--text-mid); margin-bottom: 16px; }
+
+        /* --- ana ürün listeleme grid'i (master katalog) --- */
+        .market-shop-grid {
+          display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px;
+          padding-bottom: 16px;
+        }
+        @media (max-width: 1100px) { .market-shop-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+        @media (max-width: 560px) { .market-shop-grid { grid-template-columns: 1fr; } }
+        .market-shop-card {
+          background: #fff; border-radius: var(--radius-card); overflow: hidden;
+          border: 1px solid color-mix(in srgb, #A1502E 18%, var(--border-soft));
+          box-shadow: var(--shadow-sm); display: flex; flex-direction: column;
+          transition: transform var(--dur-fast, 150ms) var(--ease-out, ease), box-shadow var(--dur-fast, 150ms) ease, border-color var(--dur-fast, 150ms) ease;
+        }
+        .dark .market-shop-card { background: var(--bg-surface); }
+        .market-shop-card:hover { transform: translateY(-3px); border-color: #A1502E; box-shadow: 0 10px 26px color-mix(in srgb, #A1502E 18%, transparent); }
+        .market-shop-photo { position: relative; width: 100%; height: 148px; background: var(--color-paper-200, var(--bg-surface-2)); flex-shrink: 0; }
+        .market-shop-photo-fallback { position: absolute; inset: 0; display: grid; place-items: center; font-size: 40px; }
+        .market-shop-cat-tag {
+          position: absolute; left: 10px; bottom: 10px; color: #fff; font-weight: 700;
+          font-size: 10px; letter-spacing: 0.03em; text-transform: uppercase;
+          padding: 3px 9px; border-radius: 999px; box-shadow: var(--shadow-sm);
+        }
+        .market-shop-approx {
+          position: absolute; right: 10px; top: 10px; font-size: 9px; font-weight: 700;
+          padding: 3px 8px; border-radius: 999px; color: #fff;
+          background: color-mix(in srgb, var(--color-warning) 80%, black 8%);
+        }
+        .market-shop-body { padding: 14px 16px 16px; }
+        .market-shop-producer { font-size: 11px; color: var(--color-ink-500, var(--text-low)); margin-bottom: 6px; }
+        .market-shop-title { font-weight: 700; font-size: 15px; margin-bottom: 8px; }
+        .market-shop-price-row { display: flex; align-items: baseline; gap: 8px; }
+        .market-shop-price { font-family: var(--font-mono); font-size: 19px; font-weight: 700; color: #7c3b21; }
+        .dark .market-shop-price { color: var(--color-gold-300, #A1502E); }
+        .market-shop-unit { font-size: 11px; color: var(--color-ink-500, var(--text-low)); }
+
         .market-real-grid {
           display: grid;
           grid-template-columns: repeat(4, minmax(0, 1fr));

@@ -9,6 +9,7 @@
     "lint": "eslint",
     "icons": "node scripts/gen-icons.mjs",
     "import-photos": "node scripts/import-crop-photos.mjs",
+    "import-microgreen-photos": "node scripts/import-microgreen-photos.mjs",
     "test": "node --test --experimental-strip-types --import ./tests/register-alias.mjs \"tests/*.test.ts\"",
     "postinstall": "prisma generate",
     "db:migrate": "prisma migrate dev",
