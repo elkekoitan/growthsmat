@@ -68,31 +68,46 @@ for (const row of rows) {
     cropId: row.crop_id,
     role: row.role,
     filename: row.filename,
+    variety: row.variety,
+    growthStage: row.growth_stage,
     creator: row.creator,
     sourceUrl: row.source_url,
     license: row.license,
     attributionText: row.attribution_text,
+    checksumSha256: row.checksum_sha256,
+    checksumVerified: row.checksum_verified === "True",
     isApproximation: APPROXIMATE_CROP_IDS.has(row.crop_id),
   });
 }
 
 const tsContent = `// SmartGrowth OS — Ürün fotoğrafı lisans kataloğu (PRD P04-14 "Görsel lisans kataloğu")
 // Kaynak: assets/crop-photos/index.csv (Wikimedia Commons, CC0/CC BY/CC BY-SA/kamu malı;
-// tamamı ticari kullanıma açık, checksum doğrulanmış). Otomatik üretildi:
+// tamamı ticari kullanıma açık). Otomatik üretildi:
 // npm run import-photos (scripts/import-crop-photos.mjs) — elle düzenleme YAPMA.
 //
 // isApproximation=true olan 2 üründe (biber-carliston, kabak-sakiz) birebir çeşit fotoğrafı
 // bulunamadı — yakın akraba/analog görsel kullanıldı (sahte kesinlik yok: bu açıkça işaretli
 // ve UI'da gösterilmeli).
+//
+// DÜRÜSTLÜK NOTU (07-VERI-KAYNAKLARI-VE-KANIT.md §9 alan listesiyle karşılaştırma):
+// checksumSha256/checksumVerified ve variety/growthStage kaynak CSV'de her zaman vardı ama
+// önceden buraya taşınmıyordu — dosya başlığı "checksum doğrulanmış" diyordu ama hiçbir yerde
+// checksum SAKLANMIYOR/GÖSTERİLMİYORDU (dokümantasyon incelemesinde bulundu, düzeltildi).
+// Belgenin istediği downloaded/published date, doğrulayan kişi ve ticari kullanım/türetme/
+// model-eğitimi izin bayrakları kaynak CSV'de HİÇ YOK — bunlar UYDURULMADI, eksik bırakıldı.
 
 export interface PhotoCredit {
   cropId: string;
   role: "primary" | "secondary";
   filename: string;
+  variety: string;
+  growthStage: string;
   creator: string;
   sourceUrl: string;
   license: string;
   attributionText: string;
+  checksumSha256: string;
+  checksumVerified: boolean;
   isApproximation: boolean;
 }
 

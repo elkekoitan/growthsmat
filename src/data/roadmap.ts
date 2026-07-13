@@ -143,8 +143,21 @@ export const EPICS: Epic[] = [
       // İçerik kürasyon konsolu (öneri→incelemede→onay/red/geri-çekme, compliance.review
       // rol kapısı, sürüm/köken koruması) test edilerek implement edildi (src/lib/curation.ts,
       // /kurasyon). Görsel lisans kataloğu: assets/crop-photos/ araştırma kütüphanesindeki
-      // 37 üründen 49 gerçek, lisanslı (Wikimedia Commons CC0/CC BY/CC BY-SA/kamu malı,
-      // checksum doğrulanmış) fotoğraf src/data/photoCredits.ts'e taşındı, /urunler'de
+      // 37 üründen 49 gerçek, lisanslı (Wikimedia Commons CC0/CC BY/CC BY-SA/kamu malı)
+      // fotoğraf src/data/photoCredits.ts'e taşındı, /urunler'de
+      // 2026-07-13 (dokümantasyon incelemesi — dürüstlük düzeltmesi): kaynak CSV'de HER ZAMAN
+      // var olan checksumSha256/checksumVerified/variety/growthStage alanları önceden koda
+      // taşınmıyordu — dosya başlığı "checksum doğrulanmış" diyordu ama checksum hiçbir yerde
+      // SAKLANMIYOR/GÖSTERİLMİYORDU (07-VERI-KAYNAKLARI-VE-KANIT.md §9 ile karşılaştırmada
+      // bulundu). scripts/import-crop-photos.mjs + import-microgreen-photos.mjs güncellendi,
+      // her iki kredi kataloğu yeniden üretildi, invariant testler eklendi. Belgenin istediği
+      // downloaded/published date, doğrulayan kişi ve ticari kullanım/türetme/model-eğitimi
+      // izin bayrakları kaynak CSV'lerde HİÇ YOK — bunlar UYDURULMADI, eksik bırakıldı (ayrı
+      // bir kapsam — kaynak CSV'lerin kendisi genişletilmeli). AYRI, DAHA BÜYÜK bir bulgu:
+      // assets/mushroom-photos/ ve assets/pest-disease-photos/ (aynı CSV şemasıyla, checksum
+      // dahil) hiç import edilmemiş — mushrooms.ts/pestDisease.ts'in hiçbir gerçek fotoğrafı
+      // yok, yalnız emoji. Bu, ayrı bir görev olarak flagged (import-mushroom-photos.mjs +
+      // import-pest-disease-photos.mjs yazılmalı), bu turun kapsamına alınmadı.
       // kart+detay görseli olarak entegre edildi, CC BY-SA atıf metni UI'da görünür (yasal
       // gereklilik), 2 bilinen yaklaşık/analog görsel (biber-carliston, kabak-sakiz) açıkça
       // işaretli — sahte kesinlik yok. EPPO adapter: canlı API yerine 8 gerçek EPPO/Cornell/UCIPM/
@@ -385,7 +398,17 @@ export const EPICS: Epic[] = [
       // tenant izolasyonu (roles.test.ts), lot/geri-çağırma (traceability.test.ts) ve
       // AI güvenlik (assistant.test.ts) kapsıyordu ama hiç işaretlenmemişti. Web de
       // gerçekten canlı (Coolify) — yalnız web kapsamı, mağaza yayını yok.
-      status: (["done", "todo", "done", "todo", "in_progress", "in_progress", "todo", "done", "todo", "todo", "todo", "in_progress"][i]) as TaskStatus,
+      // 2026-07-13 (dokümantasyon incelemesi — ikinci dürüstlük düzeltmesi): "Tenant/IDOR
+      // güvenlik testi" "done"den "in_progress"e düşürüldü. 03-TEKNIK-MIMARI.md §18 test
+      // piramidinde "Domain unit" ile "Integration: PostgreSQL/RLS, ... auth" ayrı katmanlar
+      // olarak tanımlanır; tests/roles.test.ts:60-68 tenant izolasyonu senaryosunu (aynı
+      // e-posta birden fazla workspace) yalnız `hasPermission()`'a elle kurulmuş bir
+      // `Membership[]` dizisiyle DOĞRUDAN çağırarak test ediyor — gerçek bir session,
+      // `requireMembership()`, Server Action veya API route'a hiç dokunmuyor. Bu GERÇEK ve
+      // değerli bir mantık testi ama mimari belgenin kastettiği anlamda bir IDOR/entegrasyon
+      // testi değil (P02-06 Postgres RLS de hâlâ "todo" — DB-entegrasyon test altyapısı bu
+      // epic'in kapsamı dışında bırakıldığı zaten belirtilmişti, bkz. göç planı §4).
+      status: (["done", "todo", "in_progress", "todo", "in_progress", "in_progress", "todo", "done", "todo", "todo", "todo", "in_progress"][i]) as TaskStatus,
       title: ["Unit/property test kapsaması", "OpenAPI/event contract testleri", "Tenant/IDOR güvenlik testi", "Offline chaos/çakışma testleri", "Lot ve geri çağırma E2E", "Organik/iddia adversarial test", "Etsy sandbox/contract E2E", "AI güvenlik ve kaynak eval", "WCAG 2.2 AA ve mobil kullanılabilirlik", "Yük, yedek ve restore tatbikatı", "Üç pilotu yürüt ve ölç", "Mağaza/web production yayın"][i],
     })),
   },

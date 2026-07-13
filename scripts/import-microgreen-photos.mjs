@@ -64,10 +64,14 @@ for (const row of rows) {
     microgreenId: row.microgreen_id,
     role: row.role,
     filename: row.filename,
+    speciesLabel: row.species_label,
+    growthStageOrSubject: row.growth_stage_or_subject,
     creator: row.creator,
     sourceUrl: row.source_url,
     license: row.license,
     attributionText: row.attribution_text,
+    checksumSha256: row.checksum_sha256,
+    checksumVerified: row.checksum_verified === "True",
   });
 }
 
@@ -75,17 +79,25 @@ const primaryCredits = credits.filter((c) => c.role === "primary");
 
 const tsContent = `// SmartGrowth OS — Mikro filiz fotoğrafı lisans kataloğu (crop-photos'un mikro filiz eşleniği)
 // Kaynak: assets/microgreen-photos/index.csv (Wikimedia Commons/Flickr, CC BY/CC BY-SA;
-// tamamı ticari kullanıma açık, checksum doğrulanmış). Otomatik üretildi:
+// tamamı ticari kullanıma açık). Otomatik üretildi:
 // npm run import-microgreen-photos (scripts/import-microgreen-photos.mjs) — elle düzenleme YAPMA.
+//
+// DÜRÜSTLÜK NOTU: checksumSha256/checksumVerified kaynak CSV'de vardı ama önceden buraya
+// taşınmıyordu (dosya başlığı "checksum doğrulanmış" diyordu, hiçbir yerde saklanmıyordu —
+// dokümantasyon incelemesinde bulundu, photoCredits.ts ile aynı düzeltme uygulandı).
 
 export interface MicrogreenPhotoCredit {
   microgreenId: string;
   role: "primary" | "secondary";
   filename: string;
+  speciesLabel: string;
+  growthStageOrSubject: string;
   creator: string;
   sourceUrl: string;
   license: string;
   attributionText: string;
+  checksumSha256: string;
+  checksumVerified: boolean;
 }
 
 export const MICROGREEN_PHOTO_CREDITS: MicrogreenPhotoCredit[] = ${JSON.stringify(primaryCredits, null, 2)};

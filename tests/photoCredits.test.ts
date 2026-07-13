@@ -48,3 +48,12 @@ test("her primary kayıt tam olarak bir crop_id'ye aittir (yinelenen birincil yo
   const primaryIds = PHOTO_CREDITS.filter((c) => c.role === "primary").map((c) => c.cropId);
   assert.equal(new Set(primaryIds).size, primaryIds.length);
 });
+
+test("07-VERI-KAYNAKLARI-VE-KANIT.md §9: her kayıtta checksum ve türetildiği kaynağa dair etiketler dolu (uydurulmadan kaynak CSV'den taşındı)", () => {
+  for (const c of PHOTO_CREDITS) {
+    assert.match(c.checksumSha256, /^[0-9a-f]{64}$/, `${c.cropId}/${c.filename} checksum sha256 biçimli değil`);
+    assert.equal(typeof c.checksumVerified, "boolean", `${c.cropId}/${c.filename} checksumVerified boolean değil`);
+    assert.ok(c.variety.length > 0, `${c.cropId}/${c.filename} variety boş`);
+    assert.ok(c.growthStage.length > 0, `${c.cropId}/${c.filename} growthStage boş`);
+  }
+});
