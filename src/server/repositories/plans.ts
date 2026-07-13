@@ -6,7 +6,7 @@
 import "server-only";
 
 import { getDb } from "../db";
-import type { SiteProfile } from "@/lib/suitability";
+import { ENGINE_VERSION, type SiteProfile } from "@/lib/suitability";
 
 export interface PlanInput {
   profile: SiteProfile;
@@ -18,6 +18,9 @@ export interface PlanInput {
 export interface RealPlan extends PlanInput {
   id: string;
   workspaceId: string;
+  // ADR-004: her karar input snapshot'ıyla BİRLİKTE hangi motor sürümüyle üretildiğini de
+  // taşır — hesaplanan sonucun kendisi değil (o hâlâ hiç saklanmaz), yalnız provenance.
+  engineVersion: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -39,12 +42,14 @@ function toRealPlan(row: {
   phMeasured: boolean;
   phValue: number;
   completed: boolean;
+  engineVersion: string;
   createdAt: Date;
   updatedAt: Date;
 }): RealPlan {
   return {
     id: row.id,
     workspaceId: row.workspaceId,
+    engineVersion: row.engineVersion,
     profile: {
       city: row.city,
       method: row.method as SiteProfile["method"],
@@ -90,6 +95,7 @@ export async function upsertPlan(workspaceId: string, input: PlanInput): Promise
     phMeasured: input.phMeasured,
     phValue: input.phValue,
     completed: input.completed,
+    engineVersion: ENGINE_VERSION,
   };
   const row = await db.plan.upsert({
     where: { workspaceId },

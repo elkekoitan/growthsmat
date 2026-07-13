@@ -244,6 +244,11 @@ model Plan {
   phMeasured    Boolean   @default(false)
   phValue       Float     @default(6.5)
   completed     Boolean   @default(false)
+  // ADR-004 (Öneri motoru): "Her karar input snapshot ve motor sürümüyle saklanır" —
+  // hesaplanan sonuç saklanmaz (yukarıdaki dürüstlük notu), ama HANGİ motor sürümüyle
+  // üretildiği saklanır (src/lib/suitability.ts ENGINE_VERSION) — motor ileride değişirse
+  // eski planların hangi mantıkla üretildiği izlenebilir kalır.
+  engineVersion String    @default("suitability-v1.0.0")
 
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
