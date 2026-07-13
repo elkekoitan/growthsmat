@@ -221,7 +221,7 @@ export function Market() {
               const claim = CLAIM_LABELS[l.claim];
               return (
                 <Reveal key={l.id} i={i % 4} as="div">
-                  <div className="card card-hover" style={{ padding: 18, height: "100%", display: "flex", flexDirection: "column" }}>
+                  <div className="card card-hover market-card" style={{ padding: 18, height: "100%", display: "flex", flexDirection: "column" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
                       <span
                         style={{
@@ -528,6 +528,23 @@ export function Market() {
         }
         @media (max-width: 1100px) { .catalog-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } }
         @media (max-width: 560px) { .catalog-grid { grid-template-columns: 1fr; } }
+
+        /* "Hasat pazarı" sıcak aksanı — yalnız bu vitrin kartlarına özel, katmanlı (additive).
+           Kaynak: Dribbble "Organic Food (Marketplace) V18" (Vitali Zahharov) paylaşılan paleti
+           (#F9F8F3 krem, #A1502E toprak/kiremit) — Evergreen Ledger'ın orman yeşili/altın kimliğini
+           DEĞİŞTİRMEZ, yalnız pazar sayfasının ürün kartlarına sıcak bir vurgu katmanı ekler. */
+        .market-card {
+          background: color-mix(in srgb, #F9F8F3 88%, var(--bg-surface));
+          border-color: color-mix(in srgb, #A1502E 22%, var(--border-hair));
+        }
+        .dark .market-card {
+          background: color-mix(in srgb, #A1502E 10%, var(--bg-surface));
+          border-color: color-mix(in srgb, #A1502E 30%, var(--border-hair));
+        }
+        .market-card:hover {
+          border-color: #A1502E;
+          box-shadow: 0 8px 24px color-mix(in srgb, #A1502E 18%, transparent);
+        }
 
         .sim-input {
           display: block;
