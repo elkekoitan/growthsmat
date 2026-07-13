@@ -1,6 +1,7 @@
 import { Nav } from "@/components/Nav";
 import { Footer } from "@/components/Footer";
 import { RevealProvider } from "@/components/ui";
+import { requireMembership } from "@/server/session";
 import { CurationConsole } from "./CurationConsole";
 
 export const metadata = {
@@ -9,12 +10,14 @@ export const metadata = {
     "Ürün/çeşit verisine düzeltme önerisi akışı: gönder, uzman incelesin, onaylı sürüm geçmişi korunsun.",
 };
 
-export default function KurasyonPage() {
+export default async function KurasyonPage() {
+  const { user, membership } = await requireMembership();
+
   return (
     <RevealProvider>
       <Nav />
       <main>
-        <CurationConsole />
+        <CurationConsole email={user.email} role={membership.role} nowISO={new Date().toISOString()} />
       </main>
       <Footer />
     </RevealProvider>

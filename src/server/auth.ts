@@ -10,25 +10,11 @@ import crypto from "node:crypto";
 import { redirect } from "next/navigation";
 import { getDb } from "./db";
 import { clearSessionCookie, setSessionCookie, SESSION_COOKIE, SESSION_TTL_MS } from "./session";
+import { hashPassword, verifyPassword } from "./password";
 import { cookies } from "next/headers";
 
 export interface AuthFormState {
   error?: string;
-}
-
-function hashPassword(password: string): string {
-  const salt = crypto.randomBytes(16).toString("hex");
-  const derivedKey = crypto.scryptSync(password, salt, 64);
-  return `${salt}:${derivedKey.toString("hex")}`;
-}
-
-function verifyPassword(password: string, stored: string): boolean {
-  const [salt, key] = stored.split(":");
-  if (!salt || !key) return false;
-  const derivedKey = crypto.scryptSync(password, salt, 64);
-  const keyBuffer = Buffer.from(key, "hex");
-  if (keyBuffer.length !== derivedKey.length) return false;
-  return crypto.timingSafeEqual(keyBuffer, derivedKey);
 }
 
 function generateSessionToken(): string {

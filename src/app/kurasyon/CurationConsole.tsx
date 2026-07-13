@@ -31,20 +31,6 @@ function readFieldValue(crop: Crop, field: FieldKey): string {
   return `${crop.daysToHarvest[0]}-${crop.daysToHarvest[1]}`;
 }
 
-interface Persona {
-  id: string;
-  label: string;
-  role: Role;
-  userId: string;
-}
-
-const PERSONAS: Persona[] = [
-  { id: "uretici", label: "Cem — üretici (öneri sahibi)", role: "saha-calisani", userId: "uretici@ornek.com" },
-  { id: "satis", label: "Ayşe — satış (inceleme yetkisi yok)", role: "satis", userId: "ayse@ornek.com" },
-  { id: "kalite", label: "Mert — kalite (inceleyebilir)", role: "kalite", userId: "mert@ornek.com" },
-  { id: "uzman", label: "Dr. Naz — uzman (inceleyebilir)", role: "uzman", userId: "naz@ornek.com" },
-];
-
 const STATUS_CHIP_CLASS: Record<CorrectionSubmission["status"], string> = {
   incelemede: "chip-warn",
   onaylandi: "chip-ok",
@@ -84,11 +70,17 @@ function buildSeedSubmissions(): CorrectionSubmission[] {
 }
 
 const SEED = buildSeedSubmissions();
-const DEMO_NOW = "2026-07-12T09:00:00Z";
 
-export function CurationConsole() {
+export interface CurationConsoleProps {
+  email: string;
+  role: Role;
+  /** İstek anında hesaplanan gerçek saat — yalnız BUNDAN SONRA gönderilen/incelenen
+   * önerileri etkiler; yukarıdaki fixture verinin kendi zaman damgaları değişmez. */
+  nowISO: string;
+}
+
+export function CurationConsole({ email, role, nowISO }: CurationConsoleProps) {
   const [submissions, setSubmissions] = useState<CorrectionSubmission[]>(SEED);
-  const [personaId, setPersonaId] = useState<string>("uretici");
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [subjectId, setSubjectId] = useState<string>(CROPS[0].id);
@@ -96,7 +88,6 @@ export function CurationConsole() {
   const [proposedValue, setProposedValue] = useState("");
   const [sourceUrl, setSourceUrl] = useState("");
 
-  const persona = PERSONAS.find((p) => p.id === personaId) ?? PERSONAS[0];
   const crop = CROP_BY_ID[subjectId];
   const currentValue = crop ? readFieldValue(crop, field) : "";
 
@@ -124,9 +115,9 @@ export function CurationConsole() {
         currentValue,
         proposedValue: proposedValue.trim(),
         sourceUrl: sourceUrl.trim() || undefined,
-        submittedBy: persona.userId,
+        submittedBy: email,
       },
-      DEMO_NOW,
+      nowISO,
       submissions
     );
     setSubmissions((prev) => [...prev, next]);
@@ -135,7 +126,7 @@ export function CurationConsole() {
   }
 
   function handleReview(sub: CorrectionSubmission, decision: "onayla" | "reddet") {
-    const outcome = reviewCorrection(sub, persona.role, decision, persona.userId, DEMO_NOW);
+    const outcome = reviewCorrection(sub, role, decision, email, nowISO);
     if (!outcome.applied) {
       setErrors((prev) => ({ ...prev, [sub.id]: outcome.reason ?? "İşlem uygulanamadı" }));
       return;
@@ -145,7 +136,7 @@ export function CurationConsole() {
   }
 
   function handleWithdraw(sub: CorrectionSubmission) {
-    const outcome = withdrawSubmission(sub, persona.userId);
+    const outcome = withdrawSubmission(sub, email);
     if (!outcome.applied) {
       setErrors((prev) => ({ ...prev, [sub.id]: outcome.reason ?? "İşlem uygulanamadı" }));
       return;
@@ -172,35 +163,17 @@ export function CurationConsole() {
         </div>
       </section>
 
-      {/* ---------- PERSONA SEÇİMİ ---------- */}
+      {/* ---------- GERÇEK KİMLİK ---------- */}
       <section className="section" style={{ paddingTop: 0 }}>
         <div className="container-x">
-          <NumberedHeading n="01" eyebrow="Canlı demo" title="Kim olarak bakıyorsun?" />
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
-            {PERSONAS.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => setPersonaId(p.id)}
-                className="chip"
-                aria-pressed={personaId === p.id}
-                style={{
-                  cursor: "pointer",
-                  border: "none",
-                  background: personaId === p.id ? "var(--primary)" : "var(--bg-surface-2)",
-                  color: personaId === p.id ? "var(--primary-fg)" : "var(--text-mid)",
-                }}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
+          <NumberedHeading n="01" eyebrow="Gerçek oturum" title="Kimliğin" />
           <div className="card" style={{ padding: 20, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <span className={`chip ${canReview(persona.role) ? "chip-ok" : "chip-danger"}`}>
-              {canReview(persona.role) ? <Check size={13} /> : <X size={13} />}
-              {ROLE_LABELS[persona.role]} — compliance.review
+            <span className={`chip ${canReview(role) ? "chip-ok" : "chip-danger"}`}>
+              {canReview(role) ? <Check size={13} /> : <X size={13} />}
+              {email} — {ROLE_LABELS[role]} — compliance.review
             </span>
             <span style={{ fontSize: "var(--fs-sm)", color: "var(--text-low)" }}>
-              {canReview(persona.role)
+              {canReview(role)
                 ? "Bu rolle öneri onaylayabilir/reddedebilirsin."
                 : "Bu rolle yalnız öneri gönderebilir ve kendi önerini geri çekebilirsin."}
             </span>
@@ -257,7 +230,7 @@ export function CurationConsole() {
               />
             </label>
             <div style={{ fontSize: "var(--fs-xs)", color: "var(--text-low)" }}>
-              Gönderen: <strong>{persona.userId}</strong> ({ROLE_LABELS[persona.role]})
+              Gönderen: <strong>{email}</strong> ({ROLE_LABELS[role]})
             </div>
             <button onClick={handleSubmit} disabled={!proposedValue.trim()} className="btn btn-primary" style={{ justifySelf: "start" }}>
               Öneriyi gönder
@@ -275,8 +248,8 @@ export function CurationConsole() {
               const c = CROP_BY_ID[s.subjectId];
               const fieldLabel = FIELD_OPTIONS.find((f) => f.field === s.field)?.label ?? s.field;
               const isPending = s.status === "incelemede";
-              const isOwner = s.submittedBy === persona.userId;
-              const mayReview = isPending && canReview(persona.role);
+              const isOwner = s.submittedBy === email;
+              const mayReview = isPending && canReview(role);
               return (
                 <div key={s.id} className="card" style={{ padding: 18, display: "grid", gap: 8 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
@@ -322,7 +295,7 @@ export function CurationConsole() {
                         </>
                       ) : (
                         <span style={{ fontSize: "var(--fs-xs)", color: "var(--text-low)" }}>
-                          {ROLE_LABELS[persona.role]} rolüyle onaylayamaz/reddedemezsin — compliance.review gerekir.
+                          {ROLE_LABELS[role]} rolüyle onaylayamaz/reddedemezsin — compliance.review gerekir.
                         </span>
                       )}
                       {isOwner ? (

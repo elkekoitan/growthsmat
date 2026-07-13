@@ -24,21 +24,6 @@ import { NumberedHeading } from "@/components/graphics";
 import { Reveal } from "@/components/ui";
 import { ShieldCheck, Check, X } from "@/components/icons";
 
-interface Persona {
-  id: string;
-  label: string;
-  role: Role;
-  userId: string;
-  expertId?: string;
-}
-
-const PERSONAS: Persona[] = [
-  { id: "uretici", label: "Cem — üretici (soran)", role: "saha-calisani", userId: "uretici@ornek.com" },
-  { id: "satis", label: "Ayşe — satış (yetkisiz)", role: "satis", userId: "ayse@ornek.com" },
-  { id: "kalite", label: "Mert Kalite — atayabilir/yanıtlayabilir", role: "kalite", userId: "kalite-yetkilisi@ornek.com" },
-  { id: "naz", label: "Dr. Naz — atanmış uzman", role: "uzman", userId: "naz@ornek.com", expertId: "exp-naz" },
-];
-
 const STATUS_CHIP_CLASS: Record<ConsultationCase["status"], string> = {
   acik: "chip-warn",
   atandi: "chip-info",
@@ -55,6 +40,8 @@ const VERIFICATION_CHIP_CLASS: Record<ExpertProfile["verification"], string> = {
 const PESTICIDE_DOSE_REASON =
   "Pestisit/girdi dozu ülke ve ürüne göre resmi olarak doğrulanmadan önerilemez. Etikette veya yetkili kaynakta olmayan doz/karışım AI tarafından üretilmez.";
 
+// NOT: Bu fixture veri (vakalar) kasıtlı olarak Postgres'e taşınmadı — kimlik katmanı bu
+// turda gerçek oturuma bağlandı, vaka/gönderi verisinin kendisi ayrı bir faz (Faz 4).
 function buildSeedCases(): ConsultationCase[] {
   const seed: ConsultationCase[] = [];
 
@@ -149,12 +136,18 @@ function buildSeedCases(): ConsultationCase[] {
 }
 
 const SEED = buildSeedCases();
-const DEMO_NOW = "2026-07-12T09:00:00Z";
 const EVIDENCE_GRADES: EvidenceGrade[] = ["A", "B", "C", "D", "E"];
 
-export function ExpertConsult() {
+export interface ExpertConsultProps {
+  email: string;
+  role: Role;
+  /** İstek anında hesaplanan gerçek saat — yalnız BUNDAN SONRA açılan/atanan/yanıtlanan
+   * vakaları etkiler; yukarıdaki fixture vakaların kendi zaman damgaları değişmez. */
+  nowISO: string;
+}
+
+export function ExpertConsult({ email, role, nowISO }: ExpertConsultProps) {
   const [cases, setCases] = useState<ConsultationCase[]>(SEED);
-  const [personaId, setPersonaId] = useState<string>("uretici");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [answerDrafts, setAnswerDrafts] = useState<Record<string, { text: string; evidence: EvidenceGrade }>>({});
 
@@ -163,22 +156,20 @@ export function ExpertConsult() {
   const [question, setQuestion] = useState("");
   const [urgency, setUrgency] = useState<CaseUrgency>("orta");
 
-  const persona = PERSONAS.find((p) => p.id === personaId) ?? PERSONAS[0];
-
   const sorted = useMemo(() => [...cases].sort((a, b) => (a.createdAtISO < b.createdAtISO ? 1 : -1)), [cases]);
 
   function handleOpenCase() {
     if (!question.trim()) return;
     const next = openCase(
       {
-        askedBy: persona.userId,
+        askedBy: email,
         cropId: cropId || undefined,
         specialty,
         question: question.trim(),
         urgency,
         escalationSource: "dogrudan-talep",
       },
-      DEMO_NOW,
+      nowISO,
       cases
     );
     setCases((prev) => [...prev, next]);
@@ -186,7 +177,7 @@ export function ExpertConsult() {
   }
 
   function handleAssign(c: ConsultationCase, expert: ExpertProfile) {
-    const outcome = assignCase(c, expert, persona.role, DEMO_NOW);
+    const outcome = assignCase(c, expert, role, nowISO);
     if (!outcome.applied) {
       setErrors((prev) => ({ ...prev, [c.id]: outcome.reason ?? "İşlem uygulanamadı" }));
       return;
@@ -197,7 +188,11 @@ export function ExpertConsult() {
 
   function handleAnswer(c: ConsultationCase) {
     const draft = answerDrafts[c.id] ?? { text: "", evidence: "C" as EvidenceGrade };
-    const outcome = answerCase(c, persona.role, persona.expertId ?? "", draft.text, draft.evidence, DEMO_NOW);
+    // NOT: gerçek hesaplar şu an fixture EXPERTS rosterindeki hiçbir kimliğe bağlı değil
+    // (bu turun kapsamı yalnız kimlik katmanı) — bu yüzden hiçbir gerçek kullanıcı bir
+    // vakaya "atanan uzman" olarak eşleşemez; bu, isAssignedToUser aşağıda hep false
+    // döndüğü için dürüstçe UI'da hiç görünmez, sahte bir eşleşme uydurulmaz.
+    const outcome = answerCase(c, role, "", draft.text, draft.evidence, nowISO);
     if (!outcome.applied) {
       setErrors((prev) => ({ ...prev, [c.id]: outcome.reason ?? "İşlem uygulanamadı" }));
       return;
@@ -207,7 +202,7 @@ export function ExpertConsult() {
   }
 
   function handleClose(c: ConsultationCase) {
-    const outcome = closeCase(c, persona.userId, persona.role, DEMO_NOW);
+    const outcome = closeCase(c, email, role, nowISO);
     if (!outcome.applied) {
       setErrors((prev) => ({ ...prev, [c.id]: outcome.reason ?? "İşlem uygulanamadı" }));
       return;
@@ -234,36 +229,18 @@ export function ExpertConsult() {
         </div>
       </section>
 
-      {/* ---------- PERSONA SEÇİMİ ---------- */}
+      {/* ---------- GERÇEK KİMLİK ---------- */}
       <section className="section" style={{ paddingTop: 0 }}>
         <div className="container-x">
-          <NumberedHeading n="01" eyebrow="Canlı demo" title="Kim olarak bakıyorsun?" />
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
-            {PERSONAS.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => setPersonaId(p.id)}
-                className="chip"
-                aria-pressed={personaId === p.id}
-                style={{
-                  cursor: "pointer",
-                  border: "none",
-                  background: personaId === p.id ? "var(--primary)" : "var(--bg-surface-2)",
-                  color: personaId === p.id ? "var(--primary-fg)" : "var(--text-mid)",
-                }}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
+          <NumberedHeading n="01" eyebrow="Gerçek oturum" title="Kimliğin" />
           <div className="card" style={{ padding: 20, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <span className={`chip ${canAnswerConsultation(persona.role) ? "chip-ok" : "chip-danger"}`}>
-              {canAnswerConsultation(persona.role) ? <Check size={13} /> : <X size={13} />}
-              {ROLE_LABELS[persona.role]} — compliance.review
+            <span className={`chip ${canAnswerConsultation(role) ? "chip-ok" : "chip-danger"}`}>
+              {canAnswerConsultation(role) ? <Check size={13} /> : <X size={13} />}
+              {email} — {ROLE_LABELS[role]} — compliance.review
             </span>
             <span style={{ fontSize: "var(--fs-sm)", color: "var(--text-low)" }}>
-              {canAnswerConsultation(persona.role)
-                ? "Bu rolle vaka atayabilir ve (uzmansan) yanıtlayabilirsin."
+              {canAnswerConsultation(role)
+                ? "Bu rolle vaka atayabilir ve (atanan uzman kimliğinle eşleşiyorsa) yanıtlayabilirsin."
                 : "Bu rolle yalnız vaka açabilir ve kendi vakanı kapatabilirsin."}
             </span>
           </div>
@@ -317,7 +294,7 @@ export function ExpertConsult() {
               </select>
             </label>
             <div style={{ fontSize: "var(--fs-xs)", color: "var(--text-low)" }}>
-              Soran: <strong>{persona.userId}</strong> ({ROLE_LABELS[persona.role]})
+              Soran: <strong>{email}</strong> ({ROLE_LABELS[role]})
             </div>
             <button onClick={handleOpenCase} disabled={!question.trim()} className="btn btn-primary" style={{ justifySelf: "start" }}>
               Vaka aç
@@ -336,9 +313,11 @@ export function ExpertConsult() {
               const candidates = matchExperts(EXPERTS, c.specialty);
               const topCandidate = candidates[0];
               const draft = answerDrafts[c.id] ?? { text: "", evidence: "C" as EvidenceGrade };
-              const isAssignedToPersona = c.status === "atandi" && persona.expertId === c.assignedExpertId;
-              const mayAssign = c.status === "acik" && canAnswerConsultation(persona.role);
-              const mayClose = c.status === "yanitlandi" && (persona.userId === c.askedBy || canAnswerConsultation(persona.role));
+              // Gerçek hesapların EXPERTS rosterinde bir karşılığı yok (bkz. handleAnswer notu)
+              // — bu yüzden yanıtlama paneli dürüstçe hiçbir hesap için açılmaz.
+              const isAssignedToUser = false;
+              const mayAssign = c.status === "acik" && canAnswerConsultation(role);
+              const mayClose = c.status === "yanitlandi" && (email === c.askedBy || canAnswerConsultation(role));
 
               return (
                 <div key={c.id} className="card" style={{ padding: 18, display: "grid", gap: 8 }}>
@@ -384,13 +363,13 @@ export function ExpertConsult() {
                       )}
                     </div>
                   )}
-                  {c.status === "acik" && !canAnswerConsultation(persona.role) && (
+                  {c.status === "acik" && !canAnswerConsultation(role) && (
                     <span style={{ fontSize: "var(--fs-xs)", color: "var(--text-low)" }}>
-                      {ROLE_LABELS[persona.role]} rolüyle atama yapamazsın — compliance.review gerekir.
+                      {ROLE_LABELS[role]} rolüyle atama yapamazsın — compliance.review gerekir.
                     </span>
                   )}
 
-                  {isAssignedToPersona && (
+                  {isAssignedToUser && (
                     <div style={{ display: "grid", gap: 8 }}>
                       <textarea
                         className="btn btn-secondary"

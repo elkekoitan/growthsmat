@@ -7,31 +7,10 @@ import "server-only";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getDb } from "./db";
-import type { Role as AppRole } from "@/lib/roles";
-import type { Role as PrismaRole } from "../../generated/prisma/enums";
+import { fromPrismaRole } from "@/lib/roles";
 
 export const SESSION_COOKIE = "sg_session";
 export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 gün
-
-// DÜRÜSTLÜK/DOĞRULUK NOTU: Prisma'nın `@map` direktifi yalnız Postgres'teki fiziksel enum
-// değerini değiştirir ("saha-calisani") — üretilen TypeScript/JS istemci tarafı hâlâ şema
-// TANIMLAYICISINI kullanır ("saha_calisani", alt çizgili). Yani Membership.role DEĞERİ
-// otomatik olarak @/lib/roles'teki Role tipiyle aynı DEĞİL — burada açıkça çevrilmesi
-// gerekiyor. (Önceki bir oturumda bunun otomatik eşleştiğini varsaymak YANLIŞTI.)
-const PRISMA_ROLE_TO_APP_ROLE: Record<PrismaRole, AppRole> = {
-  sahip: "sahip",
-  yonetici: "yonetici",
-  planlayici: "planlayici",
-  saha_calisani: "saha-calisani",
-  kalite: "kalite",
-  satis: "satis",
-  goruntuleyici: "goruntuleyici",
-  uzman: "uzman",
-};
-
-function toAppRole(role: PrismaRole): AppRole {
-  return PRISMA_ROLE_TO_APP_ROLE[role];
-}
 
 /**
  * BUG DÜZELTMESİ (canlıda tespit edildi, 2026-07-13): `secure: NODE_ENV==="production"`
@@ -102,7 +81,7 @@ export async function requireMembership(workspaceId?: string) {
 
   if (!membership) redirect("/giris");
 
-  return { user, membership: { ...membership, role: toAppRole(membership.role) } };
+  return { user, membership: { ...membership, role: fromPrismaRole(membership.role) } };
 }
 
 /**
@@ -125,5 +104,5 @@ export async function getOptionalMembership() {
   });
   if (!membership) return null;
 
-  return { user: session.user, membership: { ...membership, role: toAppRole(membership.role) } };
+  return { user: session.user, membership: { ...membership, role: fromPrismaRole(membership.role) } };
 }

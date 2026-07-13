@@ -97,7 +97,11 @@ export const EPICS: Epic[] = [
       // pipeline'ı canlıda çalışıyor. OAuth/Apple/Google ve gerçek Postgres RLS politikası
       // (satır güvenliği hâlâ yalnız uygulama katmanında — requireMembership() üzerinden,
       // veritabanı seviyesinde CREATE POLICY yok) bu turun kapsamı DIŞINDA, dürüstçe
-      // "todo" bırakıldı — sahte kesinlik yok.
+      // "todo" bırakıldı — sahte kesinlik yok. 2026-07-13 (Faz 1): /roller, /uzman-danisma,
+      // /kurasyon artık sahte "persona switcher" DEĞİL — gerçek requireMembership() ile
+      // gated, gerçek oturumun rolünü gösteriyor. prisma/seed.ts ile 3 gerçek demo hesap
+      // (kalite/uzman/satis rolleri, rastgele üretilen şifre — koda gömülü değil) eklendi
+      // ki tek gerçek hesap (sahip, tüm izinler) dışındaki roller de dürüstçe test edilebilsin.
       { id: "P02-01", title: "User/workspace/membership şeması", status: "done", critical: true },
       { id: "P02-02", title: "E-posta + OAuth kimlik akışı", status: "in_progress" },
       { id: "P02-03", title: "Apple/Google mobil kimlik", status: "todo" },

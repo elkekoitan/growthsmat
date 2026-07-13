@@ -75,6 +75,25 @@ export function canAll(role: Role, permissions: Permission[]): boolean {
   return permissions.every((p) => can(role, p));
 }
 
+/**
+ * Prisma'nın generated `Role` enum'u, şemadaki `@map("saha-calisani")` yönünü YALNIZ
+ * veritabanı sütun değerine uygular — çalışma zamanında Prisma Client her zaman şemada
+ * tanımlanan alt çizgili tanımlayıcıyı (`"saha_calisani"`) döner, tireli runtime string'i
+ * (`"saha-calisani"`) DEĞİL (doğrulandı: `tsc` bu ikisini birebir aynı literal tip
+ * saymıyor — "saha_calisani" is not assignable to type 'Role'). Bu fonksiyon, Server
+ * Component'lerin `requireMembership()`'ten okuduğu ham Prisma rolünü uygulamanın `Role`
+ * tipine güvenle eşler. Yalnız düz `string` alır — bu dosya Prisma'yı import ETMEZ,
+ * no-restricted-imports kuralını bozmaz.
+ */
+export function fromPrismaRole(prismaRole: string): Role {
+  return (prismaRole === "saha_calisani" ? "saha-calisani" : prismaRole) as Role;
+}
+
+/** `fromPrismaRole`'un tersi — yazma yönü (örn. prisma/seed.ts'ten Membership.role'a atarken). */
+export function toPrismaRole(role: Role): string {
+  return role === "saha-calisani" ? "saha_calisani" : role;
+}
+
 // ---------- Çok kiracılı üyelik doğrulama ----------
 export interface Membership {
   userId: string;

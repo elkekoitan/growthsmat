@@ -1,36 +1,26 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import {
-  ALL_PERMISSIONS,
-  ROLE_LABELS,
-  can,
-  hasPermission,
-  type Role,
-  type Permission,
-  type Membership,
-} from "@/lib/roles";
+import { useMemo } from "react";
+import { ALL_PERMISSIONS, ROLE_LABELS, can, type Role, type Permission } from "@/lib/roles";
 import { NumberedHeading } from "@/components/graphics";
 import { Reveal } from "@/components/ui";
 import { Check, X, ShieldCheck } from "@/components/icons";
 
 const ROLES = Object.keys(ROLE_LABELS) as Role[];
 
-const DEMO_MEMBERSHIPS: Membership[] = [
-  { userId: "elif@ornek.com", workspaceId: "ws-balkon", role: "sahip", status: "aktif" },
-  { userId: "elif@ornek.com", workspaceId: "ws-kooperatif", role: "goruntuleyici", status: "aktif" },
-];
-
 const CHECK_PERMISSIONS: Permission[] = ["workspace.manage", "lot.recall", "claim.publish", "finance.export"];
 
-export function RolesMatrix() {
-  const [workspaceId, setWorkspaceId] = useState<"ws-balkon" | "ws-kooperatif" | "ws-baska">("ws-balkon");
+export interface RolesMatrixProps {
+  email: string;
+  role: Role;
+  workspaceId: string;
+}
 
+export function RolesMatrix({ email, role, workspaceId }: RolesMatrixProps) {
   const checks = useMemo(
-    () => CHECK_PERMISSIONS.map((p) => ({ permission: p, allowed: hasPermission(DEMO_MEMBERSHIPS, "elif@ornek.com", workspaceId, p) })),
-    [workspaceId]
+    () => CHECK_PERMISSIONS.map((p) => ({ permission: p, allowed: can(role, p) })),
+    [role]
   );
-  const membership = DEMO_MEMBERSHIPS.find((m) => m.workspaceId === workspaceId);
 
   return (
     <>
@@ -41,7 +31,7 @@ export function RolesMatrix() {
             <ShieldCheck size={13} /> Rol ve izin
           </span>
           <h1 style={{ fontSize: "var(--fs-h1)", marginTop: 18, marginBottom: 14 }} className="text-balance">
-            Aynı kullanıcı, <em style={{ fontStyle: "italic", color: "var(--primary)" }}>farklı çalışma alanında</em> farklı yetki.
+            Tenant bağlamı <em style={{ fontStyle: "italic", color: "var(--primary)" }}>her istekte doğrulanır</em>.
           </h1>
           <p style={{ color: "var(--text-mid)", fontSize: "var(--fs-lead)", maxWidth: 640, margin: "0 auto" }} className="text-pretty">
             Tenant bağlamı kimlik tokenından türetilmez — her istekte üyelik doğrulanır. Rol
@@ -50,32 +40,14 @@ export function RolesMatrix() {
         </div>
       </section>
 
-      {/* ---------- TENANT İZOLASYON DEMOSU ---------- */}
+      {/* ---------- GERÇEK KİMLİK ---------- */}
       <section className="section" style={{ paddingTop: 0 }}>
         <div className="container-x">
-          <NumberedHeading n="01" eyebrow="Canlı demo" title="Tenant izolasyonu" />
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
-            {(["ws-balkon", "ws-kooperatif", "ws-baska"] as const).map((ws) => (
-              <button
-                key={ws}
-                onClick={() => setWorkspaceId(ws)}
-                className="chip"
-                aria-pressed={workspaceId === ws}
-                style={{
-                  cursor: "pointer",
-                  border: "none",
-                  background: workspaceId === ws ? "var(--primary)" : "var(--bg-surface-2)",
-                  color: workspaceId === ws ? "var(--primary-fg)" : "var(--text-mid)",
-                }}
-              >
-                {ws === "ws-balkon" ? "Çalışma alanı: Balkon (sahip)" : ws === "ws-kooperatif" ? "Çalışma alanı: Kooperatif (görüntüleyici)" : "Çalışma alanı: Üyeliği yok"}
-              </button>
-            ))}
-          </div>
+          <NumberedHeading n="01" eyebrow="Gerçek oturum" title="Senin üyeliğin" />
           <div className="card" style={{ padding: 22, marginBottom: 36 }}>
             <p style={{ fontSize: "var(--fs-sm)", color: "var(--text-mid)", marginBottom: 16 }}>
-              Kullanıcı: <strong>elif@ornek.com</strong> — seçili alanda rol:{" "}
-              <strong>{membership ? ROLE_LABELS[membership.role] : "üyelik yok"}</strong>
+              Kullanıcı: <strong>{email}</strong> — çalışma alanı <strong className="font-mono">{workspaceId}</strong>{" "}
+              için rolün: <strong>{ROLE_LABELS[role]}</strong>
             </p>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px,1fr))", gap: 10 }}>
               {checks.map((c) => (
