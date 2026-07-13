@@ -44,6 +44,8 @@ import {
 } from "@/components/icons";
 import type { Role } from "@/lib/roles";
 import { can } from "@/lib/roles";
+import { CartProvider, useCart } from "./CartContext";
+import { CartDrawer } from "./CartDrawer";
 import type { RealListing } from "@/server/repositories/listings";
 import type { RealOrder } from "@/server/repositories/orders";
 import type { RealCertificate } from "@/server/repositories/certificates";
@@ -142,7 +144,17 @@ function trLower(s: string) {
   return s.toLocaleLowerCase("tr");
 }
 
-export function Market({ session, realListings, myListings, myOrders, incomingOrdersByListing, myCertificates, pendingCertificates, revocableCertificates }: MarketProps) {
+export function Market(props: MarketProps) {
+  return (
+    <CartProvider>
+      <MarketInner {...props} />
+      <CartDrawer />
+    </CartProvider>
+  );
+}
+
+function MarketInner({ session, realListings, myListings, myOrders, incomingOrdersByListing, myCertificates, pendingCertificates, revocableCertificates }: MarketProps) {
+  const { addItem } = useCart();
   const [createState, createAction, createPending] = useActionState(createListingAction, INITIAL_FORM_STATE);
   const [certState, certAction, certPending] = useActionState(createCertificateAction, INITIAL_CERT_FORM_STATE);
   const [certFormOpen, setCertFormOpen] = useState(false);
@@ -529,6 +541,17 @@ export function Market({ session, realListings, myListings, myOrders, incomingOr
                           onClick={() => handlePlaceOrder(l.id)}
                         >
                           Sipariş ver
+                        </button>
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          onClick={() =>
+                            addItem(
+                              { listingId: l.id, title: l.title, priceTRY: l.priceTRY, unitLabel: l.unitLabel, maxQty: l.stockQty },
+                              qtyByListing[l.id] ?? 1
+                            )
+                          }
+                        >
+                          Sepete ekle
                         </button>
                       </div>
                     )}

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireMembership } from "@/server/session";
 import { createListing, setListingActive, setListingStock } from "@/server/repositories/listings";
-import { placeOrder, updateOrderStatus, type OrderStatus } from "@/server/repositories/orders";
+import { placeOrder, placeMultipleOrders, updateOrderStatus, type OrderStatus, type CartOrderItem } from "@/server/repositories/orders";
 import {
   createCertificate,
   evaluateWorkspaceClaim,
@@ -132,6 +132,33 @@ export async function placeOrderAction(listingId: string, quantity: number): Pro
   revalidatePath("/pazar");
   if (!result.applied) return { error: result.reason };
   return { success: "Sipariş talebi gönderildi." };
+}
+
+export interface CartCheckoutResult {
+  error?: string;
+  success?: string;
+  failedListingIds?: string[];
+}
+
+/** Sepetteki birden fazla ilanı TEK seferde sipariş talebine dönüştürür. */
+export async function placeCartOrdersAction(items: CartOrderItem[]): Promise<CartCheckoutResult> {
+  const { user, membership } = await requireMembership();
+  if (items.length === 0) return { error: "Sepet boş." };
+
+  const result = await placeMultipleOrders(items, membership.workspaceId, user.id);
+  revalidatePath("/pazar");
+
+  const failed = result.lines.filter((l) => !l.applied);
+  if (result.allApplied) {
+    return { success: `${items.length} üründen sipariş talebi gönderildi.` };
+  }
+  return {
+    error:
+      failed.length === items.length
+        ? "Hiçbir ürün sipariş edilemedi (stok/kendi ilanın vb.)."
+        : `${items.length - failed.length}/${items.length} ürün gönderildi, ${failed.length} tanesi başarısız oldu (stok az önce değişmiş olabilir).`,
+    failedListingIds: failed.map((l) => l.listingId),
+  };
 }
 
 export async function updateOrderStatusAction(orderId: string, status: OrderStatus): Promise<MarketFormState> {

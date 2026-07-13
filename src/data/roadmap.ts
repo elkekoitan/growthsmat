@@ -386,6 +386,11 @@ export const EPICS: Epic[] = [
       // gerçek bir maliyet kalemi kaydedemiyordu. Artık CostCycle/CostEntry tabloları + yeni
       // /maliyet sayfası var: gerçek kalemler kalıcı, marj hesaplayıcısının verim/fire/fiyat
       // girdileri BİLEREK kalıcılaştırılmaz (mikrofiliz tepsi hesaplayıcısıyla aynı ilke).
+      // 2026-07-13 (kritik canlı bulgu sonrası): "B2C sepet/sipariş/ödeme" hâlâ "in_progress" —
+      // artık gerçek, localStorage'da tutulan çok-ilanlı bir sepet var (/pazar, CartContext.tsx),
+      // "Siparişi tamamla" tek tıkla her ilan için AYRI gerçek sipariş talebi oluşturuyor
+      // (placeMultipleOrders). Eksik olan tek şey hâlâ "ödeme" — hiçbir ödeme ağ geçidi
+      // entegre değil, bu dürüstçe böyle kalıyor (bkz. orders.ts başındaki not).
       status: (["done", "done", "in_progress", "done", "in_progress", "in_progress", "todo", "done", "todo", "todo", "in_progress", "todo", "todo", "done"][i]) as TaskStatus,
       title: ["Maliyet kategorisi modeli", "Ürün/lot/kanal marj hesabı", "Tahmini hasat stok modeli", "Üretici vitrini ve teslimat", "B2C sepet/sipariş/ödeme", "B2B talep/teklif/fiyat", "Restoran/CSA aboneliği", "Master katalog/kanal listing", "Etsy OAuth 2.0 PKCE", "Etsy taslak listing akışı", "Etsy politika/iddia kapısı", "Etsy webhook idempotency", "QPS/QPD limit/reconciliation", "Kanal ücret simülasyonu"][i],
     })),

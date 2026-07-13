@@ -103,6 +103,42 @@ export async function placeOrder(
   return { applied: true, order: toRealOrder(row) };
 }
 
+export interface CartOrderItem {
+  listingId: string;
+  quantity: number;
+}
+
+export interface CartOrderLineResult {
+  listingId: string;
+  applied: boolean;
+  reason?: string;
+  order?: RealOrder;
+}
+
+export interface PlaceMultipleOrdersResult {
+  lines: CartOrderLineResult[];
+  allApplied: boolean;
+}
+
+/**
+ * Sepetten birden fazla ilan için tek seferde sipariş oluşturur. Her satır AYRI bir
+ * placeOrder() çağrısıdır (aynı stok-rezervasyon/kendi-ilanı-alamama kuralları geçerlidir) —
+ * bir satır başarısız olsa bile diğerleri denenmeye devam eder (tek başarısız ürün yüzünden
+ * sepetteki her şeyin iptal olması gerekmez).
+ */
+export async function placeMultipleOrders(
+  items: CartOrderItem[],
+  buyerWorkspaceId: string,
+  buyerUserId: string
+): Promise<PlaceMultipleOrdersResult> {
+  const lines: CartOrderLineResult[] = [];
+  for (const item of items) {
+    const result = await placeOrder(item.listingId, buyerWorkspaceId, buyerUserId, item.quantity);
+    lines.push({ listingId: item.listingId, applied: result.applied, reason: result.reason, order: result.order });
+  }
+  return { lines, allApplied: lines.every((l) => l.applied) };
+}
+
 export async function listOrdersForListing(listingId: string): Promise<RealOrder[]> {
   const db = getDb();
   const rows = await db.order.findMany({ where: { listingId }, orderBy: { createdAt: "desc" } });
