@@ -11,7 +11,8 @@
 import "server-only";
 
 import { getDb } from "../db";
-import type { Lot, LotType, LotStatus } from "@/lib/traceability";
+import type { Lot, LotType, LotStatus, ClaimChainResult } from "@/lib/traceability";
+import { traceBackward, checkOrganicClaimChain } from "@/lib/traceability";
 import type { LotStatus as PrismaLotStatus } from "../../../generated/prisma/enums";
 
 // Prisma'nın generated LotStatus enum'u @map("geri-cagrildi") yönünü YALNIZ veritabanı
@@ -48,6 +49,11 @@ export interface LotInput {
  * gerekmeden geçilebilir (bkz. o dosyadaki `lots: Lot[] = LOTS` varsayılan parametresi).
  */
 export interface RealLot extends Lot {
+  // Gerçek Prisma cuid birincil anahtarı — workspace-scoped `code`'dan (mevcut `id` alanı)
+  // FARKLI, workspace'ler arasında GLOBAL olarak benzersiz. Herkese açık /lot/[id] rotası
+  // bilerek bunu kullanır: iki farklı workspace aynı `code`'u seçebilir ("SEED-2026-014"
+  // birden çok üreticide olabilir), ama `dbId` her zaman tek bir satırı gösterir.
+  dbId: string;
   createdByUserId?: string;
   createdByEmail?: string;
 }
@@ -60,6 +66,7 @@ export interface CreateLotResult {
 
 function toDomainLot(
   row: {
+    id: string;
     code: string;
     type: string;
     label: string;
@@ -77,6 +84,7 @@ function toDomainLot(
 ): RealLot {
   return {
     id: row.code,
+    dbId: row.id,
     type: row.type as LotType,
     label: row.label,
     cropId: row.cropId ?? undefined,
@@ -175,4 +183,44 @@ export async function listOrSeedLots(workspaceId: string): Promise<RealLot[]> {
   const count = await db.lot.count({ where: { workspaceId } });
   if (count === 0) await seedDemoChain(workspaceId);
   return listLots(workspaceId);
+}
+
+/**
+ * Herkese açık, oturumsuz lot doğrulama görünümü (QR kod hedefi — bkz. src/app/lot/[id]/page.tsx).
+ * Prisma'nın GLOBAL benzersiz `id`sine (cuid, `dbId`) göre arar — workspace-scoped `code`
+ * KULLANILMAZ, iki farklı workspace aynı kodu seçmiş olabilir. Workspace üyeliği KONTROL
+ * EDİLMEZ — bu bilerek public/anonim: bir müşteri hesabı olmadan QR okutabilmeli.
+ * Dönen `lot` nesnesi elle inşa edilir (spread YOK) — RealLot'un createdByUserId/
+ * createdByEmail denetim-izi alanları buraya asla sızamaz.
+ */
+export async function getPublicLotView(
+  dbId: string
+): Promise<{ lot: Lot; chain: Lot[]; organicClaim: ClaimChainResult } | null> {
+  const db = getDb();
+  const row = await db.lot.findUnique({ where: { id: dbId } });
+  if (!row) return null;
+
+  const lots = await listLots(row.workspaceId);
+  const matched = lots.find((l) => l.id === row.code);
+  if (!matched) return null;
+
+  const lot: Lot = {
+    id: matched.id,
+    type: matched.type,
+    label: matched.label,
+    cropId: matched.cropId,
+    quantity: matched.quantity,
+    unit: matched.unit,
+    producedAt: matched.producedAt,
+    parentLotIds: matched.parentLotIds,
+    status: matched.status,
+    certifiedOrigin: matched.certifiedOrigin,
+    ownerLabel: matched.ownerLabel,
+  };
+
+  return {
+    lot,
+    chain: traceBackward(matched.id, lots),
+    organicClaim: checkOrganicClaimChain(matched.id, lots),
+  };
 }

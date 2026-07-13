@@ -321,7 +321,16 @@ export const EPICS: Epic[] = [
       // aşırı mühendislik olurdu; gerçek bir geri çağırma YÜRÜTME akışı (şu an yalnız
       // simulateRecall ile önizleme var, UI'da dürüstçe "simüle et" diye işaretli) eklenirse
       // genel Operation tablosu o zaman yeniden değerlendirilmeli (bkz. task #40 hafıza notu).
-      status: (["done", "done", "done", "done", "done", "done", "todo", "todo", "todo", "todo", "todo", "done", "todo", "in_progress"][i]) as TaskStatus,
+      // 2026-07-14 (P08): "QR lot doğrulama sayfası" artık gerçek — herkese açık, oturumsuz
+      // /lot/[id] rotası (src/app/lot/[id]/page.tsx) Prisma'nın GLOBAL benzersiz cuid'ine
+      // (`dbId`, workspace-scoped `code`'dan FARKLI — bkz. src/server/repositories/lots.ts
+      // getPublicLotView) göre arar, bu yüzden workspace'ler arası çakışmaya karşı güvenli.
+      // Gerçek QR görsel üretimi `qrcode` npm paketiyle (harici servis/API YOK) sunucu
+      // tarafında (izlenebilirlik/page.tsx) SVG olarak üretilir. Denetim-izi alanları
+      // (createdByUserId/createdByEmail) getPublicLotView'in döndürdüğü nesneye YAPISAL
+      // olarak asla giremez — fonksiyon onları spread etmek yerine yalnız Lot alanlarıyla
+      // yeni bir nesne kurar.
+      status: (["done", "done", "done", "done", "done", "done", "todo", "todo", "todo", "todo", "todo", "done", "todo", "done"][i]) as TaskStatus,
       title: ["Lot/operation/mass balance şeması", "Seed→hasat lot zinciri", "Paket/sevkiyat/alıcı zinciri", "Jurisdiction/RulePack motoru", "Sertifika kapsam/geçerlilik", "Organik iddia yayın kapısı", "Girdi uygunluk kontrolü", "Su testi uygunsuzluk akışı", "SOP ve kontrol noktası", "Hijyen/eğitim kayıtları", "Uygunsuzluk ve CAPA", "Geri çağırma soy ağacı", "Denetim dosyası export", "QR lot doğrulama sayfası"][i],
     })),
   },

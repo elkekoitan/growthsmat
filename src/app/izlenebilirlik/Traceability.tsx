@@ -61,7 +61,17 @@ function LotChip({ lot, onClick }: { lot: Lot; onClick?: () => void }) {
   );
 }
 
-export function Traceability({ initialLots, canCreateLot }: { initialLots: RealLot[]; canCreateLot: boolean }) {
+export function Traceability({
+  initialLots,
+  canCreateLot,
+  publicOrigin,
+  lotQrSvgByDbId,
+}: {
+  initialLots: RealLot[];
+  canCreateLot: boolean;
+  publicOrigin: string;
+  lotQrSvgByDbId: Record<string, string>;
+}) {
   const lots = initialLots;
   const [selectedId, setSelectedId] = useState<string>(lots[3]?.id ?? lots[0]?.id ?? "");
   const [recallOpen, setRecallOpen] = useState(false);
@@ -266,6 +276,28 @@ export function Traceability({ initialLots, canCreateLot }: { initialLots: RealL
                   {claimChain.publishable ? "Yayınlanabilir" : `Bloklu — kırılma: ${claimChain.brokenAt}`}
                 </span>
               </div>
+
+              {lotQrSvgByDbId[lot.dbId] && (
+                <div style={{ borderTop: "1px solid var(--border-hair)", paddingTop: 16, marginTop: 16 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "var(--fs-sm)", fontWeight: 600, marginBottom: 8 }}>
+                    <ShieldCheck size={14} /> Alıcıya açık doğrulama
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+                    <div
+                      style={{ width: 76, height: 76, flexShrink: 0 }}
+                      dangerouslySetInnerHTML={{ __html: lotQrSvgByDbId[lot.dbId] }}
+                    />
+                    <a
+                      href={`${publicOrigin}/lot/${lot.dbId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-secondary btn-sm"
+                    >
+                      Genel doğrulama sayfasını aç <ArrowRight size={15} />
+                    </a>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* İleri/geri iz */}
