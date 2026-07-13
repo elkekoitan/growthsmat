@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useActionState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useState, useActionState, useTransition } from "react";
 import Link from "next/link";
 import {
   MICROGREEN_RECIPES,
@@ -19,6 +19,7 @@ import {
   removeSubscriptionAction,
   type MikrofilizFormState,
 } from "./actions";
+import { COMPARISON_METRICS, findBestRecipeIndex } from "@/lib/compareMicrogreens";
 import {
   SoilLineStages,
   NumberedHeading,
@@ -41,6 +42,7 @@ import {
   ArrowRight,
   Sprout,
   Leaf,
+  Check,
 } from "@/components/icons";
 
 /* ============================================================================
@@ -158,12 +160,18 @@ function RecipeCard({
   open,
   onSelect,
   onToggle,
+  compareChecked,
+  onToggleCompare,
+  compareDisabled,
 }: {
   recipe: MicrogreenRecipe;
   selected: boolean;
   open: boolean;
   onSelect: () => void;
   onToggle: () => void;
+  compareChecked: boolean;
+  onToggleCompare: () => void;
+  compareDisabled: boolean;
 }) {
   const color = RECIPE_COLORS[recipe.id] ?? "var(--primary)";
   const safety = SAFETY_LABELS[recipe.safety];
@@ -177,6 +185,19 @@ function RecipeCard({
       style={{ ["--rc" as string]: color }}
     >
       <span className="mf-recipe-strip" aria-hidden="true" />
+      <label
+        className="compare-toggle"
+        title={compareDisabled && !compareChecked ? "En fazla 4 reçete karşılaştırılabilir" : "Karşılaştırmaya ekle"}
+      >
+        <input
+          type="checkbox"
+          checked={compareChecked}
+          disabled={compareDisabled && !compareChecked}
+          onChange={onToggleCompare}
+          aria-label={`${recipe.name} — karşılaştırmaya ekle`}
+        />
+        <span className="font-mono">Karşılaştır</span>
+      </label>
       <div className="mf-recipe-body">
         <div className="mf-recipe-head">
           <span className="mf-emoji" aria-hidden="true">
@@ -332,6 +353,107 @@ function SliderField({
   );
 }
 
+/* ---------- Reçete karşılaştırma modalı ---------- */
+function RecipeCompareModal({
+  recipes,
+  onClose,
+  onRemove,
+}: {
+  recipes: MicrogreenRecipe[];
+  onClose: () => void;
+  onRemove: (id: string) => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    document.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+    };
+  }, [onClose]);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Reçete karşılaştırması"
+      style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", alignItems: "flex-end", justifyContent: "center" }}
+    >
+      <div
+        onClick={onClose}
+        style={{ position: "absolute", inset: 0, background: "rgba(10,15,12,0.55)", backdropFilter: "blur(2px)" }}
+        aria-hidden="true"
+      />
+      <div
+        className="card"
+        style={{
+          position: "relative",
+          width: "100%",
+          maxWidth: 900,
+          maxHeight: "82vh",
+          margin: "0 auto 24px",
+          padding: 0,
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
+          boxShadow: "var(--shadow-lg)",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid var(--border-hair)" }}>
+          <h3 style={{ margin: 0, fontSize: "var(--fs-lg)" }}>Reçete karşılaştırması</h3>
+          <button onClick={onClose} className="btn btn-ghost btn-sm" aria-label="Kapat">
+            <X size={18} />
+          </button>
+        </div>
+        <div style={{ overflow: "auto", padding: 20 }}>
+          <table className="compare-table">
+            <thead>
+              <tr>
+                <th style={{ textAlign: "left" }}>Özellik</th>
+                {recipes.map((r) => (
+                  <th key={r.id}>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                      <span style={{ fontSize: 22 }} aria-hidden="true">{r.emoji}</span>
+                      <span style={{ fontWeight: 600, fontSize: "var(--fs-sm)" }}>{r.name}</span>
+                      <button onClick={() => onRemove(r.id)} className="chip" style={{ cursor: "pointer", border: "none", fontSize: 10 }}>
+                        <X size={10} /> Kaldır
+                      </button>
+                    </div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {COMPARISON_METRICS.map((m) => {
+                const bestIdx = findBestRecipeIndex(recipes, m);
+                return (
+                  <tr key={m.key}>
+                    <td className="font-mono" style={{ color: "var(--text-low)", fontSize: "var(--fs-xs)" }}>{m.label}</td>
+                    {recipes.map((r, i) => (
+                      <td key={r.id} style={{ textAlign: "center" }}>
+                        <span
+                          className={i === bestIdx ? "chip chip-ok" : undefined}
+                          style={i === bestIdx ? undefined : { color: "var(--text-mid)" }}
+                        >
+                          {i === bestIdx && <Check size={11} />} {m.getValue(r)}
+                        </span>
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          <p style={{ fontSize: "var(--fs-xs)", color: "var(--text-low)", marginTop: 16 }}>
+            Yeşil rozet, o metrikte tek başına en iyi adayı gösterir — eşitlik durumunda hiçbiri vurgulanmaz.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const INITIAL_FORM_STATE: MikrofilizFormState = {};
 
 export interface StudioProps {
@@ -344,6 +466,17 @@ export interface StudioProps {
 export function Studio({ hasSession, room, subscriptions, capacityPlan }: StudioProps) {
   const [input, setInput] = useState<TrayCostInput>(DEFAULT_TRAY_INPUT);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [compareIds, setCompareIds] = useState<string[]>([]);
+  const [compareOpen, setCompareOpen] = useState(false);
+  const MAX_COMPARE = 4;
+
+  const toggleCompare = useCallback((id: string) => {
+    setCompareIds((prev) => {
+      if (prev.includes(id)) return prev.filter((x) => x !== id);
+      if (prev.length >= MAX_COMPARE) return prev;
+      return [...prev, id];
+    });
+  }, []);
 
   const [roomState, roomAction, roomPending] = useActionState(saveRoomAction, INITIAL_FORM_STATE);
   const [subState, subAction, subPending] = useActionState(addSubscriptionAction, INITIAL_FORM_STATE);
@@ -599,6 +732,9 @@ export function Studio({ hasSession, room, subscriptions, capacityPlan }: Studio
                   open={openId === r.id}
                   onSelect={() => set("recipeId", r.id)}
                   onToggle={() => setOpenId((o) => (o === r.id ? null : r.id))}
+                  compareChecked={compareIds.includes(r.id)}
+                  onToggleCompare={() => toggleCompare(r.id)}
+                  compareDisabled={compareIds.length >= MAX_COMPARE}
                 />
               </Reveal>
             ))}
@@ -1114,6 +1250,33 @@ export function Studio({ hasSession, room, subscriptions, capacityPlan }: Studio
         </div>
       </section>
 
+      {compareIds.length > 0 && !compareOpen && (
+        <div className="compare-bar" role="status">
+          <span className="font-mono" style={{ fontSize: "var(--fs-sm)" }}>
+            {compareIds.length} reçete seçili {compareIds.length < 2 && "(en az 2 seçin)"}
+          </span>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button className="btn btn-ghost btn-sm" onClick={() => setCompareIds([])}>
+              Temizle
+            </button>
+            <button className="btn btn-primary btn-sm" disabled={compareIds.length < 2} onClick={() => setCompareOpen(true)}>
+              Karşılaştır <ArrowRight size={15} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {compareOpen && compareIds.length >= 2 && (
+        <RecipeCompareModal
+          recipes={compareIds.map((id) => MICROGREEN_RECIPES.find((r) => r.id === id)).filter((r): r is MicrogreenRecipe => Boolean(r))}
+          onClose={() => setCompareOpen(false)}
+          onRemove={(id) => {
+            setCompareIds((prev) => prev.filter((x) => x !== id));
+            if (compareIds.length <= 2) setCompareOpen(false);
+          }}
+        />
+      )}
+
       {/* ---------- sayfa-özel stil (global CSS'e dokunmadan) ---------- */}
       <style>{`
         .mf-root { --mf-radius: var(--radius-card); }
@@ -1213,6 +1376,31 @@ export function Studio({ hasSession, room, subscriptions, capacityPlan }: Studio
         .mf-recipe-foot { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; margin-top: 1rem; }
         .mf-caret { display: inline-block; transition: transform var(--dur-fast) ease; margin-left: 4px; }
         .mf-caret[data-open="true"] { transform: rotate(180deg); }
+
+        /* KARŞILAŞTIRMA (src/lib/compareCrops.ts'teki desenle aynı) */
+        .compare-toggle {
+          position: absolute; top: 10px; right: 10px; z-index: 2;
+          display: flex; align-items: center; gap: 5px;
+          padding: 4px 8px; border-radius: 999px;
+          background: color-mix(in srgb, var(--bg-surface) 88%, transparent);
+          border: 1px solid var(--border-hair);
+          font-size: 10px; color: var(--text-low);
+          cursor: pointer; backdrop-filter: blur(4px);
+          transition: border-color 150ms ease, color 150ms ease;
+        }
+        .compare-toggle:has(input:checked) { border-color: var(--primary); color: var(--primary); }
+        .compare-toggle input:disabled { cursor: not-allowed; }
+        .compare-toggle input { cursor: pointer; }
+        .compare-bar {
+          position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+          z-index: 55; display: flex; align-items: center; gap: 16px;
+          padding: 12px 18px; border-radius: 999px;
+          background: var(--bg-surface); border: 1px solid var(--border-soft);
+          box-shadow: var(--shadow-lg);
+        }
+        .compare-table { border-collapse: collapse; width: 100%; min-width: 480px; }
+        .compare-table th, .compare-table td { border-bottom: 1px solid var(--border-hair); padding: 10px 12px; }
+        .compare-table thead th { border-bottom: 2px solid var(--border-soft); }
 
         /* BÜYÜME EVRELERİ */
         .mf-stages-card { padding: 1.5rem 1.6rem 1.6rem; }

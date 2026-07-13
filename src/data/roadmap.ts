@@ -351,7 +351,14 @@ export const EPICS: Epic[] = [
       // geriye ekim" ("done") önceden yalnız src/lib/microCapacity.ts'in SAF fonksiyonlarıydı
       // (hiçbir workspace gerçek bir oda profili/abonelik kaydedemiyordu). Artık Room/
       // Subscription tabloları + /mikrofiliz'deki gerçek form/kapasite sonucu bölümü var.
-      status: (["done", "done", "done", "in_progress", "todo", "todo", "in_progress", "todo", "todo", "done", "done", "todo"][i]) as TaskStatus,
+      // 2026-07-14 (P09): "Tepsi reçetesi karşılaştırma UI" artık gerçek — /mikrofiliz'de
+      // reçete kartlarında çoklu-seçim (en fazla 4), yüzen bir karşılaştırma çubuğu ve
+      // 8 metrik (güvenlik, kanıt, zorluk, ön ıslatma, karartma, hasat, verim, familya)
+      // üzerinden bir karşılaştırma tablosu var. src/lib/compareCrops.ts'teki mevcut ürün
+      // karşılaştırma deseni birebir yeniden kullanıldı (src/lib/compareMicrogreens.ts,
+      // findBestRecipeIndex): eşitlik veya betterWhen:"none" olan metriklerde hiçbir reçete
+      // sahte biçimde "en iyi" olarak vurgulanmaz.
+      status: (["done", "done", "done", "done", "todo", "todo", "in_progress", "todo", "todo", "done", "done", "todo"][i]) as TaskStatus,
       title: ["MicrogreenRecipe şeması", "Güvenlik kataloğu (Solanaceae blok)", "Oda/raf/ışık kapasite modeli", "Tepsi reçetesi karşılaştırma UI", "Tohum/substrat lot kabulü", "Parti/tepsi QR üretimi", "Karartma/ışık/sulama görev dizisi", "Küf/sapma gözlem akışı", "Hasat/kalite/soğuk kayıtları", "Tepsi maliyet ve marj", "Restoran aboneliğinden geriye ekim", "Reçete A/B deneyi"][i],
     })),
   },
