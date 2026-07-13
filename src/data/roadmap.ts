@@ -229,6 +229,15 @@ export const EPICS: Epic[] = [
       // çok-boyutlu ilişki verisi UYDURULMADI (her crop çifti için relation_type/spatial_pattern
       // gibi alanları gerçek agronomik kaynak olmadan icat etmek "sahte kesinlik" olurdu) —
       // bu, gerçek araştırma gerektiren, ayrı bir ileri iş kalemi olarak açıkça bırakılıyor.
+      // 2026-07-13 (P05-12 devamı): src/lib/intercrop.ts'e SAF, deterministik bir kategori
+      // katmanı eklendi — categorizeMechanism()/relationTypeOf() mevcut 40 gerçek ilişkinin
+      // KENDİ kaynaklı serbest-metin mechanism'ından kontrollü bir kategori (§8'in istediği
+      // light|root_depth|nitrogen|pest|disease|pollinator|timing + rekabet/diğer) ve relation
+      // type (intercrop/trap_crop/border) türetir; confidenceFromEvidence() evidence'tan 3
+      // seviyeli confidence üretir. Serbest metin KAYBOLMADI, yalnız üstüne eklendi — test
+      // (tests/intercrop.test.ts) gerçek 40 ilişkinin >%80'inin anlamlı kategoriye düştüğünü
+      // doğruluyor. spatial_pattern/temporal_pattern/climate_scope/sources HÂLÂ yok (gerçek
+      // ayrı araştırma gerektirir) — durum bu yüzden hâlâ "in_progress", "done" değil.
       status: (["in_progress", "done", "done", "done", "done", "done", "done", "done", "done", "done", "done", "in_progress", "done", "todo"][i]) as TaskStatus,
       title: ["Değerlendirme input snapshot", "Birim/özellik normalizasyonu", "Sert kısıt motoru", "İklim alt skoru", "Toprak/su alt skoru", "Yöntem/operasyon alt skoru", "Risk/sürdürülebilirlik skoru", "Pazar/ekonomi alt skoru", "Güven ve belirsizlik hesabı", "Açıklama ve veri boşluğu", "Ne-olursa senaryo motoru", "Birlikte ekim ilişki motoru", "Rotasyon çözücü", "Karar geri bildirimi"][i],
     })),

@@ -27,6 +27,7 @@ import { pestsForCrop, PEST_KIND_LABELS } from "@/data/pestDisease";
 import { BotanicalScene } from "@/components/graphics";
 import { Reveal } from "@/components/ui";
 import { COMPARISON_METRICS, findBestCropIndex } from "@/lib/compareCrops";
+import { categorizeMechanism, type MechanismCategory } from "@/lib/intercrop";
 import {
   Sun,
   Droplet,
@@ -111,6 +112,20 @@ const EFFECT_META: Record<
     ),
   },
   riskli: { label: "Riskli", cls: "chip-danger", icon: <X size={13} /> },
+};
+
+// 03-TEKNIK-MIMARI §8'in kontrollü mechanism kategorisi — src/lib/intercrop.ts'in
+// categorizeMechanism()'ından türetilir, serbest metni DEĞİŞTİRMEZ, yalnız etiketler.
+const MECHANISM_CATEGORY_LABELS: Record<MechanismCategory, string> = {
+  isik: "Işık/alan",
+  kok: "Kök",
+  azot: "Azot",
+  zararli: "Zararlı",
+  hastalik: "Hastalık",
+  polinator: "Polinatör",
+  zamanlama: "Zamanlama",
+  rekabet: "Rekabet",
+  diger: "Diğer",
 };
 
 /* Katalog dışı eş bitki adlarını okunur hale getir (ör. "patates" → "Patates"). */
@@ -640,7 +655,10 @@ function DetailModal({
                     <div style={{ color: "var(--text-mid)", fontSize: "var(--fs-sm)", marginTop: 8, lineHeight: 1.5 }}>
                       {c.mechanism}
                     </div>
-                    <div style={{ marginTop: 8 }}>
+                    <div style={{ marginTop: 8, display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                      <span className="chip" style={{ fontSize: "var(--fs-xs)" }}>
+                        {MECHANISM_CATEGORY_LABELS[categorizeMechanism(c.mechanism)]}
+                      </span>
                       <EvidenceTag grade={c.evidence} />
                     </div>
                   </li>
