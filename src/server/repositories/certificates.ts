@@ -12,10 +12,24 @@ import { getDb } from "../db";
 import { evaluateClaim, type Certificate, type Jurisdiction, type ClaimResult } from "@/lib/rulePacks";
 import {
   reviewCertificate,
+  revokeCertificate,
   type CertificateVerificationStatus,
   type CertificateReviewOutcome,
 } from "@/lib/certificateReview";
 import type { Role } from "@/lib/roles";
+import type { CertificateVerificationStatus as PrismaCertificateVerificationStatus } from "../../../generated/prisma/enums";
+
+// Prisma'nın generated CertificateVerificationStatus enum'u @map("iptal-edildi") yönünü
+// YALNIZ veritabanı sütun değerine uygular — çalışma zamanı client'ı hep alt çizgili
+// "iptal_edildi" döner, tireli "iptal-edildi" DEĞİL (bkz. lots.ts'teki AYNI desen,
+// LotStatus/geri-cagrildi için). Diğer üç değer (beklemede/onaylandi/reddedildi) tiresiz
+// olduğundan bu çeviriye ihtiyaç duymaz.
+function toPrismaVerificationStatus(status: CertificateVerificationStatus): PrismaCertificateVerificationStatus {
+  return (status === "iptal-edildi" ? "iptal_edildi" : status) as PrismaCertificateVerificationStatus;
+}
+function fromPrismaVerificationStatus(status: string): CertificateVerificationStatus {
+  return (status === "iptal_edildi" ? "iptal-edildi" : status) as CertificateVerificationStatus;
+}
 
 export interface CertificateInput {
   holder: string;
@@ -36,6 +50,9 @@ export interface RealCertificate extends CertificateInput {
   verifiedBy?: string;
   verifiedAt?: string;
   verificationNote?: string;
+  revokedBy?: string;
+  revokedAt?: string;
+  revocationNote?: string;
 }
 
 function toDomainCertificate(row: {
@@ -54,6 +71,9 @@ function toDomainCertificate(row: {
   verifiedBy: string | null;
   verifiedAt: Date | null;
   verificationNote: string | null;
+  revokedBy: string | null;
+  revokedAt: Date | null;
+  revocationNote: string | null;
 }): RealCertificate {
   return {
     id: row.id,
@@ -67,10 +87,13 @@ function toDomainCertificate(row: {
     inTransition: row.inTransition,
     documentUrl: row.documentUrl ?? undefined,
     createdAt: row.createdAt.toISOString(),
-    verificationStatus: row.verificationStatus as CertificateVerificationStatus,
+    verificationStatus: fromPrismaVerificationStatus(row.verificationStatus),
     verifiedBy: row.verifiedBy ?? undefined,
     verifiedAt: row.verifiedAt?.toISOString(),
     verificationNote: row.verificationNote ?? undefined,
+    revokedBy: row.revokedBy ?? undefined,
+    revokedAt: row.revokedAt?.toISOString(),
+    revocationNote: row.revocationNote ?? undefined,
   };
 }
 
@@ -178,10 +201,51 @@ export async function reviewCertificateById(
   const saved = await db.certificate.update({
     where: { id },
     data: {
-      verificationStatus: updated.verificationStatus,
+      verificationStatus: toPrismaVerificationStatus(updated.verificationStatus),
       verifiedBy: updated.verifiedBy,
       verifiedAt: updated.verifiedAt ? new Date(updated.verifiedAt) : undefined,
       verificationNote: updated.verificationNote,
+    },
+  });
+  return { applied: true, certificate: toDomainCertificate(saved) };
+}
+
+/**
+ * Daha önce ONAYLANMIŞ sertifikaları döner (FR-183: sahte/şüpheli sertifika incelemesi
+ * için iptal edilebilir adaylar) — yine VİEWER'IN KENDİ workspace'i hariç tutularak,
+ * listPendingCertificates ile aynı kendi-kendini-doğrulama koruması gerekçesiyle.
+ */
+export async function listRevocableCertificates(viewerWorkspaceId: string): Promise<RealCertificate[]> {
+  const db = getDb();
+  const rows = await db.certificate.findMany({
+    where: { verificationStatus: "onaylandi", workspaceId: { not: viewerWorkspaceId } },
+    orderBy: { verifiedAt: "desc" },
+  });
+  return rows.map(toDomainCertificate);
+}
+
+export async function revokeCertificateById(
+  id: string,
+  reviewerRole: Role,
+  reviewerWorkspaceId: string,
+  reviewerId: string,
+  nowISO: string,
+  note: string
+): Promise<CertificateReviewResult> {
+  const db = getDb();
+  const row = await db.certificate.findUnique({ where: { id } });
+  if (!row) return { applied: false, reason: "Sertifika bulunamadı" };
+  const existing = toDomainCertificate(row);
+  const outcome: CertificateReviewOutcome = revokeCertificate(existing, reviewerRole, reviewerWorkspaceId, reviewerId, nowISO, note);
+  if (!outcome.applied) return { applied: false, reason: outcome.reason ?? "İşlem uygulanamadı" };
+  const updated = { ...existing, ...outcome.certificate };
+  const saved = await db.certificate.update({
+    where: { id },
+    data: {
+      verificationStatus: toPrismaVerificationStatus(updated.verificationStatus),
+      revokedBy: updated.revokedBy,
+      revokedAt: updated.revokedAt ? new Date(updated.revokedAt) : undefined,
+      revocationNote: updated.revocationNote,
     },
   });
   return { applied: true, certificate: toDomainCertificate(saved) };

@@ -8,6 +8,7 @@ import {
   createCertificate,
   evaluateWorkspaceClaim,
   reviewCertificateById,
+  revokeCertificateById,
   type CertificateInput,
   type RealCertificate,
 } from "@/server/repositories/certificates";
@@ -196,4 +197,13 @@ export async function reviewCertificateAction(
   revalidatePath("/pazar");
   if (!result.applied) return { error: result.reason };
   return { success: decision === "onayla" ? "Sertifika onaylandı." : "Sertifika reddedildi." };
+}
+
+/** FR-183: daha önce onaylanmış bir sertifikayı sahte/şüpheli gerekçesiyle geriye dönük iptal eder. */
+export async function revokeCertificateAction(certificateId: string, note: string): Promise<CertificateReviewFormState> {
+  const { user, membership } = await requireMembership();
+  const result = await revokeCertificateById(certificateId, membership.role, membership.workspaceId, user.id, new Date().toISOString(), note);
+  revalidatePath("/pazar");
+  if (!result.applied) return { error: result.reason };
+  return { success: "Sertifika iptal edildi — bu sertifikaya dayanan gelecekteki organik iddiaları artık reddedilecek." };
 }

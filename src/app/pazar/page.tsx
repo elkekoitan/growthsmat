@@ -5,7 +5,7 @@ import { Market } from "./Market";
 import { getOptionalMembership } from "@/server/session";
 import { listActiveListings, listMyListings } from "@/server/repositories/listings";
 import { listMyOrdersAsBuyer, listOrdersForListing } from "@/server/repositories/orders";
-import { listCertificates, listPendingCertificates } from "@/server/repositories/certificates";
+import { listCertificates, listPendingCertificates, listRevocableCertificates } from "@/server/repositories/certificates";
 import { can } from "@/lib/roles";
 
 export const metadata = {
@@ -25,6 +25,7 @@ export default async function PazarPage() {
   let incomingOrdersByListing: Record<string, Awaited<ReturnType<typeof listOrdersForListing>>> = {};
   let myCertificates: Awaited<ReturnType<typeof listCertificates>> = [];
   let pendingCertificates: Awaited<ReturnType<typeof listPendingCertificates>> = [];
+  let revocableCertificates: Awaited<ReturnType<typeof listRevocableCertificates>> = [];
 
   if (session) {
     myListings = await listMyListings(session.membership.workspaceId);
@@ -38,6 +39,7 @@ export default async function PazarPage() {
     // açığı yeniden açılırdı).
     if (can(session.membership.role, "compliance.review")) {
       pendingCertificates = await listPendingCertificates(session.membership.workspaceId);
+      revocableCertificates = await listRevocableCertificates(session.membership.workspaceId);
     }
   }
 
@@ -53,6 +55,7 @@ export default async function PazarPage() {
           incomingOrdersByListing={incomingOrdersByListing}
           myCertificates={myCertificates}
           pendingCertificates={pendingCertificates}
+          revocableCertificates={revocableCertificates}
         />
       </main>
       <Footer />

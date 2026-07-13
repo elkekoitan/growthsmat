@@ -58,6 +58,7 @@ import {
   updateOrderStatusAction,
   createCertificateAction,
   reviewCertificateAction,
+  revokeCertificateAction,
   type MarketFormState,
   type CertificateFormState,
 } from "./actions";
@@ -75,6 +76,7 @@ export interface MarketProps {
   incomingOrdersByListing: Record<string, RealOrder[]>;
   myCertificates: RealCertificate[];
   pendingCertificates: RealCertificate[];
+  revocableCertificates: RealCertificate[];
 }
 
 const JURISDICTION_ORDER: Jurisdiction[] = ["TR", "EU", "US", "CA", "AU", "JP", "CODEX", "SA", "UK"];
@@ -140,7 +142,7 @@ function trLower(s: string) {
   return s.toLocaleLowerCase("tr");
 }
 
-export function Market({ session, realListings, myListings, myOrders, incomingOrdersByListing, myCertificates, pendingCertificates }: MarketProps) {
+export function Market({ session, realListings, myListings, myOrders, incomingOrdersByListing, myCertificates, pendingCertificates, revocableCertificates }: MarketProps) {
   const [createState, createAction, createPending] = useActionState(createListingAction, INITIAL_FORM_STATE);
   const [certState, certAction, certPending] = useActionState(createCertificateAction, INITIAL_CERT_FORM_STATE);
   const [certFormOpen, setCertFormOpen] = useState(false);
@@ -149,6 +151,9 @@ export function Market({ session, realListings, myListings, myOrders, incomingOr
   const [qtyByListing, setQtyByListing] = useState<Record<string, number>>({});
   const [reviewPending, startReviewTransition] = useTransition();
   const [reviewMsg, setReviewMsg] = useState<Record<string, string>>({});
+  const [revokeNoteDraft, setRevokeNoteDraft] = useState<Record<string, string>>({});
+  const [revokePending, startRevokeTransition] = useTransition();
+  const [revokeMsg, setRevokeMsg] = useState<Record<string, string>>({});
   const [stockDraft, setStockDraft] = useState<Record<string, number>>({});
   const [stockMsg, setStockMsg] = useState<Record<string, string>>({});
   const [stockPending, startStockTransition] = useTransition();
@@ -157,6 +162,18 @@ export function Market({ session, realListings, myListings, myOrders, incomingOr
     startReviewTransition(async () => {
       const res = await reviewCertificateAction(certificateId, decision);
       setReviewMsg((m) => ({ ...m, [certificateId]: res.error ?? res.success ?? "" }));
+    });
+  }
+
+  function handleCertRevoke(certificateId: string) {
+    const note = (revokeNoteDraft[certificateId] ?? "").trim();
+    if (!note) {
+      setRevokeMsg((m) => ({ ...m, [certificateId]: "İptal gerekçesi zorunludur." }));
+      return;
+    }
+    startRevokeTransition(async () => {
+      const res = await revokeCertificateAction(certificateId, note);
+      setRevokeMsg((m) => ({ ...m, [certificateId]: res.error ?? res.success ?? "" }));
     });
   }
 
@@ -714,7 +731,11 @@ export function Market({ session, realListings, myListings, myOrders, incomingOr
                         </span>
                         <span
                           className={`chip ${
-                            c.verificationStatus === "onaylandi" ? "chip-ok" : c.verificationStatus === "reddedildi" ? "chip-danger" : "chip-warn"
+                            c.verificationStatus === "onaylandi"
+                              ? "chip-ok"
+                              : c.verificationStatus === "reddedildi" || c.verificationStatus === "iptal-edildi"
+                                ? "chip-danger"
+                                : "chip-warn"
                           }`}
                         >
                           <ShieldCheck size={11} /> {CERTIFICATE_VERIFICATION_LABELS[c.verificationStatus]}
@@ -727,6 +748,11 @@ export function Market({ session, realListings, myListings, myOrders, incomingOr
                     {c.verificationStatus === "reddedildi" && c.verificationNote && (
                       <div style={{ fontSize: "var(--fs-xs)", color: "var(--color-danger, #b23f26)", marginTop: 6 }}>
                         Red gerekçesi: {c.verificationNote}
+                      </div>
+                    )}
+                    {c.verificationStatus === "iptal-edildi" && c.revocationNote && (
+                      <div style={{ fontSize: "var(--fs-xs)", color: "var(--color-danger, #b23f26)", marginTop: 6 }}>
+                        <strong>İptal gerekçesi:</strong> {c.revocationNote}
                       </div>
                     )}
                   </div>
@@ -777,6 +803,57 @@ export function Market({ session, realListings, myListings, myOrders, incomingOr
                         <X size={13} /> Reddet
                       </button>
                       {reviewMsg[c.id] && <span style={{ fontSize: "var(--fs-xs)", color: "var(--text-mid)" }}>{reviewMsg[c.id]}</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* --- Onaylı sertifikaları incele / şüpheli olarak iptal et (FR-183) --- */}
+      {session && can(session.role, "compliance.review") && (
+        <section className="section">
+          <div className="container-x">
+            <NumberedHeading n="00" eyebrow="Sahte/şüpheli sertifika incelemesi (FR-183)" title="Onaylı sertifikaları geriye dönük iptal et" />
+            <p style={{ color: "var(--text-mid)", maxWidth: 640, marginBottom: 20 }}>
+              Daha önce onaylanmış bir sertifikanın sahte/şüpheli olduğu sonradan ortaya
+              çıkabilir. İptal, bu sertifikaya dayanan GELECEKTEKİ her organik-iddia
+              kontrolünü otomatik reddeder — hâlihazırda yayınlanmış ilanlar geriye dönük
+              değişmez. Kendi işletmenin sertifikaları burada da görünmez.
+            </p>
+            {revocableCertificates.length === 0 ? (
+              <p style={{ color: "var(--text-low)" }}>İptal edilebilir onaylı sertifika yok.</p>
+            ) : (
+              <div style={{ display: "grid", gap: 8, maxWidth: 720 }}>
+                {revocableCertificates.map((c) => (
+                  <div key={c.id} className="card" style={{ padding: 14 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+                      <strong style={{ fontSize: "var(--fs-sm)" }}>{c.holder} · {c.issuer} — {JURISDICTION_LABELS[c.jurisdiction]}</strong>
+                      <span className="chip chip-ok"><ShieldCheck size={11} /> Doğrulandı</span>
+                    </div>
+                    <div style={{ fontSize: "var(--fs-xs)", color: "var(--text-low)", marginTop: 6 }}>
+                      Kapsam: {c.scopeCropIds.join(", ")} · Geçerlilik: {c.validFrom} – {c.validTo}
+                      {c.verifiedAt && ` · Onay: ${c.verifiedAt.slice(0, 10)}`}
+                    </div>
+                    <div style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "center", flexWrap: "wrap" }}>
+                      <input
+                        type="text"
+                        placeholder="İptal gerekçesi (zorunlu)"
+                        value={revokeNoteDraft[c.id] ?? ""}
+                        onChange={(e) => setRevokeNoteDraft((d) => ({ ...d, [c.id]: e.target.value }))}
+                        style={{ flex: 1, minWidth: 220, padding: "6px 10px", borderRadius: 8, border: "1px solid var(--border-soft)" }}
+                      />
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        style={{ color: "var(--color-danger, #b23f26)", borderColor: "var(--color-danger, #b23f26)" }}
+                        disabled={revokePending}
+                        onClick={() => handleCertRevoke(c.id)}
+                      >
+                        <X size={13} /> Şüpheli — iptal et
+                      </button>
+                      {revokeMsg[c.id] && <span style={{ fontSize: "var(--fs-xs)", color: "var(--text-mid)" }}>{revokeMsg[c.id]}</span>}
                     </div>
                   </div>
                 ))}

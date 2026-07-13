@@ -143,6 +143,7 @@ enum CertificateVerificationStatus {
   beklemede
   onaylandi
   reddedildi
+  iptal_edildi @map("iptal-edildi")
 }
 
 model Certificate {
@@ -164,6 +165,12 @@ model Certificate {
   verifiedBy    String?
   verifiedAt    DateTime?
   verificationNote String?
+  // FR-183: daha önce onaylanmış bir sertifikanın geriye dönük iptali (bkz.
+  // src/lib/certificateReview.ts revokeCertificate) — verifiedBy/verifiedAt'in
+  // ÜZERİNE YAZMAZ, orijinal onayı kimin/ne zaman yaptığı ayrı bir denetim izi olarak kalır.
+  revokedBy     String?
+  revokedAt     DateTime?
+  revocationNote String?
   workspaceId   String
   workspace     Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   createdAt     DateTime     @default(now())

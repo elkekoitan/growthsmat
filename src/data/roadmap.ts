@@ -314,6 +314,19 @@ export const EPICS: Epic[] = [
       // hangi eyalette lisanssız izinli olduğunu, gelir tavanını ve etiketleme zorunluluğunu
       // gösterir; New Mexico kaynağının resmi metin değil özet broşür olduğu ve tarih çelişkisi
       // açıkça işaretli.
+      // 2026-07-13 (4. tur — FR-183 "Dolandırıcılık, sahte sertifika ve yasaklı ürün
+      // incelemesi", dokümantasyon incelemesi): FR-183'ün SERTİFİKA-SAHTECİLİĞİ kısmı artık
+      // gerçek bir akışa bağlı — daha önce ONAYLANMIŞ bir sertifika sonradan sahte/şüpheli
+      // çıkarsa compliance.review izinli, İLGİLİ workspace'in dışından bir rol onu geriye
+      // dönük "iptal-edildi"ye taşıyabilir (revokeCertificate, src/lib/certificateReview.ts;
+      // zorunlu gerekçe metni, verifiedBy/At orijinal onay denetim izi olarak KORUNUR, üzerine
+      // yazılmaz). evaluateWorkspaceClaim() yalnız "onaylandi" durumunu saydığı için iptal
+      // edilen sertifika GELECEKTEKİ her organik-iddia kontrolünü otomatik reddeder — mevcut
+      // yayınlanmış ilanlar geriye dönük değişmez, bu bilinçli bir sınırdır. DÜRÜSTLÜK NOTU:
+      // FR-183'ün "yasaklı ürün incelemesi" kısmı AYRI mekanizmalarla zaten karşılanıyor
+      // (BLOCKED_MICROGREENS/Solanaceae blokları, crops.ts/microgreens.ts) — burada eklenen
+      // yalnız sertifika-sahteciliği inceleme/iptal akışı; birleşik tek bir "dolandırıcılık
+      // vaka kuyruğu" (P11-10, "Moderasyon vaka ve itiraz") henüz yok, ayrı kapsam.
       status: (["done", "done", "in_progress", "done", "in_progress", "in_progress", "todo", "done", "todo", "todo", "in_progress", "todo", "todo", "done"][i]) as TaskStatus,
       title: ["Maliyet kategorisi modeli", "Ürün/lot/kanal marj hesabı", "Tahmini hasat stok modeli", "Üretici vitrini ve teslimat", "B2C sepet/sipariş/ödeme", "B2B talep/teklif/fiyat", "Restoran/CSA aboneliği", "Master katalog/kanal listing", "Etsy OAuth 2.0 PKCE", "Etsy taslak listing akışı", "Etsy politika/iddia kapısı", "Etsy webhook idempotency", "QPS/QPD limit/reconciliation", "Kanal ücret simülasyonu"][i],
     })),

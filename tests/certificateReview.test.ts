@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   reviewCertificate,
+  revokeCertificate,
   canReviewCertificate,
   type VerifiableCertificate,
 } from "../src/lib/certificateReview.ts";
@@ -77,4 +78,55 @@ test("reviewCertificate: kendi-workspace kontrolü, yetki kontrolünden ÖNCE ge
   const r = reviewCertificate(c, "goruntuleyici", "ws-uretici", "onayla", "g@x.com", NOW);
   assert.equal(r.applied, false);
   assert.match(r.reason ?? "", /Kendi işletmen/);
+});
+
+// ---- FR-183: revokeCertificate (daha önce onaylanmış sertifikanın geriye dönük iptali) ----
+
+test("revokeCertificate: yalnız 'onaylandi' durumundaki sertifika iptal edilebilir, 'beklemede' reddedilir", () => {
+  const c = cert(); // beklemede
+  const r = revokeCertificate(c, "uzman", "ws-baska", "u1", NOW, "sahte belge tespit edildi");
+  assert.equal(r.applied, false);
+  assert.match(r.reason ?? "", /daha önce onaylanmış/);
+});
+
+test("revokeCertificate: onaylı sertifika BAŞKA workspace'ten iptal edilebilir, revokedBy/At/Note set edilir, verifiedBy/At KORUNUR", () => {
+  const approved = reviewCertificate(cert(), "uzman", "ws-baska", "onayla", "onaylayan@x.com", NOW).certificate;
+  const r = revokeCertificate(approved, "kalite", "ws-baska2", "iptal-eden@x.com", "2026-07-14T09:00:00Z", "sahte belge tespit edildi");
+  assert.equal(r.applied, true);
+  assert.equal(r.certificate.verificationStatus, "iptal-edildi");
+  assert.equal(r.certificate.revokedBy, "iptal-eden@x.com");
+  assert.equal(r.certificate.revokedAt, "2026-07-14T09:00:00Z");
+  assert.equal(r.certificate.revocationNote, "sahte belge tespit edildi");
+  // Orijinal onay denetim izi kaybolmaz — kim/ne zaman onayladığı ayrı bir kayıttır.
+  assert.equal(r.certificate.verifiedBy, "onaylayan@x.com");
+  assert.equal(r.certificate.verifiedAt, NOW);
+});
+
+test("revokeCertificate: KENDİ workspace'inin onaylı sertifikasını iptal etmek reddedilir", () => {
+  const approved = reviewCertificate(cert(), "uzman", "ws-baska", "onayla", "u1", NOW).certificate;
+  const r = revokeCertificate(approved, "sahip", "ws-uretici", "sahip@x.com", NOW, "gerekçe");
+  assert.equal(r.applied, false);
+  assert.match(r.reason ?? "", /Kendi işletmen/);
+  assert.equal(r.certificate.verificationStatus, "onaylandi");
+});
+
+test("revokeCertificate: yetkisiz rol iptal edemez", () => {
+  const approved = reviewCertificate(cert(), "uzman", "ws-baska", "onayla", "u1", NOW).certificate;
+  const r = revokeCertificate(approved, "satis", "ws-baska2", "u2", NOW, "gerekçe");
+  assert.equal(r.applied, false);
+  assert.match(r.reason ?? "", /Yetkisiz/);
+});
+
+test("revokeCertificate: boş/whitespace gerekçe reddedilir (gerekçesiz iptal yok)", () => {
+  const approved = reviewCertificate(cert(), "uzman", "ws-baska", "onayla", "u1", NOW).certificate;
+  const r = revokeCertificate(approved, "kalite", "ws-baska2", "u2", NOW, "   ");
+  assert.equal(r.applied, false);
+  assert.match(r.reason ?? "", /gerekçesi zorunludur/);
+});
+
+test("revokeCertificate: reddedilmiş bir sertifika iptal edilemez (yalnız onaylı olan)", () => {
+  const rejected = reviewCertificate(cert(), "uzman", "ws-baska", "reddet", "u1", NOW).certificate;
+  const r = revokeCertificate(rejected, "kalite", "ws-baska2", "u2", NOW, "gerekçe");
+  assert.equal(r.applied, false);
+  assert.equal(r.certificate.verificationStatus, "reddedildi");
 });
