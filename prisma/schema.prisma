@@ -64,6 +64,7 @@ model Workspace {
   featureFlagOverrides FeatureFlagOverride[]
   room         Room?
   subscriptions Subscription[]
+  costCycles   CostCycle[]
 }
 
 enum Role {
@@ -558,4 +559,39 @@ model Subscription {
   createdAt    DateTime  @default(now())
 
   @@index([workspaceId])
+}
+
+// ---------- Maliyet döngüsü (Phase 6d: src/lib/costModel.ts) ----------
+// computeCycleCost()/computeMargin()/computeContribution() SAF kalır. Yalnız GERÇEK, olmuş
+// maliyet girdileri (CostEntry) kalıcı — marj hesaplayıcısının expectedYieldKg/wastePct/
+// pricePerKgTRY girdileri BİLEREK persist edilmez (mikrofiliz tepsi hesaplayıcısıyla AYNI
+// ilke: bunlar "ne olursa" tipi hipotetik senaryo girdileri, kesinleşmiş bir maliyet değil —
+// hesaplanmış çıktı hiçbir zaman kalıcılaştırılmaz ilkesiyle tutarlı).
+model CostCycle {
+  id            String   @id @default(cuid())
+  workspaceId   String
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  label         String
+  fixedCostsTRY Float    @default(0)
+  allocation    String   // "alan-orani" | "dongu-basi"
+  areaM2        Float?
+  totalAreaM2   Float?
+  cycles        Int?
+  createdAt     DateTime @default(now())
+
+  entries CostEntry[]
+
+  @@index([workspaceId])
+}
+
+model CostEntry {
+  id        String    @id @default(cuid())
+  cycleId   String
+  cycle     CostCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  category  String
+  amountTRY Float
+  note      String?
+  createdAt DateTime  @default(now())
+
+  @@index([cycleId])
 }

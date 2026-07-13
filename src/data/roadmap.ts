@@ -375,6 +375,11 @@ export const EPICS: Epic[] = [
       // (BLOCKED_MICROGREENS/Solanaceae blokları, crops.ts/microgreens.ts) — burada eklenen
       // yalnız sertifika-sahteciliği inceleme/iptal akışı; birleşik tek bir "dolandırıcılık
       // vaka kuyruğu" (P11-10, "Moderasyon vaka ve itiraz") henüz yok, ayrı kapsam.
+      // 2026-07-13 (Phase 6d): "Maliyet kategorisi modeli" ve "Ürün/lot/kanal marj hesabı"
+      // ("done") önceden yalnız src/lib/costModel.ts'in SAF fonksiyonlarıydı — hiçbir workspace
+      // gerçek bir maliyet kalemi kaydedemiyordu. Artık CostCycle/CostEntry tabloları + yeni
+      // /maliyet sayfası var: gerçek kalemler kalıcı, marj hesaplayıcısının verim/fire/fiyat
+      // girdileri BİLEREK kalıcılaştırılmaz (mikrofiliz tepsi hesaplayıcısıyla aynı ilke).
       status: (["done", "done", "in_progress", "done", "in_progress", "in_progress", "todo", "done", "todo", "todo", "in_progress", "todo", "todo", "done"][i]) as TaskStatus,
       title: ["Maliyet kategorisi modeli", "Ürün/lot/kanal marj hesabı", "Tahmini hasat stok modeli", "Üretici vitrini ve teslimat", "B2C sepet/sipariş/ödeme", "B2B talep/teklif/fiyat", "Restoran/CSA aboneliği", "Master katalog/kanal listing", "Etsy OAuth 2.0 PKCE", "Etsy taslak listing akışı", "Etsy politika/iddia kapısı", "Etsy webhook idempotency", "QPS/QPD limit/reconciliation", "Kanal ücret simülasyonu"][i],
     })),
