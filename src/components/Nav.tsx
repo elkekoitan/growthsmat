@@ -81,7 +81,10 @@ export function Nav() {
           >
             {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
           </button>
-          <Link href="/plan" className="btn btn-primary btn-sm nav-cta">
+          <Link href="/giris" className="btn btn-ghost btn-sm nav-cta">
+            Giriş
+          </Link>
+          <Link href="/kayit" className="btn btn-primary btn-sm nav-cta">
             Ücretsiz başla <ArrowRight size={16} />
           </Link>
           <button
@@ -98,7 +101,7 @@ export function Nav() {
       {open && (
         <div className="glass" style={{ padding: "8px 0 16px", animation: "fade-up 250ms var(--ease-out) both" }}>
           <div className="container-x" style={{ display: "grid", gap: 4 }}>
-            {NAV_LINKS.map((l) => (
+            {[...NAV_LINKS, { href: "/giris", label: "Giriş" }, { href: "/kayit", label: "Kayıt ol" }].map((l) => (
               <Link
                 key={l.href}
                 href={l.href}

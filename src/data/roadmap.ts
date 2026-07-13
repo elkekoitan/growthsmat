@@ -89,9 +89,17 @@ export const EPICS: Epic[] = [
     risk: "Veri izolasyonu",
     tasks: [
       // Membership şeması + rol/izin kataloğu + tenant-bağlamlı hasPermission() test
-      // edilerek implement edildi (src/lib/roles.ts, /roller); gerçek OAuth/RLS backend yok.
-      { id: "P02-01", title: "User/workspace/membership şeması", status: "in_progress", critical: true },
-      { id: "P02-02", title: "E-posta + OAuth kimlik akışı", status: "todo" },
+      // edilerek implement edildi (src/lib/roles.ts, /roller). Postgres/Prisma göçünün
+      // Phase 0'ı (2026-07-13): gerçek User/Session/Workspace/Membership/Invite/
+      // AuditEvent/Certificate tabloları (prisma/schema.prisma), gerçek e-posta+şifre
+      // auth (crypto.scrypt, DB-doğrulanan opak session token — src/server/auth.ts,
+      // /giris, /kayit), Coolify'da izole Postgres servisi + otomatik migrate-deploy
+      // pipeline'ı canlıda çalışıyor. OAuth/Apple/Google ve gerçek Postgres RLS politikası
+      // (satır güvenliği hâlâ yalnız uygulama katmanında — requireMembership() üzerinden,
+      // veritabanı seviyesinde CREATE POLICY yok) bu turun kapsamı DIŞINDA, dürüstçe
+      // "todo" bırakıldı — sahte kesinlik yok.
+      { id: "P02-01", title: "User/workspace/membership şeması", status: "done", critical: true },
+      { id: "P02-02", title: "E-posta + OAuth kimlik akışı", status: "in_progress" },
       { id: "P02-03", title: "Apple/Google mobil kimlik", status: "todo" },
       { id: "P02-04", title: "Rol ve izin kataloğu", status: "done" },
       { id: "P02-05", title: "API tenant bağlamı ve politika katmanı", status: "done", critical: true },

@@ -1,0 +1,150 @@
+// SmartGrowth OS — Prisma şeması (Phase 0: auth/tenancy çekirdeği)
+// Prisma 7: datasource'ta url YOK (bkz. prisma.config.ts) — çalışma zamanı bağlantısı
+// src/lib/db.ts'te @prisma/adapter-pg üzerinden verilir (driver adapter deseni).
+// Referans/statik veri (crops.ts, rulePacks.ts'in RULE_PACKS'ı vb.) burada YOK — bu şema
+// yalnız gerçek, kullanıcı-mutasyonlu varlıkları kapsar (bkz. plan dosyası §2).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------- Kimlik ve çok-kiracılık çekirdeği (Phase 0) ----------
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sessions       Session[]
+  memberships    Membership[]
+  sentInvites    Invite[]     @relation("InvitedBy")
+  reviewedInvites AuditEvent[]
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Workspace {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships  Membership[]
+  invites      Invite[]
+  certificates Certificate[]
+}
+
+enum Role {
+  sahip
+  yonetici
+  planlayici
+  saha_calisani @map("saha-calisani")
+  kalite
+  satis
+  goruntuleyici
+  uzman
+}
+
+enum MembershipStatus {
+  aktif
+  askida
+  iptal
+}
+
+model Membership {
+  id          String           @id @default(cuid())
+  userId      String
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspaceId String
+  workspace   Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  role        Role
+  status      MembershipStatus @default(aktif)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@unique([userId, workspaceId])
+  @@index([workspaceId])
+}
+
+enum InviteState {
+  davet_gonderildi @map("davet-gonderildi")
+  kabul_edildi     @map("kabul-edildi")
+  reddedildi
+  suresi_doldu     @map("suresi-doldu")
+  iptal_edildi     @map("iptal-edildi")
+}
+
+model Invite {
+  id              String      @id @default(cuid())
+  email           String
+  workspaceId     String
+  workspace       Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  role            Role
+  invitedByUserId String
+  invitedBy       User        @relation("InvitedBy", fields: [invitedByUserId], references: [id])
+  sentAt          DateTime    @default(now())
+  expiresAt       DateTime
+  state           InviteState @default(davet_gonderildi)
+
+  auditEvents AuditEvent[]
+
+  @@index([workspaceId])
+  @@index([email])
+}
+
+model AuditEvent {
+  id       String   @id @default(cuid())
+  at       DateTime @default(now())
+  action   String
+  inviteId String
+  invite   Invite   @relation(fields: [inviteId], references: [id], onDelete: Cascade)
+  actorUserId String
+  actor    User     @relation(fields: [actorUserId], references: [id])
+
+  @@index([inviteId])
+}
+
+enum Jurisdiction {
+  TR
+  EU
+  US
+  CA
+  AU
+  JP
+  CODEX
+  SA
+  UK
+}
+
+model Certificate {
+  id            String       @id @default(cuid())
+  holder        String
+  jurisdiction  Jurisdiction
+  scopeCropIds  String[]
+  validFrom     DateTime
+  validTo       DateTime
+  issuer        String
+  inTransition  Boolean      @default(false)
+  workspaceId   String
+  workspace     Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([workspaceId])
+}

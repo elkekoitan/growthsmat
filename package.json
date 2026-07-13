@@ -9,19 +9,29 @@
     "lint": "eslint",
     "icons": "node scripts/gen-icons.mjs",
     "import-photos": "node scripts/import-crop-photos.mjs",
-    "test": "node --test --experimental-strip-types --import ./tests/register-alias.mjs \"tests/*.test.ts\""
+    "test": "node --test --experimental-strip-types --import ./tests/register-alias.mjs \"tests/*.test.ts\"",
+    "postinstall": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy"
   },
   "dependencies": {
+    "@prisma/adapter-pg": "^7.8.0",
+    "@prisma/client": "^7.8.0",
     "next": "16.2.10",
+    "pg": "^8.22.0",
+    "prisma": "^7.8.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "server-only": "^0.0.1",
     "sharp": "^0.35.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/pg": "^8.20.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "dotenv": "^17.4.2",
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
     "tailwindcss": "^4",
