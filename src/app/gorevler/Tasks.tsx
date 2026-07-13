@@ -20,6 +20,7 @@ import {
 } from "@/components/icons";
 import { createTaskAction, deleteTaskAction, toggleTaskAction } from "./actions";
 import type { RealTask as Task, TaskKind } from "@/server/repositories/tasks";
+import { suggestRebalance, type LaborCapacityResult } from "@/lib/laborCapacity";
 
 /* ============================================================================
    /gorevler — Görev ve saha günlüğü ("bakım ritüeli" estetiği)
@@ -101,7 +102,7 @@ const DAY_OPTIONS: { off: number; label: string }[] = [
   { off: 9, label: "Gelecek hafta" },
 ];
 
-export function Tasks({ initialTasks }: { initialTasks: Task[] }) {
+export function Tasks({ initialTasks, laborCapacity }: { initialTasks: Task[]; laborCapacity: LaborCapacityResult | null }) {
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [taskPending, startTaskTransition] = useTransition();
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
@@ -307,6 +308,38 @@ export function Tasks({ initialTasks }: { initialTasks: Task[] }) {
             );
           })}
         </div>
+
+        {/* --- İş gücü kapasitesi --- */}
+        {laborCapacity && laborCapacity.weeks.length > 0 && (
+          <div
+            className="card"
+            style={{
+              marginTop: 18,
+              padding: "16px 18px",
+              borderLeft: laborCapacity.feasible ? undefined : "3px solid var(--color-danger)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <span className={`chip ${laborCapacity.feasible ? "chip-ok" : "chip-danger"}`}>
+                {laborCapacity.feasible ? <Check size={13} /> : <X size={13} />}
+                {laborCapacity.feasible ? "Haftalık bütçe yeterli" : "Bazı haftalar aşım var"}
+              </span>
+              <span style={{ fontSize: "var(--fs-sm)", color: "var(--text-mid)" }}>
+                Haftalık bütçe: <strong className="font-mono">{laborCapacity.weeklyBudgetMinutes} dk</strong>
+                {laborCapacity.peakWeek && (
+                  <>
+                    {" "}· En yoğun hafta: <strong className="font-mono">{laborCapacity.peakWeek.totalMinutes} dk</strong>
+                  </>
+                )}
+              </span>
+            </div>
+            {!laborCapacity.feasible && (
+              <p style={{ marginTop: 8, fontSize: "var(--fs-sm)", color: "var(--text-mid)" }}>
+                {suggestRebalance(laborCapacity)}
+              </p>
+            )}
+          </div>
+        )}
 
         {/* --- Araç çubuğu --- */}
         <div className="toolbar">
