@@ -393,6 +393,12 @@ function SeedCard({
               ≈ analog görsel
             </span>
           ) : null}
+          {/* hover quick-view sarmalı — tıklanabilirliği pekiştirir (Dribbble ürün-kartı hover araştırması) */}
+          <span className="seed-quickview" aria-hidden style={{ "--sc": meta.color } as Vars}>
+            <span className="qv-pill">
+              Detayı aç <ArrowRight size={12} />
+            </span>
+          </span>
         </div>
 
         <div className="seed-content">
@@ -871,6 +877,7 @@ export function Explorer() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [compareIds, setCompareIds] = useState<string[]>([]);
   const [compareOpen, setCompareOpen] = useState(false);
+  const [compact, setCompact] = useState(false);
   const MAX_COMPARE = 4;
 
   const toggleCompare = useCallback((id: string) => {
@@ -1050,16 +1057,36 @@ export function Explorer() {
               <strong className="tnum">{results.length}</strong> ürün profili
               {anyFilter && <span style={{ color: "var(--text-low)" }}> · {CROPS.length} içinde</span>}
             </span>
-            {anyFilter && (
-              <button className="btn btn-ghost btn-sm" onClick={clearAll}>
-                <X size={15} /> Filtreleri temizle
-              </button>
-            )}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <div className="density-toggle" role="group" aria-label="Kart yoğunluğu">
+                <button
+                  type="button"
+                  className={`density-btn${!compact ? " is-on" : ""}`}
+                  aria-pressed={!compact}
+                  onClick={() => setCompact(false)}
+                >
+                  Rahat
+                </button>
+                <button
+                  type="button"
+                  className={`density-btn${compact ? " is-on" : ""}`}
+                  aria-pressed={compact}
+                  onClick={() => setCompact(true)}
+                >
+                  Sık
+                </button>
+              </div>
+              {anyFilter && (
+                <button className="btn btn-ghost btn-sm" onClick={clearAll}>
+                  <X size={15} /> Filtreleri temizle
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Grid ya da boş durum */}
           {results.length > 0 ? (
-            <div className="seed-grid">
+            <div className={`seed-grid${compact ? " is-compact" : ""}`}>
               {results.map((c) => (
                 <SeedCard
                   key={c.id}
@@ -1189,9 +1216,24 @@ export function Explorer() {
         }
         .result-bar strong { color: var(--text-hi); font-size: var(--fs-lg); }
 
+        .density-toggle { display: inline-flex; padding: 3px; gap: 2px; border-radius: 999px; background: var(--bg-inset); }
+        .density-btn {
+          height: 30px; padding: 0 14px; border-radius: 999px; border: none; cursor: pointer;
+          font-size: var(--fs-xs); font-weight: 600; color: var(--text-mid); background: transparent;
+          transition: background var(--dur-fast) ease, color var(--dur-fast) ease, box-shadow var(--dur-fast) ease;
+        }
+        .density-btn.is-on { background: var(--bg-surface); color: var(--primary); box-shadow: var(--shadow-sm); }
+
         /* ---- Grid ---- */
-        .seed-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(288px, 1fr)); gap: 20px; }
+        .seed-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(288px, 1fr)); gap: 20px; transition: gap var(--dur-base) ease; }
         @media (max-width: 480px) { .seed-grid { grid-template-columns: 1fr; } }
+        .seed-grid.is-compact { grid-template-columns: repeat(auto-fill, minmax(216px, 1fr)); gap: 14px; }
+        .seed-grid.is-compact .seed-illus { height: 78px; }
+        .seed-grid.is-compact .seed-illus-art { width: 120px; height: 120px; }
+        .seed-grid.is-compact .seed-head { padding: 14px 14px 8px; }
+        .seed-grid.is-compact .seed-content { padding: 10px 14px 14px; }
+        .seed-grid.is-compact .metrics { gap: 6px; }
+        .seed-grid.is-compact .metric-row { font-size: 12px; }
         .tilt-wrap { perspective: 900px; }
 
         .seed-card {
@@ -1264,6 +1306,23 @@ export function Explorer() {
           background: color-mix(in srgb, var(--color-warning) 78%, black 10%);
           box-shadow: var(--shadow-sm);
         }
+        .seed-quickview {
+          position: absolute; inset: 0; z-index: 1;
+          display: flex; align-items: flex-end; justify-content: flex-end; padding: 10px;
+          background: linear-gradient(180deg, transparent 45%, color-mix(in srgb, var(--sc) 42%, black 30%) 100%);
+          opacity: 0; transition: opacity 200ms var(--ease-out);
+        }
+        .seed-card:hover .seed-quickview, .seed-card:focus-visible .seed-quickview { opacity: 1; }
+        .qv-pill {
+          display: inline-flex; align-items: center; gap: 4px;
+          font-size: 11px; font-weight: 700; color: #fff;
+          padding: 5px 10px; border-radius: 999px;
+          background: color-mix(in srgb, var(--sc) 80%, black 6%);
+          box-shadow: var(--shadow-sm);
+          transform: translateY(4px);
+          transition: transform 200ms var(--ease-out);
+        }
+        .seed-card:hover .qv-pill, .seed-card:focus-visible .qv-pill { transform: translateY(0); }
 
         .modal-hero { position: relative; height: 200px; background: var(--bg-surface-2); }
         .modal-hero-credit {
