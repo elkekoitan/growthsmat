@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useActionState, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import {
   CATALOG_WITH_EMOJI,
@@ -19,6 +19,7 @@ import {
   type ChannelId,
   type PaymentCountry,
 } from "@/data/commerce";
+import { CROPS } from "@/data/crops";
 import { NumberedHeading, StampBadge, WaveDivider } from "@/components/graphics";
 import { SpotlightCard, KpiCard } from "@/components/visuals";
 import { Reveal } from "@/components/ui";
@@ -28,12 +29,43 @@ import {
   Globe,
   Scale,
   Check,
+  X,
   ArrowRight,
   ShieldCheck,
   MapPin,
   Calendar,
   Sparkles,
+  Leaf,
+  Sprout,
 } from "@/components/icons";
+import type { Role } from "@/lib/roles";
+import { can } from "@/lib/roles";
+import type { RealListing } from "@/server/repositories/listings";
+import type { RealOrder } from "@/server/repositories/orders";
+import { createListingAction, placeOrderAction, toggleListingActiveAction, updateOrderStatusAction, type MarketFormState } from "./actions";
+
+export interface MarketSession {
+  role: Role;
+  workspaceId: string;
+}
+
+export interface MarketProps {
+  session: MarketSession | null;
+  realListings: RealListing[];
+  myListings: RealListing[];
+  myOrders: RealOrder[];
+  incomingOrdersByListing: Record<string, RealOrder[]>;
+}
+
+const CATEGORY_QUICK_FILTERS = [
+  { id: "sebze", label: "Sebze", emoji: "🍅" },
+  { id: "yesillik", label: "Yeşillik", emoji: "🥬" },
+  { id: "meyve", label: "Meyve", emoji: "🍓" },
+  { id: "mikrofiliz", label: "Mikro Filiz", emoji: "🌱" },
+  { id: "kurutulmus", label: "Kurutulmuş", emoji: "🫙" },
+] as const;
+
+const INITIAL_FORM_STATE: MarketFormState = {};
 
 const CHANNEL_ICON: Record<ChannelId, typeof Store> = {
   "yerel-vitrin": Store,
@@ -56,7 +88,28 @@ const COUNTRY_LABELS: Record<PaymentCountry, string> = {
   UK: "Birleşik Krallık",
 };
 
-export function Market() {
+export function Market({ session, realListings, myListings, myOrders, incomingOrdersByListing }: MarketProps) {
+  const [createState, createAction, createPending] = useActionState(createListingAction, INITIAL_FORM_STATE);
+  const [orderPending, startOrderTransition] = useTransition();
+  const [orderMsg, setOrderMsg] = useState<Record<string, string>>({});
+  const [qtyByListing, setQtyByListing] = useState<Record<string, number>>({});
+
+  function handlePlaceOrder(listingId: string) {
+    const qty = qtyByListing[listingId] ?? 1;
+    startOrderTransition(async () => {
+      const res = await placeOrderAction(listingId, qty);
+      setOrderMsg((m) => ({ ...m, [listingId]: res.error ?? res.success ?? "" }));
+    });
+  }
+
+  function handleOrderStatus(orderId: string, status: "onaylandi" | "iptal") {
+    startOrderTransition(async () => {
+      await updateOrderStatusAction(orderId, status);
+    });
+  }
+
+  const canManageCommerce = session ? can(session.role, "commerce.manage") : false;
+
   const [channelFilter, setChannelFilter] = useState<ChannelId | "hepsi">("hepsi");
   const filteredCatalog = useMemo(
     () =>
@@ -118,6 +171,192 @@ export function Market() {
         </div>
       </section>
       <WaveDivider fill="var(--color-paper-50)" />
+
+      {/* ---------- GERÇEK VİTRİN (canlı Postgres — statik demo değil) ---------- */}
+      {/* Tasarım kaynağı: kullanıcının kendi kaydettiği Pinterest pinleri (bkz. vault
+          25-Design-Research-Log-Pinterest.md) — "100% PURE ORGANIC" / "Fresh Organic Food"
+          / "Shop Fresh Fruits Online": canlı/doygun yeşil bant, dairesel kategori rozetleri,
+          güven-rozeti şeridi, gerçek fiyat+sepet kartı deseni. Yalnız bu bölüme özel, scoped
+          — Evergreen Ledger'ın orman/altın kimliği sayfanın geri kalanında değişmedi. */}
+      <section className="market-hero-band">
+        <div className="container-x">
+          <div style={{ textAlign: "center", marginBottom: 28 }}>
+            <span className="eyebrow" style={{ color: "#F3F9F0" }}>
+              CANLI VİTRİN
+            </span>
+            <h2 style={{ fontSize: "var(--fs-h2)", color: "#fff", marginTop: 10, marginBottom: 10 }}>
+              Gerçek üreticiler, gerçek ilanlar
+            </h2>
+            <p style={{ color: "rgba(255,255,255,.82)", maxWidth: 560, margin: "0 auto" }}>
+              Aşağıdaki ilanlar veritabanından geliyor — gerçek üreticiler ekliyor, gerçek
+              alıcılar sipariş veriyor. Ödeme tahsilatı henüz entegre değil (bkz. not); sipariş
+              iki gerçek hesap arasında kalıcı bir talep kaydı oluşturur.
+            </p>
+          </div>
+
+          <div className="market-category-row">
+            {CATEGORY_QUICK_FILTERS.map((c) => (
+              <div key={c.id} className="market-category-badge">
+                <span className="market-category-badge-icon">{c.emoji}</span>
+                <span>{c.label}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="market-trust-row">
+            <span><ShieldCheck size={15} /> Gerçek üretici hesabı</span>
+            <span><Leaf size={15} /> Sertifika durumu şeffaf</span>
+            <span><Sprout size={15} /> Ödeme entegrasyonu yok — yalnız talep kaydı</span>
+          </div>
+
+          {/* --- Gerçek ilan grid'i (Postgres) --- */}
+          <div className="market-real-grid">
+            {realListings.length === 0 ? (
+              <div className="card" style={{ padding: 28, textAlign: "center", gridColumn: "1 / -1" }}>
+                <p style={{ color: "var(--text-mid)", marginBottom: 4 }}>
+                  Henüz yayınlanmış gerçek ilan yok — ilk ilanı sen aç.
+                </p>
+                {!session && (
+                  <Link href="/giris" className="btn btn-primary btn-sm" style={{ marginTop: 12 }}>
+                    Giriş yap ve ilan aç
+                  </Link>
+                )}
+              </div>
+            ) : (
+              realListings.map((l) => {
+                const crop = l.cropId ? CROPS.find((c) => c.id === l.cropId) : undefined;
+                const incoming = incomingOrdersByListing[l.id] ?? [];
+                const isMine = myListings.some((m) => m.id === l.id);
+                return (
+                  <div key={l.id} className="card card-hover market-real-card" style={{ padding: 18 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                      <span className="market-real-card-emoji">{crop?.emoji ?? "🌱"}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 600 }}>{l.title}</div>
+                        <div style={{ fontSize: "var(--fs-xs)", color: "var(--text-low)" }}>
+                          {l.producer} · {l.region}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="font-mono" style={{ fontSize: "var(--fs-lg)", fontWeight: 600 }}>
+                      {l.priceTRY.toLocaleString("tr-TR")} ₺
+                    </div>
+                    <div style={{ fontSize: "var(--fs-xs)", color: "var(--text-low)", marginBottom: 12 }}>{l.unitLabel}</div>
+
+                    {isMine ? (
+                      <div style={{ display: "grid", gap: 6 }}>
+                        <span className="chip chip-info" style={{ width: "fit-content" }}>Senin ilanın</span>
+                        {incoming.length > 0 && (
+                          <div style={{ display: "grid", gap: 6, marginTop: 6 }}>
+                            {incoming.map((o) => (
+                              <div key={o.id} style={{ fontSize: "var(--fs-xs)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
+                                <span>{o.quantity}× · {o.totalPriceTRY.toLocaleString("tr-TR")} ₺ · {o.status}</span>
+                                {o.status === "beklemede" && canManageCommerce && (
+                                  <div style={{ display: "flex", gap: 4 }}>
+                                    <button className="btn btn-primary btn-sm" style={{ padding: "4px 8px" }} disabled={orderPending} onClick={() => handleOrderStatus(o.id, "onaylandi")}>
+                                      <Check size={12} />
+                                    </button>
+                                    <button className="btn btn-ghost btn-sm" style={{ padding: "4px 8px" }} disabled={orderPending} onClick={() => handleOrderStatus(o.id, "iptal")}>
+                                      <X size={12} />
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                        <input
+                          type="number"
+                          min={1}
+                          defaultValue={1}
+                          onChange={(e) => setQtyByListing((q) => ({ ...q, [l.id]: Math.max(1, Number(e.target.value) || 1) }))}
+                          style={{ width: 56, padding: "6px 8px", borderRadius: 8, border: "1px solid var(--border-soft)" }}
+                          aria-label="Miktar"
+                        />
+                        <button
+                          className="btn btn-primary btn-sm"
+                          disabled={orderPending}
+                          onClick={() => handlePlaceOrder(l.id)}
+                        >
+                          Sipariş ver
+                        </button>
+                      </div>
+                    )}
+                    {orderMsg[l.id] && (
+                      <p style={{ fontSize: "var(--fs-xs)", marginTop: 8, color: "var(--text-mid)" }}>{orderMsg[l.id]}</p>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* --- Vitrinim / Siparişlerim (yalnız giriş yapılmışsa) --- */}
+      {session && (
+        <section className="section paper-section">
+          <div className="container-x" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32 }} id="vitrinim-grid">
+            <div>
+              <NumberedHeading n="00" eyebrow="Kendi ilanın" title="Vitrinim" />
+              <form action={createAction} style={{ display: "grid", gap: 10, marginBottom: 20 }} className="card" >
+                <div style={{ padding: 18, display: "grid", gap: 10 }}>
+                  <input name="title" placeholder="Ürün adı (ör. Cherry Domates)" required className="btn btn-secondary" style={{ textAlign: "left" }} />
+                  <input name="producer" placeholder="Üretici adı" required className="btn btn-secondary" style={{ textAlign: "left" }} />
+                  <input name="region" placeholder="Bölge (ör. İzmir, Ege)" required className="btn btn-secondary" style={{ textAlign: "left" }} />
+                  <input name="unitLabel" placeholder="Birim (ör. 500 g file)" required className="btn btn-secondary" style={{ textAlign: "left" }} />
+                  <input name="priceTRY" type="number" min={1} step={1} placeholder="Fiyat (₺)" required className="btn btn-secondary" style={{ textAlign: "left" }} />
+                  <select name="cropId" className="btn btn-secondary" defaultValue="">
+                    <option value="">Ürün kataloğundan seç (opsiyonel)</option>
+                    {CROPS.map((c) => (
+                      <option key={c.id} value={c.id}>{c.emoji} {c.name}</option>
+                    ))}
+                  </select>
+                  {createState.error && <span className="chip chip-danger" style={{ width: "fit-content" }}><X size={12} /> {createState.error}</span>}
+                  {createState.success && <span className="chip chip-ok" style={{ width: "fit-content" }}><Check size={12} /> {createState.success}</span>}
+                  <button type="submit" disabled={createPending} className="btn btn-primary" style={{ justifySelf: "start" }}>
+                    {createPending ? "Yayınlanıyor…" : "İlanı yayınla"}
+                  </button>
+                </div>
+              </form>
+              {myListings.length > 0 && (
+                <div style={{ display: "grid", gap: 8 }}>
+                  {myListings.map((l) => (
+                    <div key={l.id} className="card" style={{ padding: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontSize: "var(--fs-sm)" }}>{l.title} — {l.priceTRY.toLocaleString("tr-TR")} ₺</span>
+                      <button
+                        className={`chip ${l.active ? "chip-ok" : "chip-danger"}`}
+                        style={{ border: "none", cursor: "pointer" }}
+                        onClick={() => startOrderTransition(() => toggleListingActiveAction(l.id, !l.active))}
+                      >
+                        {l.active ? "Aktif" : "Pasif"}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div>
+              <NumberedHeading n="00" eyebrow="Alıcı olarak" title="Siparişlerim" />
+              {myOrders.length === 0 ? (
+                <p style={{ color: "var(--text-mid)" }}>Henüz sipariş vermedin.</p>
+              ) : (
+                <div style={{ display: "grid", gap: 8 }}>
+                  {myOrders.map((o) => (
+                    <div key={o.id} className="card" style={{ padding: 12, display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ fontSize: "var(--fs-sm)" }}>{o.quantity}× · {o.totalPriceTRY.toLocaleString("tr-TR")} ₺</span>
+                      <span className={`chip ${o.status === "onaylandi" ? "chip-ok" : o.status === "iptal" ? "chip-danger" : "chip-warn"}`}>{o.status}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ---------- KANAL KARŞILAŞTIRMA ---------- */}
       <section id="kanallar" className="section paper-section">
@@ -521,6 +760,66 @@ export function Market() {
       </section>
 
       <style>{`
+        /* "Gerçek Vitrin" — kullanıcının kendi Pinterest kaydettikleri referans al: canlı/
+           doygun yeşil (mevcut --primary-700'den daha canlı bir ton), gerçek ürün rozetleri,
+           güven şeridi. Yalnız bu bant/kart setine scoped, global token'lar değişmedi. */
+        .market-hero-band {
+          padding: 56px 0;
+          background: linear-gradient(160deg, #1f7a4d 0%, #145c38 100%);
+        }
+        .market-category-row {
+          display: flex;
+          justify-content: center;
+          gap: 20px;
+          flex-wrap: wrap;
+          margin-bottom: 24px;
+        }
+        .market-category-badge {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 6px;
+          font-size: var(--fs-xs);
+          color: #fff;
+          font-weight: 600;
+        }
+        .market-category-badge-icon {
+          width: 56px;
+          height: 56px;
+          border-radius: 999px;
+          display: grid;
+          place-items: center;
+          font-size: 26px;
+          background: rgba(255,255,255,.16);
+          border: 1px solid rgba(255,255,255,.28);
+        }
+        .market-trust-row {
+          display: flex;
+          justify-content: center;
+          gap: 20px;
+          flex-wrap: wrap;
+          margin-bottom: 28px;
+          font-size: var(--fs-xs);
+          color: rgba(255,255,255,.82);
+        }
+        .market-trust-row span { display: inline-flex; align-items: center; gap: 6px; }
+        .market-real-grid {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 14px;
+        }
+        .market-real-card {
+          background: #FDFCF8 !important;
+        }
+        .market-real-card-emoji {
+          width: 40px; height: 40px; border-radius: 999px;
+          display: grid; place-items: center; font-size: 20px;
+          background: color-mix(in srgb, #1f7a4d 12%, transparent);
+        }
+        @media (max-width: 1100px) { .market-real-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+        @media (max-width: 560px) { .market-real-grid { grid-template-columns: 1fr; } }
+        @media (max-width: 800px) { #vitrinim-grid { grid-template-columns: 1fr !important; } }
+
         .catalog-grid {
           display: grid;
           grid-template-columns: repeat(4, minmax(0, 1fr));

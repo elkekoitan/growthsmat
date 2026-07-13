@@ -239,14 +239,19 @@ export const EPICS: Epic[] = [
     tasks: todos("P10", 14).map((t, i) => ({
       ...t,
       // Master katalog + teslimat bölgeleri + Etsy/yerel ücret simülatörleri (test edilen
-      // gerçek hesap mantığı) + /pazar vitrini implement edildi; OAuth/webhook/checkout backend gerektirir.
+      // gerçek hesap mantığı) implement edildi. 2026-07-13: /pazar artık GERÇEK Postgres'e
+      // bağlı — Listing/Order Prisma modelleri, gerçek ilan açma (üretici, kendi workspace'i),
+      // gerçek sipariş verme (alıcı, real DB row), satıcı onay/iptal akışı (commerce.manage
+      // izniyle gated). DÜRÜSTLÜK NOTU: Order gerçek bir ödeme işlemi DEĞİL — hiçbir ödeme
+      // ağ geçidi (Stripe/PayTR/iyzico) entegre edilmedi, yalnız iki hesap arası kalıcı bir
+      // satın-alma TALEBİ kaydı. OAuth/webhook/Etsy checkout backend hâlâ ayrı, yapılmadı.
       // Ek (görev listesinde ayrı satırı yok, epic'e genel katkı): ABD "cottage food" (ev
       // mutfağı üretimi) yasa kataloğu — Georgia/Texas/New Mexico, 3 gerçek 2024-2025 eyalet
       // yasasından (cottageFoodLaws.ts) — ev üreticisinin fazla ürün/ev-işlenmiş gıda satışının
       // hangi eyalette lisanssız izinli olduğunu, gelir tavanını ve etiketleme zorunluluğunu
       // gösterir; New Mexico kaynağının resmi metin değil özet broşür olduğu ve tarih çelişkisi
       // açıkça işaretli.
-      status: (["done", "done", "in_progress", "done", "todo", "in_progress", "todo", "done", "todo", "todo", "in_progress", "todo", "todo", "done"][i]) as TaskStatus,
+      status: (["done", "done", "in_progress", "done", "in_progress", "in_progress", "todo", "done", "todo", "todo", "in_progress", "todo", "todo", "done"][i]) as TaskStatus,
       title: ["Maliyet kategorisi modeli", "Ürün/lot/kanal marj hesabı", "Tahmini hasat stok modeli", "Üretici vitrini ve teslimat", "B2C sepet/sipariş/ödeme", "B2B talep/teklif/fiyat", "Restoran/CSA aboneliği", "Master katalog/kanal listing", "Etsy OAuth 2.0 PKCE", "Etsy taslak listing akışı", "Etsy politika/iddia kapısı", "Etsy webhook idempotency", "QPS/QPD limit/reconciliation", "Kanal ücret simülasyonu"][i],
     })),
   },

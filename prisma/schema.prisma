@@ -26,6 +26,7 @@ model User {
   memberships    Membership[]
   sentInvites    Invite[]     @relation("InvitedBy")
   reviewedInvites AuditEvent[]
+  buyerOrders    Order[]
 }
 
 model Session {
@@ -48,6 +49,8 @@ model Workspace {
   memberships  Membership[]
   invites      Invite[]
   certificates Certificate[]
+  listings     Listing[]
+  buyerOrders  Order[]
 }
 
 enum Role {
@@ -147,4 +150,64 @@ model Certificate {
   updatedAt     DateTime     @updatedAt
 
   @@index([workspaceId])
+}
+
+// ---------- Pazar / ticaret çekirdeği (gerçek ilan ve sipariş, P10) ----------
+// DÜRÜSTLÜK NOTU ("sahte kesinlik yok"): Order burada GERÇEK bir ödeme işlemi DEĞİLDİR.
+// Hiçbir ödeme ağ geçidi (Stripe/PayTR/iyzico vb.) entegre edilmemiştir; bu şema/uygulama
+// para hareketi ETMEZ. Order, iki gerçek hesap (alıcı workspace ↔ satıcı workspace)
+// arasında kalıcı olarak saklanan bir SATIN ALMA TALEBİ kaydıdır — "beklemede" durumunda
+// oluşur, satıcı onaylar ("onaylandi") veya taraflardan biri iptal eder ("iptal"); gerçek
+// ödeme tahsilatı/entegrasyonu bilinçli olarak bu turun kapsamı DIŞINDA bırakılmıştır.
+
+model Listing {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  // cropId/microgreenId: src/data/crops.ts ve src/data/microgreens.ts'teki statik kataloglara
+  // düz string referanstır (Task.cropId ile aynı desen) — bilinçli olarak bir DB foreign key
+  // DEĞİLDİR; bu kataloglar kod içinde yaşayan referans veridir, ayrı bir tablo gerektirmez.
+  cropId          String?
+  microgreenId    String?
+  title           String
+  producer        String
+  region          String
+  format          String
+  unitLabel       String
+  priceTRY        Float
+  stockType       String
+  channels        String[]
+  claim           String
+  shelfLifeDays   Int
+  repeatOrderRate Float
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  orders Order[]
+
+  @@index([workspaceId])
+  @@index([active])
+}
+
+model Order {
+  id               String    @id @default(cuid())
+  listingId        String
+  listing          Listing   @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  buyerUserId      String
+  buyerUser        User      @relation(fields: [buyerUserId], references: [id])
+  buyerWorkspaceId String
+  buyerWorkspace   Workspace @relation(fields: [buyerWorkspaceId], references: [id])
+  quantity         Float
+  totalPriceTRY    Float
+  // Yalnız "beklemede" | "onaylandi" | "iptal" — gerçek bir ödeme/tahsilat durumu DEĞİL,
+  // yalnızca sipariş talebinin işleniş durumu (bkz. src/server/repositories/orders.ts).
+  status    String   @default("beklemede")
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([listingId])
+  @@index([buyerWorkspaceId])
+  @@index([buyerUserId])
 }
