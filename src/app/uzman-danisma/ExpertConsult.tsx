@@ -1,16 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { CROPS, CROP_BY_ID, EVIDENCE_LABELS, type EvidenceGrade } from "@/data/crops";
 import { ROLE_LABELS, type Role } from "@/lib/roles";
 import {
-  EXPERTS,
   canAnswerConsultation,
   matchExperts,
-  openCase,
-  assignCase,
-  answerCase,
-  closeCase,
   SPECIALTY_LABELS,
   VERIFICATION_LABELS,
   URGENCY_LABELS,
@@ -20,6 +15,7 @@ import {
   type CaseUrgency,
   type ExpertProfile,
 } from "@/lib/expertConsult";
+import { openCaseAction, assignCaseAction, answerCaseAction, closeCaseAction } from "./actions";
 import { NumberedHeading } from "@/components/graphics";
 import { Reveal } from "@/components/ui";
 import { ShieldCheck, Check, X } from "@/components/icons";
@@ -37,118 +33,21 @@ const VERIFICATION_CHIP_CLASS: Record<ExpertProfile["verification"], string> = {
   askida: "chip-warn",
 };
 
-const PESTICIDE_DOSE_REASON =
-  "Pestisit/girdi dozu ülke ve ürüne göre resmi olarak doğrulanmadan önerilemez. Etikette veya yetkili kaynakta olmayan doz/karışım AI tarafından üretilmez.";
-
-// NOT: Bu fixture veri (vakalar) kasıtlı olarak Postgres'e taşınmadı — kimlik katmanı bu
-// turda gerçek oturuma bağlandı, vaka/gönderi verisinin kendisi ayrı bir faz (Faz 4).
-function buildSeedCases(): ConsultationCase[] {
-  const seed: ConsultationCase[] = [];
-
-  const c1 = openCase(
-    {
-      askedBy: "uretici@ornek.com",
-      cropId: "feslegen",
-      specialty: "bitki-korumasi",
-      question: "Fesleğende yaprak lekesi var, ne yapmalıyım?",
-      urgency: "orta",
-      escalationSource: "dogrudan-talep",
-    },
-    "2026-07-01T09:00:00Z",
-    seed
-  );
-  seed.push(c1);
-
-  const c2Open = openCase(
-    {
-      askedBy: "baska-uretici@ornek.com",
-      specialty: "toprak-bilimi",
-      question: "Toprak pH'ı çok düşük çıktı, ne yapmalıyım?",
-      urgency: "dusuk",
-      escalationSource: "dogrudan-talep",
-    },
-    "2026-07-02T09:00:00Z",
-    seed
-  );
-  seed.push(c2Open);
-  const c2 = assignCase(c2Open, EXPERTS.find((e) => e.id === "exp-mert")!, "kalite", "2026-07-02T10:00:00Z").consultCase;
-
-  const c3Open = openCase(
-    {
-      askedBy: "uretici@ornek.com",
-      cropId: "cherry-domates-kompakt",
-      specialty: "bitki-korumasi",
-      question: "Domateste beyazsinek var, nasıl mücadele ederim?",
-      urgency: "yuksek",
-      escalationSource: "dogrudan-talep",
-    },
-    "2026-07-03T09:00:00Z",
-    seed
-  );
-  seed.push(c3Open);
-  const c3Assigned = assignCase(c3Open, EXPERTS.find((e) => e.id === "exp-naz")!, "kalite", "2026-07-03T10:00:00Z").consultCase;
-  const c3 = answerCase(
-    c3Assigned,
-    "uzman",
-    "exp-naz",
-    "Sarı yapışkan tuzakla izleme + Beauveria bassiana bazlı biyolojik mücadele önerilir; kimyasal ilaç son çare.",
-    "B",
-    "2026-07-04T09:00:00Z"
-  ).consultCase;
-
-  const c4Open = openCase(
-    {
-      askedBy: "uretici@ornek.com",
-      specialty: "organik-sertifikasyon",
-      question: "Sertifikam geçiş sürecinde, ürünümü organik olarak satabilir miyim?",
-      urgency: "orta",
-      escalationSource: "dogrudan-talep",
-    },
-    "2026-07-04T09:00:00Z",
-    seed
-  );
-  seed.push(c4Open);
-  const c4Assigned = assignCase(c4Open, EXPERTS.find((e) => e.id === "exp-selin")!, "kalite", "2026-07-04T12:00:00Z").consultCase;
-  const c4Answered = answerCase(
-    c4Assigned,
-    "uzman",
-    "exp-selin",
-    "Geçiş sürecindeki ürün yalnız açık 'geçiş sürecinde' etiketiyle satılabilir; 'organik' etiketi kullanılamaz.",
-    "A",
-    "2026-07-05T09:00:00Z"
-  ).consultCase;
-  const c4 = closeCase(c4Answered, "uretici@ornek.com", "saha-calisani", "2026-07-05T10:00:00Z").consultCase;
-
-  const c5 = openCase(
-    {
-      askedBy: "uretici@ornek.com",
-      specialty: "bitki-korumasi",
-      question: "Domateste mildiyö için kaç ml ilaçlama yapmalıyım?",
-      urgency: "yuksek",
-      escalationSource: "asistan-guvenlik-blok",
-      escalationReason: PESTICIDE_DOSE_REASON,
-    },
-    "2026-07-06T09:00:00Z",
-    seed
-  );
-
-  return [c1, c2, c3, c4, c5];
-}
-
-const SEED = buildSeedCases();
 const EVIDENCE_GRADES: EvidenceGrade[] = ["A", "B", "C", "D", "E"];
 
 export interface ExpertConsultProps {
   email: string;
   role: Role;
-  /** İstek anında hesaplanan gerçek saat — yalnız BUNDAN SONRA açılan/atanan/yanıtlanan
-   * vakaları etkiler; yukarıdaki fixture vakaların kendi zaman damgaları değişmez. */
-  nowISO: string;
+  /** Gerçek Postgres'ten (ConsultationCase, workspace-dışı platform-geneli) sunucu
+   * bileşeninde getirilir — ilk ziyarette sabit örnek senaryoyla tohumlanır. */
+  initialCases: ConsultationCase[];
+  experts: ExpertProfile[];
 }
 
-export function ExpertConsult({ email, role, nowISO }: ExpertConsultProps) {
-  const [cases, setCases] = useState<ConsultationCase[]>(SEED);
+export function ExpertConsult({ email, role, initialCases, experts }: ExpertConsultProps) {
+  const [cases, setCases] = useState<ConsultationCase[]>(initialCases);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [, startTransition] = useTransition();
   const [answerDrafts, setAnswerDrafts] = useState<Record<string, { text: string; evidence: EvidenceGrade }>>({});
 
   const [specialty, setSpecialty] = useState<ConsultSpecialty>("bitki-korumasi");
@@ -160,30 +59,24 @@ export function ExpertConsult({ email, role, nowISO }: ExpertConsultProps) {
 
   function handleOpenCase() {
     if (!question.trim()) return;
-    const next = openCase(
-      {
-        askedBy: email,
-        cropId: cropId || undefined,
-        specialty,
-        question: question.trim(),
-        urgency,
-        escalationSource: "dogrudan-talep",
-      },
-      nowISO,
-      cases
-    );
-    setCases((prev) => [...prev, next]);
+    const input = { cropId: cropId || undefined, specialty, question: question.trim(), urgency, escalationSource: "dogrudan-talep" as const };
     setQuestion("");
+    startTransition(async () => {
+      const created = await openCaseAction(input);
+      setCases((prev) => [...prev, created]);
+    });
   }
 
   function handleAssign(c: ConsultationCase, expert: ExpertProfile) {
-    const outcome = assignCase(c, expert, role, nowISO);
-    if (!outcome.applied) {
-      setErrors((prev) => ({ ...prev, [c.id]: outcome.reason ?? "İşlem uygulanamadı" }));
-      return;
-    }
-    setErrors((prev) => ({ ...prev, [c.id]: "" }));
-    setCases((prev) => prev.map((x) => (x.id === c.id ? outcome.consultCase : x)));
+    startTransition(async () => {
+      const outcome = await assignCaseAction(c.id, expert);
+      if (!outcome.applied) {
+        setErrors((prev) => ({ ...prev, [c.id]: outcome.reason }));
+        return;
+      }
+      setErrors((prev) => ({ ...prev, [c.id]: "" }));
+      setCases((prev) => prev.map((x) => (x.id === c.id ? outcome.consultCase : x)));
+    });
   }
 
   function handleAnswer(c: ConsultationCase) {
@@ -192,23 +85,27 @@ export function ExpertConsult({ email, role, nowISO }: ExpertConsultProps) {
     // (bu turun kapsamı yalnız kimlik katmanı) — bu yüzden hiçbir gerçek kullanıcı bir
     // vakaya "atanan uzman" olarak eşleşemez; bu, isAssignedToUser aşağıda hep false
     // döndüğü için dürüstçe UI'da hiç görünmez, sahte bir eşleşme uydurulmaz.
-    const outcome = answerCase(c, role, "", draft.text, draft.evidence, nowISO);
-    if (!outcome.applied) {
-      setErrors((prev) => ({ ...prev, [c.id]: outcome.reason ?? "İşlem uygulanamadı" }));
-      return;
-    }
-    setErrors((prev) => ({ ...prev, [c.id]: "" }));
-    setCases((prev) => prev.map((x) => (x.id === c.id ? outcome.consultCase : x)));
+    startTransition(async () => {
+      const outcome = await answerCaseAction(c.id, "", draft.text, draft.evidence);
+      if (!outcome.applied) {
+        setErrors((prev) => ({ ...prev, [c.id]: outcome.reason }));
+        return;
+      }
+      setErrors((prev) => ({ ...prev, [c.id]: "" }));
+      setCases((prev) => prev.map((x) => (x.id === c.id ? outcome.consultCase : x)));
+    });
   }
 
   function handleClose(c: ConsultationCase) {
-    const outcome = closeCase(c, email, role, nowISO);
-    if (!outcome.applied) {
-      setErrors((prev) => ({ ...prev, [c.id]: outcome.reason ?? "İşlem uygulanamadı" }));
-      return;
-    }
-    setErrors((prev) => ({ ...prev, [c.id]: "" }));
-    setCases((prev) => prev.map((x) => (x.id === c.id ? outcome.consultCase : x)));
+    startTransition(async () => {
+      const outcome = await closeCaseAction(c.id);
+      if (!outcome.applied) {
+        setErrors((prev) => ({ ...prev, [c.id]: outcome.reason }));
+        return;
+      }
+      setErrors((prev) => ({ ...prev, [c.id]: "" }));
+      setCases((prev) => prev.map((x) => (x.id === c.id ? outcome.consultCase : x)));
+    });
   }
 
   return (
@@ -310,7 +207,7 @@ export function ExpertConsult({ email, role, nowISO }: ExpertConsultProps) {
           <div style={{ display: "grid", gap: 12 }}>
             {sorted.map((c) => {
               const crop = c.cropId ? CROP_BY_ID[c.cropId] : undefined;
-              const candidates = matchExperts(EXPERTS, c.specialty);
+              const candidates = matchExperts(experts, c.specialty);
               const topCandidate = candidates[0];
               const draft = answerDrafts[c.id] ?? { text: "", evidence: "C" as EvidenceGrade };
               // Gerçek hesapların EXPERTS rosterinde bir karşılığı yok (bkz. handleAnswer notu)
@@ -339,7 +236,7 @@ export function ExpertConsult({ email, role, nowISO }: ExpertConsultProps) {
                   )}
                   <div style={{ fontSize: "var(--fs-xs)", color: "var(--text-low)" }}>
                     Soran: {c.askedBy} · {c.createdAtISO.slice(0, 10)}
-                    {c.assignedExpertId ? ` · Atanan: ${EXPERTS.find((e) => e.id === c.assignedExpertId)?.name ?? c.assignedExpertId}` : ""}
+                    {c.assignedExpertId ? ` · Atanan: ${experts.find((e) => e.id === c.assignedExpertId)?.name ?? c.assignedExpertId}` : ""}
                   </div>
                   {c.answer && (
                     <div style={{ fontSize: "var(--fs-sm)", color: "var(--text-mid)", background: "var(--bg-surface-2)", padding: 12, borderRadius: "var(--radius-control)" }}>
@@ -429,7 +326,7 @@ export function ExpertConsult({ email, role, nowISO }: ExpertConsultProps) {
                 </tr>
               </thead>
               <tbody>
-                {EXPERTS.map((e) => (
+                {experts.map((e) => (
                   <tr key={e.id}>
                     <td>
                       <div>{e.name}</div>

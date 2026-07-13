@@ -156,6 +156,9 @@ export const EPICS: Epic[] = [
       // 4 tür — shiitake/istiridye/aslan yelesi/beyaz mantar), Cornell/NC State/SARE/Penn State/
       // Thammasat araştırmalarından. Agaricus'ta kaynakların yalnız laboratuvar spawn verisi
       // içerdiği (meyvelenme sıcaklık/nem/verim YOK) dataGaps ile açıkça işaretli — uydurulmadı.
+      // 2026-07-13 (DB göç Phase 4): /kurasyon artık gerçek Postgres (CorrectionSubmission,
+      // platform-geneli). Gönder/incele/onayla/reddet/geri-çek AKIŞININ TAMAMI gerçek ve
+      // işlevsel (uzman-danışmadan farklı olarak burada dead-code kalan bir adım yok).
       status: (i === 0 ? "done" : i === 2 ? "done" : i === 5 ? "in_progress" : i === 11 ? "done" : i === 12 ? "done" : i === 13 ? "done" : "todo") as TaskStatus,
       title: ["Takson/tür/çeşit/yerel ad şeması", "Yetiştirme yöntemi ve gereksinim şeması", "Claim/source/evidence şeması", "Crop Ontology adapter", "GRIN adapter", "EPPO adapter", "FAO GAEZ veri alma", "NASA POWER cache", "WorldClim raster hattı", "SoilGrids fallback", "Kaynak doğrulama/checksum", "Ürün/çeşit arama ve karşılaştırma", "İçerik kürasyon konsolu", "Görsel lisans kataloğu"][i],
     })),
@@ -289,6 +292,11 @@ export const EPICS: Epic[] = [
       // /uzman-danisma). Asistanın güvenlik bloğu artık gerçek bir sonraki adıma bağlanıyor
       // (classifySafetyBlock ile önerilen uzmanlık alanı). Görsel gözlem vaka akışı (P11-07,
       // fotoğraf/ölçüm ekli vakalar) ayrı kapsam — henüz yok.
+      // 2026-07-13 (DB göç Phase 4): /uzman-danisma artık gerçek Postgres (Expert +
+      // ConsultationCase, platform-geneli — workspaceId kasıtlı olarak yok). Vaka açma ve
+      // atama gerçek/işlevsel; yanıtlama paneli DÜRÜSTÇE hâlâ hiçbir hesap için açılmıyor
+      // (hiçbir gerçek kullanıcı EXPERTS rosterindeki bir kimliğe bağlı değil — yeni bir
+      // "uzman hesabı" sistemi kurmak bu fazın kapsamı dışında, sahte bir eşleşme uydurulmadı).
       status: (["todo", "done", "todo", "in_progress", "done", "todo", "todo", "done", "todo", "todo", "in_progress"][i]) as TaskStatus,
       title: ["Model gateway ve adaptör", "Politika/risk sınıflandırma", "Domain tool registry", "Sürümlü kaynak/RAG indeksi", "Kaynaklı sohbet UI/API", "Yazma taslağı ve onay", "Görsel gözlem vaka akışı", "Uzman profil ve görüş", "Topluluk/deney paylaşımı", "Moderasyon ve itiraz", "AI altın set ve eval"][i],
     })),

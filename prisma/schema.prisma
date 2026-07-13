@@ -348,3 +348,70 @@ model LotGenealogy {
   @@index([parentId])
   @@index([childId])
 }
+
+// ---------- Uzman danışma + içerik kürasyon (Phase 4: src/lib/expertConsult.ts, curation.ts) ----------
+// DÜRÜSTLÜK NOTU: Bu iki varlık İŞLETMEYE ÖZGÜ DEĞİL — kürasyon/danışma platform-geneli
+// referans veriyi hedefler (bir çiftliğin verisi değil, ürün bilgi grafiğinin kendisi),
+// bu yüzden BİLİNÇLİ OLARAK workspaceId YOK (Listing/Task/Plan/Lot'un aksine). specialty/
+// urgency/status/verification/escalationSource/subjectType alanları Listing.format ile aynı
+// desen — düz string, DB seviyesinde enum zorlanmaz, TS union tek doğruluk kaynağı kalır.
+// Expert.id KASITLI OLARAK cuid değil — sabit iş kodu ("exp-naz"), roster küçük/sabit/
+// global olduğu için (crops.ts'e benzer, ama artık gerçek satır). ConsultationCase.answer
+// akışı HÂLÂ dürüstçe sınırlı: hiçbir gerçek hesap EXPERTS rosterindeki bir kimliğe
+// bağlanmadığı için (yeni bir "uzman hesabı" sistemi bu fazın kapsamı DIŞINDA), yanıtlama
+// paneli önceki gibi hiçbir hesap için açılmaz — bu geçmişte de böyleydi, göç bunu değiştirmedi.
+
+model Expert {
+  id               String @id
+  name             String
+  credentials      String
+  specialties      String[]
+  verification     String
+  avgResponseHours Int
+  caseCount        Int    @default(0)
+
+  cases ConsultationCase[]
+}
+
+model ConsultationCase {
+  id               String    @id @default(cuid())
+  askedBy          String
+  cropId           String?
+  specialty        String
+  question         String
+  urgency          String
+  status           String    @default("acik")
+  escalationSource String
+  escalationReason String?
+  assignedExpertId String?
+  assignedExpert   Expert?   @relation(fields: [assignedExpertId], references: [id])
+  assignedAt       DateTime?
+  answer           String?
+  answerEvidence   String?
+  answeredAt       DateTime?
+  closedAt         DateTime?
+  createdAt        DateTime  @default(now())
+
+  @@index([status])
+  @@index([askedBy])
+}
+
+model CorrectionSubmission {
+  id            String    @id @default(cuid())
+  subjectType   String
+  subjectId     String
+  field         String
+  currentValue  String
+  proposedValue String
+  sourceUrl     String?
+  submittedBy   String
+  status        String    @default("incelemede")
+  version       Int
+  reviewerId    String?
+  reviewedAt    DateTime?
+  reviewNote    String?
+  createdAt     DateTime  @default(now())
+
+  @@index([subjectId, field])
+  @@index([status])
+}

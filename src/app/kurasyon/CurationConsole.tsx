@@ -1,18 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { CROPS, CROP_BY_ID, type Crop } from "@/data/crops";
 import { ROLE_LABELS, type Role } from "@/lib/roles";
 import {
-  submitCorrection,
-  reviewCorrection,
-  withdrawSubmission,
   canReview,
   currentApprovedValue,
   CURATION_STATUS_LABELS,
   type CorrectionSubmission,
   type SubjectType,
 } from "@/lib/curation";
+import { submitCorrectionAction, reviewCorrectionAction, withdrawSubmissionAction } from "./actions";
 import { NumberedHeading } from "@/components/graphics";
 import { Reveal } from "@/components/ui";
 import { Clipboard, Check, X } from "@/components/icons";
@@ -38,50 +36,18 @@ const STATUS_CHIP_CLASS: Record<CorrectionSubmission["status"], string> = {
   "geri-cekildi": "chip-info",
 };
 
-function buildSeedSubmissions(): CorrectionSubmission[] {
-  const s1 = submitCorrection(
-    { subjectType: "crop", subjectId: "domates", field: "sunOptHours", currentValue: "6", proposedValue: "7", submittedBy: "uretici@ornek.com" },
-    "2026-06-01T09:00:00Z",
-    []
-  );
-  const approved1 = reviewCorrection(s1, "uzman", "onayla", "naz@ornek.com", "2026-06-02T09:00:00Z", "Saha verisiyle doğrulandı").submission;
-
-  const s2 = submitCorrection(
-    { subjectType: "crop", subjectId: "domates", field: "sunOptHours", currentValue: "7", proposedValue: "9", submittedBy: "uretici@ornek.com" },
-    "2026-06-10T09:00:00Z",
-    [approved1]
-  );
-  const withdrawn2 = withdrawSubmission(s2, "uretici@ornek.com").submission;
-
-  const s3 = submitCorrection(
-    { subjectType: "crop", subjectId: "marul", field: "phRange", currentValue: "6-6.8", proposedValue: "6.2-7", sourceUrl: "https://extension.example/marul-ph", submittedBy: "baska-uretici@ornek.com" },
-    "2026-06-15T09:00:00Z",
-    [approved1, withdrawn2]
-  );
-
-  const s4 = submitCorrection(
-    { subjectType: "crop", subjectId: "biber", field: "daysToHarvest", currentValue: "60-75", proposedValue: "50-60", submittedBy: "baska-uretici@ornek.com" },
-    "2026-06-16T09:00:00Z",
-    [approved1, withdrawn2, s3]
-  );
-  const rejected4 = reviewCorrection(s4, "kalite", "reddet", "mert@ornek.com", "2026-06-17T09:00:00Z", "Kaynak doğrulanamadı").submission;
-
-  return [approved1, withdrawn2, s3, rejected4];
-}
-
-const SEED = buildSeedSubmissions();
-
 export interface CurationConsoleProps {
   email: string;
   role: Role;
-  /** İstek anında hesaplanan gerçek saat — yalnız BUNDAN SONRA gönderilen/incelenen
-   * önerileri etkiler; yukarıdaki fixture verinin kendi zaman damgaları değişmez. */
-  nowISO: string;
+  /** Gerçek Postgres'ten (CorrectionSubmission) sunucu bileşeninde getirilir — ilk ziyarette
+   * workspace-dışı, platform-geneli sabit örnek verilerle tohumlanır (bkz. seedDemoSubmissionsIfEmpty). */
+  initialSubmissions: CorrectionSubmission[];
 }
 
-export function CurationConsole({ email, role, nowISO }: CurationConsoleProps) {
-  const [submissions, setSubmissions] = useState<CorrectionSubmission[]>(SEED);
+export function CurationConsole({ email, role, initialSubmissions }: CurationConsoleProps) {
+  const [submissions, setSubmissions] = useState<CorrectionSubmission[]>(initialSubmissions);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [, startTransition] = useTransition();
 
   const [subjectId, setSubjectId] = useState<string>(CROPS[0].id);
   const [field, setField] = useState<FieldKey>("sunOptHours");
@@ -107,42 +73,44 @@ export function CurationConsole({ email, role, nowISO }: CurationConsoleProps) {
 
   function handleSubmit() {
     if (!proposedValue.trim() || !crop) return;
-    const next = submitCorrection(
-      {
-        subjectType: "crop" as SubjectType,
-        subjectId,
-        field,
-        currentValue,
-        proposedValue: proposedValue.trim(),
-        sourceUrl: sourceUrl.trim() || undefined,
-        submittedBy: email,
-      },
-      nowISO,
-      submissions
-    );
-    setSubmissions((prev) => [...prev, next]);
+    const input = {
+      subjectType: "crop" as SubjectType,
+      subjectId,
+      field,
+      currentValue,
+      proposedValue: proposedValue.trim(),
+      sourceUrl: sourceUrl.trim() || undefined,
+    };
     setProposedValue("");
     setSourceUrl("");
+    startTransition(async () => {
+      const created = await submitCorrectionAction(input);
+      setSubmissions((prev) => [...prev, created]);
+    });
   }
 
   function handleReview(sub: CorrectionSubmission, decision: "onayla" | "reddet") {
-    const outcome = reviewCorrection(sub, role, decision, email, nowISO);
-    if (!outcome.applied) {
-      setErrors((prev) => ({ ...prev, [sub.id]: outcome.reason ?? "İşlem uygulanamadı" }));
-      return;
-    }
-    setErrors((prev) => ({ ...prev, [sub.id]: "" }));
-    setSubmissions((prev) => prev.map((s) => (s.id === sub.id ? outcome.submission : s)));
+    startTransition(async () => {
+      const outcome = await reviewCorrectionAction(sub.id, decision);
+      if (!outcome.applied) {
+        setErrors((prev) => ({ ...prev, [sub.id]: outcome.reason }));
+        return;
+      }
+      setErrors((prev) => ({ ...prev, [sub.id]: "" }));
+      setSubmissions((prev) => prev.map((s) => (s.id === sub.id ? outcome.submission : s)));
+    });
   }
 
   function handleWithdraw(sub: CorrectionSubmission) {
-    const outcome = withdrawSubmission(sub, email);
-    if (!outcome.applied) {
-      setErrors((prev) => ({ ...prev, [sub.id]: outcome.reason ?? "İşlem uygulanamadı" }));
-      return;
-    }
-    setErrors((prev) => ({ ...prev, [sub.id]: "" }));
-    setSubmissions((prev) => prev.map((s) => (s.id === sub.id ? outcome.submission : s)));
+    startTransition(async () => {
+      const outcome = await withdrawSubmissionAction(sub.id);
+      if (!outcome.applied) {
+        setErrors((prev) => ({ ...prev, [sub.id]: outcome.reason }));
+        return;
+      }
+      setErrors((prev) => ({ ...prev, [sub.id]: "" }));
+      setSubmissions((prev) => prev.map((s) => (s.id === sub.id ? outcome.submission : s)));
+    });
   }
 
   return (
