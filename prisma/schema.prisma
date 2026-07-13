@@ -54,6 +54,7 @@ model Workspace {
   plan         Plan?
   tasks        Task[]
   lots         Lot[]
+  devices      Device[]
 }
 
 enum Role {
@@ -414,4 +415,50 @@ model CorrectionSubmission {
 
   @@index([subjectId, field])
   @@index([status])
+}
+
+// ---------- Sensör (Phase 5: src/lib/sensors.ts) ----------
+// DÜRÜSTLÜK NOTU: gerçek IoT donanımı yok — okumalar bu fazda MANUEL girilir (bkz.
+// src/app/sensor/actions.ts). Bu, sahte bir simülatör/cron üretmek yerine bilinçli bir
+// tercih: gerçek donanım bağlanana kadar "gerçek zamanlı otomatik veri akışı" iddiası
+// uydurulmaz. qualityFlag DB'de SAKLANMAZ — flagAnomalies() ile her okunuşta yeniden
+// hesaplanır (hesaplanmış çıktı kalıcılaştırılmaz ilkesi, Plan/AssessmentResult ile aynı).
+model Device {
+  id           String    @id @default(cuid())
+  workspaceId  String
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  code         String
+  label        String
+  zone         String
+  type         String
+  unit         String
+  batteryPct   Int       @default(100)
+  online       Boolean   @default(true)
+  calibratedAt DateTime  @db.Date
+
+  readings   Reading[]
+  alertRules AlertRule[]
+
+  @@unique([workspaceId, code])
+  @@index([workspaceId])
+}
+
+model Reading {
+  id        String   @id @default(cuid())
+  deviceId  String
+  device    Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  value     Float
+  timestamp DateTime
+
+  @@index([deviceId, timestamp])
+}
+
+model AlertRule {
+  id             String @id @default(cuid())
+  deviceId       String
+  device         Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  comparator     String
+  threshold      Float
+  minConsecutive Int
+  label          String
 }

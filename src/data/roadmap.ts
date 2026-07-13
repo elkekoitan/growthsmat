@@ -310,6 +310,11 @@ export const EPICS: Epic[] = [
       ...t,
       // Cihaz/okuma şeması + aykırı değer filtresi test edilerek implement edildi (/sensor);
       // alarm kuralı motoru çalışıyor ama gerçek bildirim gönderimi yok (in_progress).
+      // 2026-07-13 (DB göç Phase 5): /sensor artık gerçek Postgres (Device + Reading +
+      // AlertRule, workspace-scoped). DÜRÜSTLÜK NOTU: gerçek IoT donanımı yok — okumalar
+      // MANUEL girilir (sahte bir simülatör/cron kasıtlı olarak kurulmadı). Yalnız sicaklik/
+      // nem/toprak-nemi için varsayılan alarm eşiği var (eski fixture ile birebir); ec/ph/isik
+      // için gerçek saha verisi olmadan bir eşik uydurulmadı, cihaz kuralsız kalır.
       status: (["done", "todo", "todo", "done", "in_progress", "todo", "todo", "todo", "todo", "todo", "todo"][i]) as TaskStatus,
       title: ["Cihaz/sensör/metric şeması", "MQTT/HTTP adapter", "Zaman serisi ingest/partition", "Sensör kalite ve aykırı değer", "Alarm kuralı ve bildirim", "Aktüatör komut güvenliği", "Üretim/maliyet dashboardu", "Tahmin-gerçek kalibrasyon", "Kooperatif toplu kapasite", "Anonim bölgesel benchmark", "Kurumsal program raporu"][i],
     })),

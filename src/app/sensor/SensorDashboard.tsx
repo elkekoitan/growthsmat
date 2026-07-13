@@ -1,51 +1,98 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import {
-  DEVICES,
   SENSOR_TYPE_LABELS,
   flagAnomalies,
   evaluateAlertRule,
+  type Device,
   type Reading,
   type AlertRule,
+  type SensorType,
 } from "@/lib/sensors";
+import { createDeviceAction, addReadingAction } from "./actions";
 import { Sparkline, NumberedHeading } from "@/components/graphics";
 import { Reveal } from "@/components/ui";
-import { Check, X, ShieldCheck, Thermometer, Droplet } from "@/components/icons";
+import { Check, X, ShieldCheck, Thermometer, Droplet, Sparkles } from "@/components/icons";
 
-// Sabit, tekrarlanabilir demo okuma serileri — her sayfa yüklemesinde aynı senaryoyu gösterir.
-const DEMO_READINGS: Record<string, Reading[]> = {
-  "SEN-T01": [22, 23, 24, 25, 55, 24, 25, 26, 32, 33, 34, 33].map((v, i) => ({
-    deviceId: "SEN-T01",
-    value: v,
-    timestamp: `2026-07-10T${String(8 + i).padStart(2, "0")}:00:00Z`,
-  })),
-  "SEN-H01": [64, 66, 65, 68, 67, 65, 66, 64, 65, 66].map((v, i) => ({
-    deviceId: "SEN-H01",
-    value: v,
-    timestamp: `2026-07-10T${String(8 + i).padStart(2, "0")}:00:00Z`,
-  })),
-  "SEN-SM01": [38, 35, 32, 29, 26, 23, 20, 18, 17, 16].map((v, i) => ({
-    deviceId: "SEN-SM01",
-    value: v,
-    timestamp: `2026-07-10T${String(8 + i).padStart(2, "0")}:00:00Z`,
-  })),
-};
+const SENSOR_TYPE_ORDER: SensorType[] = ["sicaklik", "nem", "toprak-nemi", "ec", "ph", "isik"];
 
-const DEFAULT_RULES: Record<string, AlertRule> = {
-  "SEN-T01": { id: "r-temp", deviceId: "SEN-T01", comparator: ">", threshold: 30, minConsecutive: 2, label: "Yüksek sıcaklık" },
-  "SEN-H01": { id: "r-hum", deviceId: "SEN-H01", comparator: ">", threshold: 80, minConsecutive: 2, label: "Aşırı nem" },
-  "SEN-SM01": { id: "r-soil", deviceId: "SEN-SM01", comparator: "<", threshold: 20, minConsecutive: 3, label: "Düşük toprak nemi" },
-};
+export interface SensorDashboardProps {
+  devices: Device[];
+  readingsByDevice: Record<string, Reading[]>;
+  rulesByDevice: Record<string, AlertRule[]>;
+}
 
-export function SensorDashboard() {
-  const [selected, setSelected] = useState(DEVICES[0].id);
-  const device = DEVICES.find((d) => d.id === selected) ?? DEVICES[0];
-  const readings = useMemo(() => DEMO_READINGS[selected] ?? [], [selected]);
+export function SensorDashboard({ devices, readingsByDevice, rulesByDevice }: SensorDashboardProps) {
+  const [selected, setSelected] = useState(devices[0]?.id ?? "");
+  const [readingsState, setReadingsState] = useState(readingsByDevice);
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState("");
+  const [formOpen, setFormOpen] = useState(false);
+  const [readingValue, setReadingValue] = useState("");
+
+  const [fCode, setFCode] = useState("");
+  const [fLabel, setFLabel] = useState("");
+  const [fZone, setFZone] = useState("");
+  const [fType, setFType] = useState<SensorType>("sicaklik");
+  const [fUnit, setFUnit] = useState("");
+
+  const device = devices.find((d) => d.id === selected);
+  const readings = useMemo(() => readingsState[selected] ?? [], [readingsState, selected]);
   const flagged = useMemo(() => flagAnomalies(readings), [readings]);
-  const rule = DEFAULT_RULES[selected];
-  const alertResult = useMemo(() => evaluateAlertRule(readings, rule), [readings, rule]);
+  const rule = rulesByDevice[selected]?.[0];
+  const alertResult = useMemo(() => (rule ? evaluateAlertRule(readings, rule) : undefined), [readings, rule]);
   const suspiciousCount = flagged.filter((r) => r.qualityFlag === "supheli").length;
+
+  function handleAddReading() {
+    const value = Number(readingValue);
+    if (!Number.isFinite(value) || !device) return;
+    setReadingValue("");
+    startTransition(async () => {
+      const result = await addReadingAction(device.id, value);
+      if (!result.applied) {
+        setError(result.reason ?? "Okuma eklenemedi");
+        return;
+      }
+      setError("");
+      setReadingsState((prev) => ({ ...prev, [device.id]: [...(prev[device.id] ?? []), result.reading!] }));
+    });
+  }
+
+  function handleAddDevice() {
+    if (!fCode.trim() || !fLabel.trim() || !fZone.trim() || !fUnit.trim()) return;
+    startTransition(async () => {
+      const result = await createDeviceAction({
+        code: fCode.trim(),
+        label: fLabel.trim(),
+        zone: fZone.trim(),
+        type: fType,
+        unit: fUnit.trim(),
+        calibratedAt: new Date().toISOString().slice(0, 10),
+      });
+      if (!result.applied) {
+        setError(result.reason ?? "Cihaz eklenemedi");
+        return;
+      }
+      setError("");
+      setFCode("");
+      setFLabel("");
+      setFZone("");
+      setFUnit("");
+      setFormOpen(false);
+      setSelected(result.device!.id);
+      // Server Component'in yeniden getirdiği tam liste bir sonraki navigasyonda görünür;
+      // yeni cihazı anında seçebilmek için burada yalnız seçim state'i güncellenir.
+    });
+  }
+
+  if (!device) {
+    return (
+      <section className="section container-narrow" style={{ textAlign: "center" }}>
+        <p style={{ color: "var(--text-mid)" }}>Henüz kayıtlı cihaz yok.</p>
+      </section>
+    );
+  }
 
   return (
     <>
@@ -60,6 +107,7 @@ export function SensorDashboard() {
           </h1>
           <p style={{ color: "var(--text-mid)", fontSize: "var(--fs-lead)", maxWidth: 620, margin: "0 auto" }} className="text-pretty">
             Aykırı okuma otomatik filtrelenir; alarm yalnız ardışık gerçek ihlalde tetiklenir.
+            Gerçek IoT donanımı henüz bağlı değil — okumalar elle girilir.
           </p>
         </div>
       </section>
@@ -67,8 +115,8 @@ export function SensorDashboard() {
       <section className="section" style={{ paddingTop: 0 }}>
         <div className="container-x">
           <NumberedHeading n="01" eyebrow="Cihazlar" title="Sera A sensörleri" />
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 28 }}>
-            {DEVICES.map((d) => (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+            {devices.map((d) => (
               <button
                 key={d.id}
                 onClick={() => setSelected(d.id)}
@@ -84,6 +132,29 @@ export function SensorDashboard() {
                 {SENSOR_TYPE_LABELS[d.type]} · {d.label}
               </button>
             ))}
+          </div>
+
+          <div style={{ marginBottom: 28 }}>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => setFormOpen((o) => !o)} aria-expanded={formOpen}>
+              <Sparkles size={15} /> {formOpen ? "Formu kapat" : "Yeni cihaz kaydet"}
+            </button>
+            {formOpen && (
+              <div className="card" style={{ padding: 18, marginTop: 10, display: "grid", gap: 10, maxWidth: 520 }}>
+                <input value={fCode} onChange={(e) => setFCode(e.target.value)} placeholder="Cihaz kodu (ör. SEN-EC01)" className="btn btn-secondary" style={{ textAlign: "left" }} />
+                <input value={fLabel} onChange={(e) => setFLabel(e.target.value)} placeholder="Etiket (ör. Sera EC sensörü)" className="btn btn-secondary" style={{ textAlign: "left" }} />
+                <input value={fZone} onChange={(e) => setFZone(e.target.value)} placeholder="Bölge (ör. Sera B — Fesleğen)" className="btn btn-secondary" style={{ textAlign: "left" }} />
+                <select value={fType} onChange={(e) => setFType(e.target.value as SensorType)} className="btn btn-secondary">
+                  {SENSOR_TYPE_ORDER.map((t) => (
+                    <option key={t} value={t}>{SENSOR_TYPE_LABELS[t]}</option>
+                  ))}
+                </select>
+                <input value={fUnit} onChange={(e) => setFUnit(e.target.value)} placeholder="Birim (ör. °C, %, mS/cm)" className="btn btn-secondary" style={{ textAlign: "left" }} />
+                {error && <span className="chip chip-danger" style={{ width: "fit-content" }}><X size={12} /> {error}</span>}
+                <button type="button" disabled={pending} onClick={handleAddDevice} className="btn btn-primary" style={{ justifySelf: "start" }}>
+                  Cihazı kaydet
+                </button>
+              </div>
+            )}
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }} className="sensor-grid">
@@ -112,48 +183,76 @@ export function SensorDashboard() {
                 <span className={`chip ${device.batteryPct > 30 ? "chip-info" : "chip-warn"}`}>Pil %{device.batteryPct}</span>
                 <span className="chip">Kalibrasyon: {device.calibratedAt}</span>
               </div>
-              <Sparkline data={readings.map((r) => r.value)} width={280} height={60} />
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 14 }}>
-                {flagged.map((r, i) => (
-                  <span
-                    key={i}
-                    className={`chip ${r.qualityFlag === "supheli" ? "chip-danger" : "chip-ok"}`}
-                    style={{ fontSize: 10, padding: "2px 6px" }}
-                    title={r.timestamp}
-                  >
-                    {r.value}
-                  </span>
-                ))}
+              {readings.length > 0 ? (
+                <>
+                  <Sparkline data={readings.map((r) => r.value)} width={280} height={60} />
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 14 }}>
+                    {flagged.map((r, i) => (
+                      <span
+                        key={i}
+                        className={`chip ${r.qualityFlag === "supheli" ? "chip-danger" : "chip-ok"}`}
+                        style={{ fontSize: 10, padding: "2px 6px" }}
+                        title={r.timestamp}
+                      >
+                        {r.value}
+                      </span>
+                    ))}
+                  </div>
+                  <p style={{ fontSize: "var(--fs-xs)", color: "var(--text-low)", marginTop: 10 }}>
+                    {suspiciousCount} okuma aykırı işaretlendi ve alarm sayacına dahil edilmedi.
+                  </p>
+                </>
+              ) : (
+                <p style={{ fontSize: "var(--fs-sm)", color: "var(--text-mid)" }}>Henüz okuma yok — ilk okumayı ekle.</p>
+              )}
+              <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+                <input
+                  type="number"
+                  value={readingValue}
+                  onChange={(e) => setReadingValue(e.target.value)}
+                  placeholder={`Değer (${device.unit})`}
+                  className="btn btn-secondary btn-sm"
+                  style={{ textAlign: "left", flex: 1 }}
+                />
+                <button type="button" disabled={pending || !readingValue.trim()} onClick={handleAddReading} className="btn btn-primary btn-sm">
+                  Okuma ekle
+                </button>
               </div>
-              <p style={{ fontSize: "var(--fs-xs)", color: "var(--text-low)", marginTop: 10 }}>
-                {suspiciousCount} okuma aykırı işaretlendi ve alarm sayacına dahil edilmedi.
-              </p>
             </Reveal>
 
             <Reveal i={1} className="card" style={{ padding: 22 }}>
-              <h3 style={{ fontSize: "var(--fs-lg)", marginBottom: 14 }}>{rule.label}</h3>
-              <p style={{ fontSize: "var(--fs-sm)", color: "var(--text-mid)", marginBottom: 16 }}>
-                Kural: değer {rule.comparator} {rule.threshold} — ardışık en az {rule.minConsecutive} geçerli
-                okumada tetiklenir.
-              </p>
-              <div
-                style={{
-                  padding: 18,
-                  borderRadius: "var(--radius-card)",
-                  background: alertResult.triggered ? "color-mix(in srgb, var(--color-danger) 8%, var(--bg-surface-2))" : "var(--bg-surface-2)",
-                  border: alertResult.triggered ? "1px solid color-mix(in srgb, var(--color-danger) 35%, transparent)" : "1px solid var(--border-hair)",
-                }}
-              >
-                <span className={`chip ${alertResult.triggered ? "chip-danger" : "chip-ok"}`} style={{ marginBottom: 10 }}>
-                  {alertResult.triggered ? <X size={12} /> : <Check size={12} />}
-                  {alertResult.triggered ? "Alarm tetiklendi" : "Alarm tetiklenmedi"}
-                </span>
-                <div style={{ display: "grid", gap: 6, fontSize: "var(--fs-sm)", color: "var(--text-mid)" }}>
-                  <div>En uzun ardışık ihlal: <span className="font-mono">{alertResult.breachStreak}</span></div>
-                  <div>Son geçerli değer: <span className="font-mono">{alertResult.lastValidValue ?? "—"}</span></div>
-                  <div>Göz ardı edilen aykırı okuma: <span className="font-mono">{alertResult.ignoredSuspiciousCount}</span></div>
-                </div>
-              </div>
+              {rule && alertResult ? (
+                <>
+                  <h3 style={{ fontSize: "var(--fs-lg)", marginBottom: 14 }}>{rule.label}</h3>
+                  <p style={{ fontSize: "var(--fs-sm)", color: "var(--text-mid)", marginBottom: 16 }}>
+                    Kural: değer {rule.comparator} {rule.threshold} — ardışık en az {rule.minConsecutive} geçerli
+                    okumada tetiklenir.
+                  </p>
+                  <div
+                    style={{
+                      padding: 18,
+                      borderRadius: "var(--radius-card)",
+                      background: alertResult.triggered ? "color-mix(in srgb, var(--color-danger) 8%, var(--bg-surface-2))" : "var(--bg-surface-2)",
+                      border: alertResult.triggered ? "1px solid color-mix(in srgb, var(--color-danger) 35%, transparent)" : "1px solid var(--border-hair)",
+                    }}
+                  >
+                    <span className={`chip ${alertResult.triggered ? "chip-danger" : "chip-ok"}`} style={{ marginBottom: 10 }}>
+                      {alertResult.triggered ? <X size={12} /> : <Check size={12} />}
+                      {alertResult.triggered ? "Alarm tetiklendi" : "Alarm tetiklenmedi"}
+                    </span>
+                    <div style={{ display: "grid", gap: 6, fontSize: "var(--fs-sm)", color: "var(--text-mid)" }}>
+                      <div>En uzun ardışık ihlal: <span className="font-mono">{alertResult.breachStreak}</span></div>
+                      <div>Son geçerli değer: <span className="font-mono">{alertResult.lastValidValue ?? "—"}</span></div>
+                      <div>Göz ardı edilen aykırı okuma: <span className="font-mono">{alertResult.ignoredSuspiciousCount}</span></div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <p style={{ color: "var(--text-mid)" }}>
+                  Bu sensör tipi için henüz varsayılan bir alarm kuralı tanımlı değil — gerçek saha
+                  verisi olmadan bir eşik uydurulmadı.
+                </p>
+              )}
             </Reveal>
           </div>
         </div>
