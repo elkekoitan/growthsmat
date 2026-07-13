@@ -680,8 +680,10 @@ export function Market({ session, realListings, myListings, myOrders, incomingOr
                     ))}
                   </select>
                   <span style={{ fontSize: "var(--fs-xs)", color: "var(--text-low)" }}>
-                    Yalnız <strong>Türkiye</strong> için ilan formu şu an otomatik kontrol yapar —
-                    diğer yargı alanları kaydedilir ama henüz bir ilanı doğrulamaz.
+                    İlan formu yalnız işletmenin ana yargı alanına ({JURISDICTION_LABELS.TR} —
+                    şu an her işletme için varsayılan) karşı otomatik kontrol yapar; farklı bir
+                    yargı alanı seçip kaydedersen sertifika saklanır ama henüz hiçbir ilanı
+                    doğrulamaz (ayarlardan değiştirme henüz yok).
                   </span>
                 </label>
                 <input

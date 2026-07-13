@@ -12,6 +12,7 @@ import {
   type CertificateInput,
   type RealCertificate,
 } from "@/server/repositories/certificates";
+import { getWorkspaceHomeJurisdiction } from "@/server/repositories/workspaces";
 import type { ProductFormat, StockType, ChannelId, OrganicClaimStatus } from "@/data/commerce";
 import type { Jurisdiction } from "@/lib/rulePacks";
 import { CROP_BY_ID } from "@/data/crops";
@@ -21,10 +22,12 @@ export interface MarketFormState {
   success?: string;
 }
 
-// Bu uygulama şu an yalnız TR (Türkiye) pazarına odaklı — ADR-009'daki "TRY-öncelikli
-// katalogla tek pazardan başla" kararıyla tutarlı. Sertifika/iddia kontrolü de bu yüzden
-// TR yargı alanına sabit; çoklu-yargı alanı desteği ayrı, gelecekteki bir karar.
-const DEFAULT_JURISDICTION: Jurisdiction = "TR";
+// 2026-07-13 (dokümantasyon incelemesi): önceden burada sabit bir DEFAULT_JURISDICTION="TR"
+// vardı — sertifika formundaki 9 yargı-alanı seçeneğinden 8'i hiçbir zaman kontrol edilmezdi
+// (adversarial review bulgusu). Artık Workspace.homeJurisdiction (03-TEKNIK-MIMARI.md §6.1)
+// kullanılıyor — hâlâ signup'ta varsayılan TR (ADR-009: tek pazardan başla) ve bunu
+// değiştirecek bir ayarlar UI'ı yok, ama en azından artık sabit-kodlanmış değil, gerçek bir
+// workspace alanı — bir sonraki adım bunu değiştirebilen bir ayarlar sayfası.
 const TR_UTC_OFFSET_MS = 3 * 60 * 60 * 1000; // Türkiye yıl boyu UTC+3, DST yok.
 
 /**
@@ -70,8 +73,12 @@ export async function createListingAction(_prev: MarketFormState, formData: Form
     if (!cropId) {
       return { error: "Sertifikalı/geçiş süreci iddiası yalnız katalogdan seçilen bir ürün için değerlendirilebilir." };
     }
-    const nowISO = nowInTurkeyISO();
-    const result = await evaluateWorkspaceClaim(membership.workspaceId, cropId, DEFAULT_JURISDICTION, nowISO);
+    const nowISO = nowInTurkeyISO(); // DÜRÜSTLÜK NOTU: workspace TR dışı bir jurisdiction
+    // seçse bile "şimdi" hâlâ TR yerel saatiyle hesaplanır — gerçek çoklu-yargı-alanı saat
+    // dilimi tablosu bu turun kapsamı dışında, TR-dışı workspace'lerde bu bir saat kayması
+    // riski taşır (aynı sınıf hata, farklı jurisdiction için henüz kapatılmadı).
+    const jurisdiction = await getWorkspaceHomeJurisdiction(membership.workspaceId);
+    const result = await evaluateWorkspaceClaim(membership.workspaceId, cropId, jurisdiction, nowISO);
     if (!result.allowed) {
       return { error: `Organik iddia reddedildi: ${result.reason}` };
     }

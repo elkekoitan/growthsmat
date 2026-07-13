@@ -43,6 +43,12 @@ model Session {
 model Workspace {
   id        String   @id @default(cuid())
   name      String
+  // 03-TEKNIK-MIMARI.md §6.1'in workspaces(...) şemasında dokümante edilen alan — önceden
+  // hiç yoktu, /pazar'daki sertifika jurisdiction seçici bu yüzden "8/9 seçenek etkisiz"
+  // durumundaydı (yalnız sabit DEFAULT_JURISDICTION="TR" kontrol ediliyordu, workspace'in
+  // KENDİ yargı alanı hiç yoktu). Varsayılan TR (ADR-009: tek pazardan başla) — henüz
+  // değiştirmek için bir ayarlar UI'ı yok, bilinçli bırakılan bir sonraki adım.
+  homeJurisdiction Jurisdiction @default(TR)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

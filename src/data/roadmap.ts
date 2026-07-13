@@ -102,6 +102,17 @@ export const EPICS: Epic[] = [
       // gated, gerçek oturumun rolünü gösteriyor. prisma/seed.ts ile 3 gerçek demo hesap
       // (kalite/uzman/satis rolleri, rastgele üretilen şifre — koda gömülü değil) eklendi
       // ki tek gerçek hesap (sahip, tüm izinler) dışındaki roller de dürüstçe test edilebilsin.
+      // 2026-07-13 (dokümantasyon incelemesi): 03-TEKNIK-MIMARI.md §6.1'in workspaces(...)
+      // şeması homeJurisdiction'ı dokümante ediyordu ama Workspace modelinde hiç yoktu — bu
+      // yüzden /pazar'daki sertifika jurisdiction seçeneklerinin 8/9'u hep etkisizdi (yalnız
+      // sabit-kodlanmış "TR" kontrol ediliyordu). Workspace.homeJurisdiction eklendi ve
+      // pazar/actions.ts artık bunu kullanıyor (varsayılan hâlâ TR, ADR-009 uyarınca).
+      // DÜRÜSTLÜK NOTU: aynı §6.1'in dokümante ettiği Workspace.type/plan ve User.locale/
+      // unitSystem alanları HÂLÂ eklenmedi — hiçbirine bağlı gerçek bir davranış yok (plan-
+      // bazlı özellik kısıtlaması, i18n locale değişimi veya birim-sistemi dönüşümü hiç yok);
+      // yalnız gerçekten kullanılan bir alan (homeJurisdiction) eklendi, kullanılmayan şema
+      // süsü eklenmedi (sahte kesinlik yok, tersi yönde de geçerli: kullanılmayan "tam" şema
+      // da bir tür sahte kesinliktir).
       { id: "P02-01", title: "User/workspace/membership şeması", status: "done", critical: true },
       { id: "P02-02", title: "E-posta + OAuth kimlik akışı", status: "in_progress" },
       { id: "P02-03", title: "Apple/Google mobil kimlik", status: "todo" },
