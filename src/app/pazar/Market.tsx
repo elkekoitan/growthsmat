@@ -170,6 +170,19 @@ function MarketInner({ session, realListings, myListings, myOrders, incomingOrde
   const [stockMsg, setStockMsg] = useState<Record<string, string>>({});
   const [stockPending, startStockTransition] = useTransition();
 
+  // Satıcı geliri: mevcut incomingOrdersByListing prop'undan türetilir, ek sunucu çağrısı
+  // gerekmez. Yalnız satıcının ONAYLADIĞI siparişler sayılır — "beklemede" henüz gerçek
+  // bir gelir taahhüdü değildir, "iptal" zaten hiç sayılmamalı.
+  const sellerRevenue = useMemo(() => {
+    const approvedOrders = Object.values(incomingOrdersByListing)
+      .flat()
+      .filter((o) => o.status === "onaylandi");
+    return {
+      totalTRY: approvedOrders.reduce((sum, o) => sum + o.totalPriceTRY, 0),
+      orderCount: approvedOrders.length,
+    };
+  }, [incomingOrdersByListing]);
+
   function handleCertReview(certificateId: string, decision: "onayla" | "reddet") {
     startReviewTransition(async () => {
       const res = await reviewCertificateAction(certificateId, decision);
@@ -574,6 +587,21 @@ function MarketInner({ session, realListings, myListings, myOrders, incomingOrde
           <div className="container-x" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32 }} id="vitrinim-grid">
             <div>
               <NumberedHeading n="00" eyebrow="Kendi ilanın" title="Vitrinim" />
+              {myListings.length > 0 && (
+                <div className="card" style={{ padding: 16, marginBottom: 18, display: "flex", gap: 24, flexWrap: "wrap" }}>
+                  <div>
+                    <div style={{ fontSize: "var(--fs-xs)", color: "var(--text-low)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Onaylanmış gelir</div>
+                    <div className="font-mono" style={{ fontSize: "var(--fs-lg)", fontWeight: 600, color: "#7c3b21" }}>{sellerRevenue.totalTRY.toLocaleString("tr-TR")} ₺</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: "var(--fs-xs)", color: "var(--text-low)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Onaylı sipariş</div>
+                    <div className="font-mono" style={{ fontSize: "var(--fs-lg)", fontWeight: 600 }}>{sellerRevenue.orderCount}</div>
+                  </div>
+                  <p style={{ fontSize: "var(--fs-xs)", color: "var(--text-low)", alignSelf: "center", marginLeft: "auto" }}>
+                    Yalnız senin onayladığın siparişler sayılır — ödeme tahsilatı henüz entegre değil.
+                  </p>
+                </div>
+              )}
               <form action={createAction} style={{ display: "grid", gap: 10, marginBottom: 20 }} className="card" >
                 <div style={{ padding: 18, display: "grid", gap: 10 }}>
                   <input name="title" placeholder="Ürün adı (ör. Cherry Domates)" required className="btn btn-secondary" style={{ textAlign: "left" }} />
