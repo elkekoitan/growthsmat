@@ -267,6 +267,20 @@ export const EPICS: Epic[] = [
       // izniyle gated). DÜRÜSTLÜK NOTU: Order gerçek bir ödeme işlemi DEĞİL — hiçbir ödeme
       // ağ geçidi (Stripe/PayTR/iyzico) entegre edilmedi, yalnız iki hesap arası kalıcı bir
       // satın-alma TALEBİ kaydı. OAuth/webhook/Etsy checkout backend hâlâ ayrı, yapılmadı.
+      // 2026-07-13 (2. tur — dokümantasyon incelemesi + adversarial review sonrası): FR-126
+      // ("sertifika doğrulanmadan organik iddia yayınlanamaz") kapısı artık GERÇEKTEN
+      // uygulanıyor — src/server/repositories/certificates.ts, evaluateClaim()'i (rulePacks.ts,
+      // test edilmiş) gerçek workspace sertifikalarına bağlar. Sertifika kaydı bir İDDİADIR;
+      // compliance.review izinli, İLGİLİ workspace'in dışından bir rol onaylamadan
+      // ("beklemede" → "onaylandi", platform-geneli inceleme kuyruğu, src/lib/
+      // certificateReview.ts) hiçbir sertifika organik iddia yayınlatamaz — bu, kendi
+      // işletmesinin sertifikasını "sahip" rolüyle kendi kendine onaylama açığını kapatır.
+      // TR yerel takvim günü (UTC+3) doğru hesaplanır (önceki UTC-bugün hatası düzeltildi).
+      // Sessiz düşürme (istenen "sertifikali", gerçek sonuç "gecis-sureci") artık hem ilan
+      // formunun success mesajında hem gerçek ilan kartlarındaki claim rozetinde açıkça
+      // görünür. DÜRÜSTLÜK NOTU: belge URL'i (documentUrl) hâlâ kendi kendine beyan —
+      // yalnız bir bağlantı olarak saklanır, içeriği doğrulanmaz; gerçek kimlik/belge
+      // doğrulaması (üçüncü taraf API, dosya yükleme+inceleme) bu MVP'nin kapsamı dışında.
       // Ek (görev listesinde ayrı satırı yok, epic'e genel katkı): ABD "cottage food" (ev
       // mutfağı üretimi) yasa kataloğu — Georgia/Texas/New Mexico, 3 gerçek 2024-2025 eyalet
       // yasasından (cottageFoodLaws.ts) — ev üreticisinin fazla ürün/ev-işlenmiş gıda satışının

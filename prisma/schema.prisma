@@ -139,6 +139,12 @@ enum Jurisdiction {
   UK
 }
 
+enum CertificateVerificationStatus {
+  beklemede
+  onaylandi
+  reddedildi
+}
+
 model Certificate {
   id            String       @id @default(cuid())
   holder        String
@@ -148,12 +154,23 @@ model Certificate {
   validTo       DateTime
   issuer        String
   inTransition  Boolean      @default(false)
+  // FR-125 ("...ve belge kaydı"): sertifikanın kendisine (PDF/görsel) referans — dosya
+  // yükleme altyapısı henüz yok, bu yüzden şimdilik yalnız bir URL/referans metni alanı.
+  documentUrl   String?
+  // Kayıt anında sertifika yalnız bir İDDİADIR (bkz. src/lib/certificateReview.ts) —
+  // compliance.review izinli bir rol onaylamadan evaluateWorkspaceClaim() bu satırı
+  // asla dikkate almaz (bkz. repositories/certificates.ts).
+  verificationStatus CertificateVerificationStatus @default(beklemede)
+  verifiedBy    String?
+  verifiedAt    DateTime?
+  verificationNote String?
   workspaceId   String
   workspace     Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
   @@index([workspaceId])
+  @@index([verificationStatus])
 }
 
 // ---------- Pazar / ticaret çekirdeği (gerçek ilan ve sipariş, P10) ----------

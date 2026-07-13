@@ -46,7 +46,20 @@ import type { Role } from "@/lib/roles";
 import { can } from "@/lib/roles";
 import type { RealListing } from "@/server/repositories/listings";
 import type { RealOrder } from "@/server/repositories/orders";
-import { createListingAction, placeOrderAction, toggleListingActiveAction, updateOrderStatusAction, type MarketFormState } from "./actions";
+import type { RealCertificate } from "@/server/repositories/certificates";
+import type { Jurisdiction } from "@/lib/rulePacks";
+import { JURISDICTION_LABELS } from "@/lib/rulePacks";
+import { CERTIFICATE_VERIFICATION_LABELS } from "@/lib/certificateReview";
+import {
+  createListingAction,
+  placeOrderAction,
+  toggleListingActiveAction,
+  updateOrderStatusAction,
+  createCertificateAction,
+  reviewCertificateAction,
+  type MarketFormState,
+  type CertificateFormState,
+} from "./actions";
 
 export interface MarketSession {
   role: Role;
@@ -59,7 +72,12 @@ export interface MarketProps {
   myListings: RealListing[];
   myOrders: RealOrder[];
   incomingOrdersByListing: Record<string, RealOrder[]>;
+  myCertificates: RealCertificate[];
+  pendingCertificates: RealCertificate[];
 }
+
+const JURISDICTION_ORDER: Jurisdiction[] = ["TR", "EU", "US", "CA", "AU", "JP", "CODEX", "SA", "UK"];
+const INITIAL_CERT_FORM_STATE: CertificateFormState = {};
 
 // "Hasat Pazarı" kategori kimliği — ADR-009 (Ekosistem ve görsel kimlik) ve
 // docs/design/hasat-pazari-gorsel-yon.html referans önizlemesiyle BİREBİR aynı renkler.
@@ -121,11 +139,22 @@ function trLower(s: string) {
   return s.toLocaleLowerCase("tr");
 }
 
-export function Market({ session, realListings, myListings, myOrders, incomingOrdersByListing }: MarketProps) {
+export function Market({ session, realListings, myListings, myOrders, incomingOrdersByListing, myCertificates, pendingCertificates }: MarketProps) {
   const [createState, createAction, createPending] = useActionState(createListingAction, INITIAL_FORM_STATE);
+  const [certState, certAction, certPending] = useActionState(createCertificateAction, INITIAL_CERT_FORM_STATE);
+  const [certFormOpen, setCertFormOpen] = useState(false);
   const [orderPending, startOrderTransition] = useTransition();
   const [orderMsg, setOrderMsg] = useState<Record<string, string>>({});
   const [qtyByListing, setQtyByListing] = useState<Record<string, number>>({});
+  const [reviewPending, startReviewTransition] = useTransition();
+  const [reviewMsg, setReviewMsg] = useState<Record<string, string>>({});
+
+  function handleCertReview(certificateId: string, decision: "onayla" | "reddet") {
+    startReviewTransition(async () => {
+      const res = await reviewCertificateAction(certificateId, decision);
+      setReviewMsg((m) => ({ ...m, [certificateId]: res.error ?? res.success ?? "" }));
+    });
+  }
 
   function handlePlaceOrder(listingId: string) {
     const qty = qtyByListing[listingId] ?? 1;
@@ -419,7 +448,10 @@ export function Market({ session, realListings, myListings, myOrders, incomingOr
                     <div className="font-mono" style={{ fontSize: "var(--fs-lg)", fontWeight: 600, color: "#7c3b21" }}>
                       {l.priceTRY.toLocaleString("tr-TR")} ₺
                     </div>
-                    <div style={{ fontSize: "var(--fs-xs)", color: "var(--text-low)", marginBottom: 12 }}>{l.unitLabel}</div>
+                    <div style={{ fontSize: "var(--fs-xs)", color: "var(--text-low)", marginBottom: 8 }}>{l.unitLabel}</div>
+                    <span className={`chip chip-${CLAIM_LABELS[l.claim].tone}`} style={{ width: "fit-content", marginBottom: 12 }}>
+                      <ShieldCheck size={11} /> {CLAIM_LABELS[l.claim].label}
+                    </span>
 
                     {isMine ? (
                       <div style={{ display: "grid", gap: 6 }}>
@@ -495,6 +527,21 @@ export function Market({ session, realListings, myListings, myOrders, incomingOr
                       <option key={c.id} value={c.id}>{c.emoji} {c.name}</option>
                     ))}
                   </select>
+                  <label style={{ display: "grid", gap: 6, fontSize: "var(--fs-sm)" }}>
+                    Organik iddia durumu
+                    <select name="claim" className="btn btn-secondary" defaultValue="yontem-kayitli">
+                      {(Object.keys(CLAIM_LABELS) as (keyof typeof CLAIM_LABELS)[]).map((c) => (
+                        <option key={c} value={c}>{CLAIM_LABELS[c].label}</option>
+                      ))}
+                    </select>
+                    <span style={{ fontSize: "var(--fs-xs)", color: "var(--text-low)" }}>
+                      &quot;Sertifikalı organik&quot; veya &quot;Geçiş süreci&quot; seçersen, aşağıdaki
+                      Sertifikalarım bölümünde bu ürünü kapsayan, DOĞRULANMIŞ (yalnız &quot;beklemede&quot;
+                      değil) bir sertifikan olmalı — yoksa ilan reddedilir ya da gerçek durum
+                      istediğinden daha zayıfsa (ör. hâlâ geçiş sürecinde) ilan o durumla yayınlanır,
+                      sonuç her zaman aşağıda açıkça belirtilir (FR-126).
+                    </span>
+                  </label>
                   {createState.error && <span className="chip chip-danger" style={{ width: "fit-content" }}><X size={12} /> {createState.error}</span>}
                   {createState.success && <span className="chip chip-ok" style={{ width: "fit-content" }}><Check size={12} /> {createState.success}</span>}
                   <button type="submit" disabled={createPending} className="btn btn-primary" style={{ justifySelf: "start" }}>
@@ -505,15 +552,20 @@ export function Market({ session, realListings, myListings, myOrders, incomingOr
               {myListings.length > 0 && (
                 <div style={{ display: "grid", gap: 8 }}>
                   {myListings.map((l) => (
-                    <div key={l.id} className="card" style={{ padding: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div key={l.id} className="card" style={{ padding: 12, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                       <span style={{ fontSize: "var(--fs-sm)" }}>{l.title} — {l.priceTRY.toLocaleString("tr-TR")} ₺</span>
-                      <button
-                        className={`chip ${l.active ? "chip-ok" : "chip-danger"}`}
-                        style={{ border: "none", cursor: "pointer" }}
-                        onClick={() => startOrderTransition(() => toggleListingActiveAction(l.id, !l.active))}
-                      >
-                        {l.active ? "Aktif" : "Pasif"}
-                      </button>
+                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                        <span className={`chip chip-${CLAIM_LABELS[l.claim].tone}`}>
+                          <ShieldCheck size={11} /> {CLAIM_LABELS[l.claim].label}
+                        </span>
+                        <button
+                          className={`chip ${l.active ? "chip-ok" : "chip-danger"}`}
+                          style={{ border: "none", cursor: "pointer" }}
+                          onClick={() => startOrderTransition(() => toggleListingActiveAction(l.id, !l.active))}
+                        >
+                          {l.active ? "Aktif" : "Pasif"}
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -534,6 +586,163 @@ export function Market({ session, realListings, myListings, myOrders, incomingOr
                 </div>
               )}
             </div>
+          </div>
+        </section>
+      )}
+
+      {/* --- Sertifikalarım (organik iddia kanıtı — FR-125/126, rulePacks.ts'e bağlı) --- */}
+      {session && (
+        <section className="section">
+          <div className="container-x">
+            <NumberedHeading n="00" eyebrow="Organik iddia kanıtı" title="Sertifikalarım" />
+            <p style={{ color: "var(--text-mid)", maxWidth: 640, marginBottom: 20 }}>
+              Bir ilanda &quot;Sertifikalı organik&quot; veya &quot;Geçiş süreci&quot; iddiası
+              göstermek için önce gerçek sertifikanı buraya kaydet — kapsamdaki ürünler,
+              geçerlilik tarihleri ve yargı alanı burada tutulur, ilan formunda otomatik
+              doğrulanır (bkz. src/lib/rulePacks.ts evaluateClaim). <strong>Kayıt, doğrulama
+              değildir</strong> — buraya girdiğin hiçbir alan bu aşamada kontrol edilmez.
+              Sertifikan &quot;Beklemede&quot; durumundayken hiçbir organik iddiayı açamaz;
+              önce compliance.review izinli bağımsız bir rol onaylamalıdır (yalnız kendi
+              işletmen değil — bkz. FR-126/ADR-008).
+            </p>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => setCertFormOpen((o) => !o)}
+              aria-expanded={certFormOpen}
+            >
+              <Sparkles size={15} /> {certFormOpen ? "Formu kapat" : "Yeni sertifika kaydet"}
+            </button>
+            {certFormOpen && (
+              <form action={certAction} className="card" style={{ padding: 18, marginTop: 12, display: "grid", gap: 10, maxWidth: 560 }}>
+                <input name="holder" placeholder="Sertifika sahibi (işletme adı)" required className="btn btn-secondary" style={{ textAlign: "left" }} />
+                <input name="issuer" placeholder="Sertifikasyon kuruluşu" required className="btn btn-secondary" style={{ textAlign: "left" }} />
+                <label style={{ display: "grid", gap: 4 }}>
+                  <select name="jurisdiction" className="btn btn-secondary" defaultValue="TR">
+                    {JURISDICTION_ORDER.map((j) => (
+                      <option key={j} value={j}>{JURISDICTION_LABELS[j]}</option>
+                    ))}
+                  </select>
+                  <span style={{ fontSize: "var(--fs-xs)", color: "var(--text-low)" }}>
+                    Yalnız <strong>Türkiye</strong> için ilan formu şu an otomatik kontrol yapar —
+                    diğer yargı alanları kaydedilir ama henüz bir ilanı doğrulamaz.
+                  </span>
+                </label>
+                <input
+                  name="scopeCropIds"
+                  list="scope-crop-ids"
+                  placeholder="Kapsam — virgülle ürün id'leri (ör. cherry-domates-kompakt,feslegen)"
+                  required
+                  className="btn btn-secondary"
+                  style={{ textAlign: "left" }}
+                />
+                <datalist id="scope-crop-ids">
+                  {CROPS.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </datalist>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <label style={{ flex: 1, fontSize: "var(--fs-xs)", color: "var(--text-low)" }}>
+                    Geçerlilik başlangıcı
+                    <input name="validFrom" type="date" required className="btn btn-secondary" style={{ textAlign: "left", marginTop: 4 }} />
+                  </label>
+                  <label style={{ flex: 1, fontSize: "var(--fs-xs)", color: "var(--text-low)" }}>
+                    Geçerlilik bitişi
+                    <input name="validTo" type="date" required className="btn btn-secondary" style={{ textAlign: "left", marginTop: 4 }} />
+                  </label>
+                </div>
+                <input name="documentUrl" placeholder="Belge URL'i (opsiyonel)" className="btn btn-secondary" style={{ textAlign: "left" }} />
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "var(--fs-sm)" }}>
+                  <input name="inTransition" type="checkbox" />
+                  Geçiş sürecinde (henüz tam sertifikalı değil)
+                </label>
+                {certState.error && <span className="chip chip-danger" style={{ width: "fit-content" }}><X size={12} /> {certState.error}</span>}
+                {certState.success && <span className="chip chip-ok" style={{ width: "fit-content" }}><Check size={12} /> {certState.success}</span>}
+                <button type="submit" disabled={certPending} className="btn btn-primary" style={{ justifySelf: "start" }}>
+                  Sertifikayı kaydet
+                </button>
+              </form>
+            )}
+            {myCertificates.length > 0 && (
+              <div style={{ display: "grid", gap: 8, marginTop: 16, maxWidth: 640 }}>
+                {myCertificates.map((c) => (
+                  <div key={c.id} className="card" style={{ padding: 14 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+                      <strong style={{ fontSize: "var(--fs-sm)" }}>{c.issuer} — {JURISDICTION_LABELS[c.jurisdiction]}</strong>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        <span className={`chip ${c.inTransition ? "chip-info" : "chip-ok"}`}>
+                          {c.inTransition ? "Geçiş sürecinde" : "Tam sertifikalı"}
+                        </span>
+                        <span
+                          className={`chip ${
+                            c.verificationStatus === "onaylandi" ? "chip-ok" : c.verificationStatus === "reddedildi" ? "chip-danger" : "chip-warn"
+                          }`}
+                        >
+                          <ShieldCheck size={11} /> {CERTIFICATE_VERIFICATION_LABELS[c.verificationStatus]}
+                        </span>
+                      </div>
+                    </div>
+                    <div style={{ fontSize: "var(--fs-xs)", color: "var(--text-low)", marginTop: 6 }}>
+                      Kapsam: {c.scopeCropIds.join(", ")} · Geçerlilik: {c.validFrom} – {c.validTo}
+                    </div>
+                    {c.verificationStatus === "reddedildi" && c.verificationNote && (
+                      <div style={{ fontSize: "var(--fs-xs)", color: "var(--color-danger, #b23f26)", marginTop: 6 }}>
+                        Red gerekçesi: {c.verificationNote}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* --- Sertifika İnceleme Kuyruğu (yalnız compliance.review izinli rol) --- */}
+      {session && can(session.role, "compliance.review") && (
+        <section className="section paper-section">
+          <div className="container-x">
+            <NumberedHeading n="00" eyebrow="Bağımsız doğrulama" title="Sertifika inceleme kuyruğu" />
+            <p style={{ color: "var(--text-mid)", maxWidth: 640, marginBottom: 20 }}>
+              Platform genelinde, başka işletmelerden gelen beklemedeki sertifikalar
+              burada listelenir. Kendi işletmenin sertifikaları burada GÖRÜNMEZ ve
+              onaylanamaz — kendi kaydını kendin onaylamak kendi-kendini-doğrulama
+              sayılır, sunucu tarafında da ayrıca reddedilir.
+            </p>
+            {pendingCertificates.length === 0 ? (
+              <p style={{ color: "var(--text-low)" }}>Beklemede sertifika yok.</p>
+            ) : (
+              <div style={{ display: "grid", gap: 8, maxWidth: 720 }}>
+                {pendingCertificates.map((c) => (
+                  <div key={c.id} className="card" style={{ padding: 14 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+                      <strong style={{ fontSize: "var(--fs-sm)" }}>{c.holder} · {c.issuer} — {JURISDICTION_LABELS[c.jurisdiction]}</strong>
+                      <span className={`chip ${c.inTransition ? "chip-info" : "chip-ok"}`}>
+                        {c.inTransition ? "Geçiş sürecinde iddia" : "Tam sertifikalı iddia"}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: "var(--fs-xs)", color: "var(--text-low)", marginTop: 6 }}>
+                      Kapsam: {c.scopeCropIds.join(", ")} · Geçerlilik: {c.validFrom} – {c.validTo}
+                      {c.documentUrl && (
+                        <>
+                          {" · "}
+                          <a href={c.documentUrl} target="_blank" rel="noopener noreferrer">Belge</a>
+                        </>
+                      )}
+                    </div>
+                    <div style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "center" }}>
+                      <button className="btn btn-primary btn-sm" disabled={reviewPending} onClick={() => handleCertReview(c.id, "onayla")}>
+                        <Check size={13} /> Onayla
+                      </button>
+                      <button className="btn btn-ghost btn-sm" disabled={reviewPending} onClick={() => handleCertReview(c.id, "reddet")}>
+                        <X size={13} /> Reddet
+                      </button>
+                      {reviewMsg[c.id] && <span style={{ fontSize: "var(--fs-xs)", color: "var(--text-mid)" }}>{reviewMsg[c.id]}</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </section>
       )}
