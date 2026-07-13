@@ -53,6 +53,7 @@ model Workspace {
   buyerOrders  Order[]
   plan         Plan?
   tasks        Task[]
+  lots         Lot[]
 }
 
 enum Role {
@@ -282,4 +283,68 @@ model Task {
 
   @@index([workspaceId])
   @@index([workspaceId, date])
+}
+
+// ---------- Lot izlenebilirlik (Phase 3: src/lib/traceability.ts) ----------
+// DÜRÜSTLÜK NOTU: eski /izlenebilirlik yalnız 8 lotluk SABİT bir örnek zinciri (LOTS
+// sabiti) gösteren, gerçek lot oluşturma imkânı OLMAYAN bir demoydu. Bu faz gerçek bir
+// "lot kaydet" akışı ekler (bkz. src/app/izlenebilirlik/actions.ts) — artık salt-okunur
+// bir vitrin değil. `code`: kullanıcının kendi atadığı, workspace içinde benzersiz lot
+// kodu (ör. "SEED-2026-014") — src/lib/traceability.ts'teki Lot.id ile eşleşir; asıl
+// Prisma `id` (cuid) yalnız iç FK hedefi. parentLotIds (string dizisi) LotGenealogy join
+// tablosuyla GERÇEK referans bütünlüğü kazanır — repository katmanı diziyi okurken/
+// yazarken yeniden kurar (bkz. plan dosyası §2, Phase 3).
+enum LotType {
+  tohum
+  girdi
+  uretim
+  hasat
+  paket
+  sevkiyat
+}
+
+enum LotStatus {
+  aktif
+  incelemede
+  karantina
+  geri_cagrildi @map("geri-cagrildi")
+  tuketildi
+}
+
+model Lot {
+  id              String    @id @default(cuid())
+  workspaceId     String
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  code            String
+  label           String
+  type            LotType
+  // cropId: Listing.cropId ile aynı desen — src/data/crops.ts'e düz string referans, DB FK değil.
+  cropId          String?
+  quantity        Float
+  unit            String
+  producedAt      DateTime  @db.Date
+  status          LotStatus @default(aktif)
+  certifiedOrigin Boolean   @default(false)
+  ownerLabel      String
+
+  parentEdges LotGenealogy[] @relation("ChildLot")
+  childEdges  LotGenealogy[] @relation("ParentLot")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([workspaceId, code])
+  @@index([workspaceId])
+}
+
+model LotGenealogy {
+  id       String @id @default(cuid())
+  parentId String
+  parent   Lot    @relation("ParentLot", fields: [parentId], references: [id], onDelete: Cascade)
+  childId  String
+  child    Lot    @relation("ChildLot", fields: [childId], references: [id], onDelete: Cascade)
+
+  @@unique([parentId, childId])
+  @@index([parentId])
+  @@index([childId])
 }

@@ -142,25 +142,35 @@ export const LOT_TYPE_LABELS: Record<LotType, string> = {
   sevkiyat: "Sevkiyat / sipariş",
 };
 
-// ---------- Bir adım / transitif izleme ----------
-export function directParents(lotId: string): Lot[] {
-  const lot = LOT_BY_ID[lotId];
-  if (!lot) return [];
-  return lot.parentLotIds.map((id) => LOT_BY_ID[id]).filter((l): l is Lot => Boolean(l));
+function indexById(lots: Lot[]): Record<string, Lot> {
+  return Object.fromEntries(lots.map((l) => [l.id, l]));
 }
 
-export function directChildren(lotId: string): Lot[] {
-  return LOTS.filter((l) => l.parentLotIds.includes(lotId));
+// ---------- Bir adım / transitif izleme ----------
+// Her fonksiyon `lots` parametresini alır (varsayılan: sabit örnek LOTS) — gerçek Postgres
+// verisiyle çalışan repository katmanı (src/server/repositories/lots.ts) workspace'in
+// kendi lotlarını geçirebilir, mevcut tüm test/çağrı yerleri (tek argümanlı) değişmeden
+// çalışmaya devam eder.
+export function directParents(lotId: string, lots: Lot[] = LOTS): Lot[] {
+  const byId = indexById(lots);
+  const lot = byId[lotId];
+  if (!lot) return [];
+  return lot.parentLotIds.map((id) => byId[id]).filter((l): l is Lot => Boolean(l));
+}
+
+export function directChildren(lotId: string, lots: Lot[] = LOTS): Lot[] {
+  return lots.filter((l) => l.parentLotIds.includes(lotId));
 }
 
 /** Geriye doğru transitif iz — "bu lot nereden geldi?" */
-export function traceBackward(lotId: string): Lot[] {
+export function traceBackward(lotId: string, lots: Lot[] = LOTS): Lot[] {
+  const byId = indexById(lots);
   const visited = new Set<string>();
   const result: Lot[] = [];
   const stack = [lotId];
   while (stack.length) {
     const id = stack.pop()!;
-    const lot = LOT_BY_ID[id];
+    const lot = byId[id];
     if (!lot || visited.has(id)) continue;
     visited.add(id);
     if (id !== lotId) result.push(lot);
@@ -170,7 +180,7 @@ export function traceBackward(lotId: string): Lot[] {
 }
 
 /** İleriye doğru transitif iz — "bu lot hangi lot/siparişlere gitti?" */
-export function traceForward(lotId: string): Lot[] {
+export function traceForward(lotId: string, lots: Lot[] = LOTS): Lot[] {
   const visited = new Set<string>();
   const result: Lot[] = [];
   const stack = [lotId];
@@ -178,7 +188,7 @@ export function traceForward(lotId: string): Lot[] {
     const id = stack.pop()!;
     if (visited.has(id)) continue;
     visited.add(id);
-    const children = directChildren(id);
+    const children = directChildren(id, lots);
     for (const c of children) {
       if (!visited.has(c.id)) {
         result.push(c);
@@ -200,12 +210,12 @@ export interface MassBalanceResult {
 }
 
 /** Bir lotun çıktı miktarı, doğrudan girdi lotlarının toplamını aşarsa yayın/hareket bloklanır. */
-export function validateMassBalance(lotId: string): MassBalanceResult {
-  const lot = LOT_BY_ID[lotId];
+export function validateMassBalance(lotId: string, lots: Lot[] = LOTS): MassBalanceResult {
+  const lot = indexById(lots)[lotId];
   if (!lot) {
     return { lotId, outputQty: 0, inputQty: 0, lossPct: 0, valid: false, reason: "Lot bulunamadı" };
   }
-  const parents = directParents(lotId);
+  const parents = directParents(lotId, lots);
   if (parents.length === 0) {
     // kök lot (tohum/girdi) — girdi kısıtı yok
     return { lotId, outputQty: lot.quantity, inputQty: lot.quantity, lossPct: 0, valid: true };
@@ -232,10 +242,10 @@ export interface ClaimChainResult {
 }
 
 /** Bir lotun "sertifikalı organik" iddiası, TÜM atalarının sertifikalı olmasını gerektirir. */
-export function checkOrganicClaimChain(lotId: string): ClaimChainResult {
-  const lot = LOT_BY_ID[lotId];
+export function checkOrganicClaimChain(lotId: string, lots: Lot[] = LOTS): ClaimChainResult {
+  const lot = indexById(lots)[lotId];
   if (!lot) return { lotId, publishable: false, chain: [] };
-  const ancestry = [lot, ...traceBackward(lotId)];
+  const ancestry = [lot, ...traceBackward(lotId, lots)];
   const broken = ancestry.find((l) => !l.certifiedOrigin);
   return {
     lotId,
@@ -255,11 +265,11 @@ export interface RecallResult {
 }
 
 /** Şüpheli/uygunsuz bir lottan başlayarak aşağı zincirdeki tüm etkilenen lotları çıkarır. */
-export function simulateRecall(suspectLotId: string): RecallResult {
-  const downstream = traceForward(suspectLotId);
+export function simulateRecall(suspectLotId: string, lots: Lot[] = LOTS): RecallResult {
+  const downstream = traceForward(suspectLotId, lots);
   const quarantineLots = downstream.filter((l) => l.status === "aktif" && l.type !== "sevkiyat");
   const affectedShipments = downstream.filter((l) => l.type === "sevkiyat");
-  const upstreamSources = traceBackward(suspectLotId);
+  const upstreamSources = traceBackward(suspectLotId, lots);
   return {
     suspectLotId,
     quarantineLots,
