@@ -61,6 +61,7 @@ model Workspace {
   tasks        Task[]
   lots         Lot[]
   devices      Device[]
+  featureFlagOverrides FeatureFlagOverride[]
 }
 
 enum Role {
@@ -508,4 +509,23 @@ model AlertRule {
   threshold      Float
   minConsecutive Int
   label          String
+}
+
+// ---------- Feature flag override (Phase 6: src/lib/featureFlags.ts) ----------
+// FLAGS listesi ve evaluateFlag()/cohortBucket() SAF kalır (test edilmiş, değişmedi) —
+// bu tablo yalnız workspace başına AÇIK override kaydeder (evaluateFlag'in "override >
+// kohort > varsayılan" önceliğindeki ilk katman). Override yoksa cohortSeed=workspaceId
+// ile deterministik kohort ataması devam eder.
+model FeatureFlagOverride {
+  id              String    @id @default(cuid())
+  workspaceId     String
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  flagKey         String
+  value           Boolean
+  updatedByUserId String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([workspaceId, flagKey])
+  @@index([workspaceId])
 }

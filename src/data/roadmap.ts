@@ -78,6 +78,10 @@ export const EPICS: Epic[] = [
       { id: "P01-06", title: "CI kalite hattı", status: "todo" },
       { id: "P01-07", title: "Preview/staging yayın hattı", status: "todo" },
       { id: "P01-08", title: "Gözlemlenebilirlik temel paketi", status: "todo" },
+      // 2026-07-13 (Phase 6a): "done" önceden yalnız src/lib/featureFlags.ts'in SAF
+      // evaluateFlag()/cohortBucket() fonksiyonlarını kapsıyordu — hiçbir workspace gerçek
+      // bir override kaydedemiyordu (repository/UI yoktu). Artık FeatureFlagOverride tablosu
+      // + /roller'daki yönetim bölümü (yalnız workspace.manage) gerçek override yazıyor.
       { id: "P01-09", title: "Feature flag ve deney altyapısı", status: "done" },
       { id: "P01-10", title: "Migrasyon expand-contract standardı", status: "todo" },
     ],
@@ -119,7 +123,12 @@ export const EPICS: Epic[] = [
       { id: "P02-04", title: "Rol ve izin kataloğu", status: "done" },
       { id: "P02-05", title: "API tenant bağlamı ve politika katmanı", status: "done", critical: true },
       { id: "P02-06", title: "PostgreSQL RLS politikaları", status: "todo", critical: true },
-      // P02-07 Davet ve üyelik yaşam döngüsü (transition/canCancel/acceptInvite) test edilerek implement edildi.
+      // P02-07 Davet ve üyelik yaşam döngüsü: transition/canCancel (src/lib/membershipLifecycle.ts)
+      // SAF fonksiyon olarak test edilerek implement edilmişti; 2026-07-13 (Phase 6b) itibariyle
+      // gerçek Invite/Membership/AuditEvent satırlarına da bağlandı (/roller — davet gönder/
+      // iptal et/kabul et/reddet). acceptInvite() yardımcısı BİLEREK yeniden kullanılmadı (test
+      // sabitlerinde userId=email varsayımı gerçek cuid şemasıyla uyuşmuyor) — bkz.
+      // src/server/repositories/invites.ts başındaki not.
       ...todos("P02", 6, 7).map((t, i) => ({ ...t, status: (i === 0 ? "done" : "todo") as TaskStatus, title: ["Davet ve üyelik yaşam döngüsü", "MFA ve yeniden doğrulama", "İzin/rıza merkezi", "Veri dışa aktarma ve silme", "Konum şifreleme/genelleştirme", "Süreli destek erişimi"][i], critical: i === 4 })),
     ],
   },
