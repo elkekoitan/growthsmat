@@ -160,14 +160,18 @@ async function ensureDemoProducerWorkspace(): Promise<string> {
 }
 
 /**
- * Veritabanında HİÇ ilan yoksa (ilk açılış) katalogdaki 8 ürünü gerçek Listing satırı olarak
- * tohumlar. Idempotent: toplam ilan sayısı > 0 ise hiçbir şey yapmaz (aktif/pasif fark etmez —
- * total count'a bakılır, böylece tüm ilanlar pasifleştirilse bile yeniden tohumlanmaz).
+ * Katalogdaki 8 ürünü, ÖRNEK ÜRETİCİLER workspace'ine gerçek Listing satırı olarak tohumlar.
+ * Idempotent ve DİĞER test/gerçek ilanlardan BAĞIMSIZ: guard, TOPLAM ilan sayısına değil YALNIZ
+ * demo workspace'inin ilan sayısına bakar. (Önceki sürüm `listing.count() === 0` idi; ama prod'da
+ * daha önce oluşturulmuş birkaç test ilanı varsa demo set HİÇ tohumlanmıyordu ve vitrin seyrek/
+ * dandik görünüyordu — asıl amaç olan "dolu, gerçek mağaza" bozuluyordu. Artık demo ürünleri
+ * başka verilerden bağımsız olarak güvenilir biçimde görünür.) Cheap: önce demo-workspace sayacı
+ * kontrol edilir, yalnız gerekiyorsa workspace/user upsert edilir (her sayfa yükünde upsert yok).
  */
 export async function seedMarketplaceIfEmpty(): Promise<void> {
   const db = getDb();
-  const count = await db.listing.count();
-  if (count > 0) return;
+  const demoCount = await db.listing.count({ where: { workspaceId: DEMO_PRODUCER_WORKSPACE_ID } });
+  if (demoCount > 0) return;
   const workspaceId = await ensureDemoProducerWorkspace();
   await db.listing.createMany({
     data: CATALOG.map((l) => ({
