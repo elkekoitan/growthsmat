@@ -1,7 +1,10 @@
 import { Nav } from "@/components/Nav";
 import { Footer } from "@/components/Footer";
 import { RevealProvider } from "@/components/ui";
+import { getOptionalMembership } from "@/server/session";
 import { TaskTemplateBuilder } from "./TaskTemplateBuilder";
+
+export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "Görev Şablonu",
@@ -9,12 +12,13 @@ export const metadata = {
     "Ürüne göre türetilen görev takvimi — su ihtiyacı, bakım yükü ve hasat penceresinden otomatik üretilir.",
 };
 
-export default function GorevSablonuPage() {
+export default async function GorevSablonuPage() {
+  const session = await getOptionalMembership();
   return (
     <RevealProvider>
       <Nav />
       <main>
-        <TaskTemplateBuilder />
+        <TaskTemplateBuilder hasSession={!!session} />
       </main>
       <Footer />
     </RevealProvider>

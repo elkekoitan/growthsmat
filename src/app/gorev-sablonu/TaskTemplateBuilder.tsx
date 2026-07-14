@@ -1,11 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
+import Link from "next/link";
 import { CROPS } from "@/data/crops";
 import { generateTaskSchedule, applyTaskDelay, addDaysISO, TASK_KIND_LABELS, type TaskKind } from "@/lib/taskTemplates";
 import { NumberedHeading } from "@/components/graphics";
 import { Reveal } from "@/components/ui";
-import { Sprout, Droplet, Layers, Clipboard, Package, X } from "@/components/icons";
+import { Sprout, Droplet, Layers, Clipboard, Package, X, Check, ArrowRight } from "@/components/icons";
+import { applyScheduleToTasksAction } from "./actions";
 
 const KIND_ICON: Record<TaskKind, typeof Sprout> = {
   ekim: Sprout,
@@ -16,12 +18,25 @@ const KIND_ICON: Record<TaskKind, typeof Sprout> = {
   hasat: Package,
 };
 
-export function TaskTemplateBuilder() {
+export function TaskTemplateBuilder({ hasSession }: { hasSession: boolean }) {
   const [cropId, setCropId] = useState(CROPS[0].id);
   const [startDate, setStartDate] = useState("2026-07-15");
 
   const crop = CROPS.find((c) => c.id === cropId) ?? CROPS[0];
   const tasks = useMemo(() => generateTaskSchedule(crop), [crop]);
+
+  // ---- Şablonu gerçek görevlere ekle (P06 — demo → gerçek iş akışı) ----
+  const [zone, setZone] = useState("");
+  const [applyPending, startApply] = useTransition();
+  const [applyResult, setApplyResult] = useState<{ created: number; error?: string } | null>(null);
+
+  function handleApply() {
+    setApplyResult(null);
+    startApply(async () => {
+      const res = await applyScheduleToTasksAction(cropId, zone, startDate);
+      setApplyResult(res);
+    });
+  }
 
   const [delayIndex, setDelayIndex] = useState<number>(-1);
   const [delayDays, setDelayDays] = useState(3);
@@ -74,6 +89,18 @@ export function TaskTemplateBuilder() {
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
+                className="tt-select"
+              />
+            </label>
+            <label className="card" style={{ padding: 18, display: "block" }}>
+              <span style={{ fontSize: "var(--fs-xs)", color: "var(--text-low)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>
+                Alan / bölge
+              </span>
+              <input
+                type="text"
+                value={zone}
+                onChange={(e) => setZone(e.target.value)}
+                placeholder="Örn. Sera tüneli, Yatak A2"
                 className="tt-select"
               />
             </label>
@@ -162,6 +189,43 @@ export function TaskTemplateBuilder() {
                 </Reveal>
               );
             })}
+          </div>
+
+          {/* ---------- Programı gerçek görevlere ekle ---------- */}
+          <div style={{ marginTop: 28, paddingTop: 24, borderTop: "1px solid var(--border-soft)" }}>
+            {hasSession ? (
+              <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 14 }}>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={handleApply}
+                  disabled={applyPending}
+                  style={{ opacity: applyPending ? 0.7 : 1 }}
+                >
+                  {applyPending ? "Ekleniyor…" : `Bu programı görevlerime ekle (${tasks.length})`}
+                </button>
+                {applyResult && !applyResult.error && (
+                  <span className="chip" style={{ color: "var(--primary)" }}>
+                    <Check size={13} /> {applyResult.created} görev /gorevler&apos;e eklendi
+                    <Link href="/gorevler" className="font-mono" style={{ marginLeft: 8, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                      Görevlere git <ArrowRight size={12} />
+                    </Link>
+                  </span>
+                )}
+                {applyResult?.error && (
+                  <span className="chip chip-warn">
+                    <X size={12} /> {applyResult.error}
+                  </span>
+                )}
+              </div>
+            ) : (
+              <p style={{ fontSize: "var(--fs-sm)", color: "var(--text-mid)", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                Görevlerine eklemek için giriş yap
+                <Link href="/giris" className="font-mono" style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "var(--primary)" }}>
+                  Giriş yap <ArrowRight size={12} />
+                </Link>
+              </p>
+            )}
           </div>
         </div>
       </section>
