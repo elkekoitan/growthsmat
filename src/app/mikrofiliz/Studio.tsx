@@ -23,14 +23,12 @@ import { COMPARISON_METRICS, findBestRecipeIndex } from "@/lib/compareMicrogreen
 import {
   SoilLineStages,
   NumberedHeading,
-  StampBadge,
   RadialGauge,
   WaveDivider,
 } from "@/components/graphics";
 import { KpiCard } from "@/components/visuals";
 import { Reveal } from "@/components/ui";
 import {
-  Layers,
   Calendar,
   Store,
   ShieldCheck,
@@ -95,62 +93,6 @@ function fmt(n: number, d = 0): string {
 
 function safetyChipClass(tone: "ok" | "warn" | "danger"): string {
   return tone === "ok" ? "chip-ok" : tone === "warn" ? "chip-warn" : "chip-danger";
-}
-
-/* ---------- Tepsi mockup (SVG, seçili reçete rengiyle boyanır) ---------- */
-function TrayMockup({ color }: { color: string }) {
-  const sprigs = Array.from({ length: 22 }, (_, i) => {
-    const x = 40 + (i * 240) / 21;
-    const h = 44 + ((i * 41) % 34); // 44–78 psödo-rastgele
-    const lean = ((i * 53) % 7) - 3;
-    return { x, h, lean };
-  });
-  const soilY = 168;
-  return (
-    <svg viewBox="0 0 320 220" role="img" aria-label="Mikro filiz tepsisi kesiti" style={{ width: "100%", height: "auto", display: "block" }}>
-      <defs>
-        <linearGradient id="mf-tray" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="var(--color-paper-200)" />
-          <stop offset="1" stopColor="var(--color-paper-300)" />
-        </linearGradient>
-        <linearGradient id="mf-soil" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#3a2c20" />
-          <stop offset="1" stopColor="#241a12" />
-        </linearGradient>
-      </defs>
-
-      {/* sürgünler (soil'in arkasından çıkar) */}
-      <g strokeLinecap="round">
-        {sprigs.map((s, i) => {
-          const topY = soilY - s.h;
-          const c = i % 3 === 0 ? color : `color-mix(in srgb, ${color} 78%, #1a3a2a)`;
-          return (
-            <g key={i} className="mf-sprig" style={{ ["--d" as string]: `${(i % 6) * 0.35}s` }}>
-              <path
-                d={`M ${s.x} ${soilY} C ${s.x + s.lean} ${soilY - s.h * 0.5} ${s.x + s.lean} ${topY + 8} ${s.x + s.lean} ${topY}`}
-                fill="none"
-                stroke={c}
-                strokeWidth="2"
-              />
-              {/* kotiledon çift yaprak */}
-              <path d={`M ${s.x + s.lean} ${topY} q -9 -5 -12 -13 q 9 1 12 8 Z`} fill={c} opacity="0.92" />
-              <path d={`M ${s.x + s.lean} ${topY} q 9 -5 12 -13 q -9 1 -12 8 Z`} fill={c} opacity="0.92" />
-            </g>
-          );
-        })}
-      </g>
-
-      {/* toprak bandı */}
-      <rect x="26" y={soilY} width="268" height="26" rx="4" fill="url(#mf-soil)" />
-      {/* 10×20 tepsi gövdesi */}
-      <rect x="20" y={soilY + 22} width="280" height="20" rx="7" fill="url(#mf-tray)" stroke="var(--border-soft)" />
-      <rect x="20" y={soilY + 20} width="280" height="6" rx="3" fill="color-mix(in srgb, var(--color-paper-300) 70%, #000)" opacity="0.35" />
-      {/* tepsi etiketi */}
-      <text x="160" y={soilY + 36} textAnchor="middle" fontSize="9" fontFamily="var(--font-mono)" fill="var(--text-low)" letterSpacing="1">
-        10 × 20 TEPSİ
-      </text>
-    </svg>
-  );
 }
 
 /* ---------- Reçete kartı ---------- */
@@ -552,176 +494,44 @@ export function Studio({ hasSession, room, subscriptions, capacityPlan }: Studio
 
   return (
     <div className="mf-root">
-      {/* ============================ 1. HERO ============================ */}
-      <section className="mesh-light grain mf-hero">
+      {/* ============================ KOMPAKT BAŞLIK ============================ */}
+      <section className="mesh-light grain mf-header">
         <div
           className="blob"
-          style={{ width: 380, height: 380, background: accent, top: -80, right: -60, opacity: 0.28 }}
+          style={{ width: 300, height: 300, background: accent, top: -120, right: -60, opacity: 0.22 }}
           aria-hidden="true"
         />
-        <div className="container-x mf-hero-grid">
-          <div className="hero-stagger">
-            <span className="eyebrow">Mikro Filiz Uzmanlık Stüdyosu</span>
-            <h1 className="mf-hero-title text-balance">
-              En küçük alandan <span className="shimmer-text">en hızlı hasat</span>.
-            </h1>
-            <p className="mf-lead text-pretty">
-              Mikro filiz, m² başına en yüksek verimli organik üretim biçimi: {stats.hMin}–{stats.hMax} günlük
-              döngüler, tezgah üstü raflar ve şeflerin sürekli talep ettiği bir ürün. Burada reçete tür
-              sayfasından ayrıdır — her çeşit doğrulanmış aralıklarla gelir, uygun olmayan türler ise reçeteye
-              hiç eklenemez.
-            </p>
-
-            <div className="mf-vprops">
-              <div className="mf-vprop">
-                <span className="mf-vicon"><Layers size={18} /></span>
-                <div>
-                  <strong>m² başına verim</strong>
-                  <span>Dikey raf + yoğun ekim ile alan başına maksimum gram.</span>
-                </div>
-              </div>
-              <div className="mf-vprop">
-                <span className="mf-vicon"><Calendar size={18} /></span>
-                <div>
-                  <strong>Hızlı döngü</strong>
-                  <span>Haftalık ekim–hasat ritmi; nakit dönüşü günlerle ölçülür.</span>
-                </div>
-              </div>
-              <div className="mf-vprop">
-                <span className="mf-vicon"><Store size={18} /></span>
-                <div>
-                  <strong>Restoran talebi</strong>
-                  <span>Tabak sunumu ve garnitür için düzenli, taze tedarik.</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="mf-hero-cta">
-              <a href="#hesaplayici" className="btn btn-primary btn-lg">
-                Tepsi maliyetini hesapla <ArrowRight size={18} />
-              </a>
-              <a href="#recete" className="btn btn-secondary btn-lg">
-                Reçeteleri gör
-              </a>
-            </div>
-
-            <div className="mf-hero-stats">
-              <div>
-                <span className="font-mono mf-stat-n">{stats.count}</span>
-                <span className="mf-stat-l">doğrulanmış reçete</span>
-              </div>
-              <div>
-                <span className="font-mono mf-stat-n">{stats.hMin}–{stats.hMax}</span>
-                <span className="mf-stat-l">gün hasat aralığı</span>
-              </div>
-              <div>
-                <span className="font-mono mf-stat-n" style={{ color: "var(--color-danger)" }}>
-                  {stats.blocked}
-                </span>
-                <span className="mf-stat-l">tür sert blok</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="mf-hero-visual">
-            <div className="card mf-tray-card" style={{ ["--rc" as string]: accent }}>
-              <div className="mf-tray-card-top">
-                <span className="chip" style={{ borderColor: "color-mix(in srgb, var(--rc) 40%, transparent)" }}>
-                  <span aria-hidden="true">{recipe.emoji}</span> {recipe.name}
-                </span>
-                <span className="font-mono mf-tray-cycle">
-                  {recipe.harvestDays[0]}–{recipe.harvestDays[1]} gün
-                </span>
-              </div>
-              <TrayMockup color={accent} />
-              <p className="mf-tray-cap">
-                Görsel, seçtiğin reçetenin rengini alır. Aşağıdan bir çeşit seç → tepsi, evreler ve hesaplayıcı
-                birlikte güncellenir.
-              </p>
-              <div className="mf-stamp">
-                <StampBadge
-                  ring="MİKRO FİLİZ · STÜDYO · 2026 · "
-                  size={104}
-                  center={
-                    <div style={{ lineHeight: 1 }}>
-                      <div className="font-mono" style={{ fontSize: 22, fontWeight: 600 }}>{stats.count}</div>
-                      <div style={{ fontSize: 9, letterSpacing: "0.1em" }}>REÇETE</div>
-                    </div>
-                  }
-                />
-              </div>
-            </div>
+        <div className="container-x mf-header-inner">
+          <span className="eyebrow">Mikro Filiz Uzmanlık Stüdyosu</span>
+          <h1 className="mf-header-title text-balance">
+            Mikro filiz <span className="shimmer-text">stüdyosu</span>
+          </h1>
+          <p className="mf-header-sub text-pretty">
+            Reçeteyi seç, tepsi maliyet ve marjını hesapla, odanın kapasitesini planla — hepsi tek araçta.
+          </p>
+          <div className="mf-header-chips">
+            <span className="chip">{stats.count} doğrulanmış reçete</span>
+            <span className="chip">{stats.hMin}–{stats.hMax} gün hasat</span>
+            <span className="chip chip-danger">{stats.blocked} tür sert blok</span>
           </div>
         </div>
       </section>
 
       <WaveDivider fill="var(--color-paper-50)" />
 
-      {/* ==================== 2. GÜVENLİK KATALOĞU ==================== */}
-      <section className="section paper-section">
-        <div className="container-x">
-          <NumberedHeading
-            n="01"
-            eyebrow="Önce gıda güvenliği"
-            title="Sert blok: bu türler reçeteye eklenemez"
-          />
-          <Reveal>
-            <p className="mf-section-lead">
-              Yenebilir bir bitkinin tohumu her zaman yenebilir mikro filiz vermez. Reçete motoru, aşağıdaki türleri
-              <strong> sert blok</strong> olarak işaretler — bunlar bir çeşit olarak listeye <em>hiç</em> gelmez, bir
-              uyarıyla geçiştirilmez. Kaynak: Penn State Extension, FDA FSMA Produce Safety, Utah State Extension.
-            </p>
-          </Reveal>
-
-          <div className="mf-blocked">
-            {BLOCKED_MICROGREENS.map((b, i) => (
-              <Reveal i={i} key={b.name}>
-                <div className="card mf-block-card">
-                  <div className="mf-block-top">
-                    <span className="mf-block-x" aria-hidden="true">
-                      <X size={18} />
-                    </span>
-                    <div>
-                      <strong className="mf-block-name">{b.name}</strong>
-                      <span className="font-mono mf-block-fam">{b.family}</span>
-                    </div>
-                    <span className="chip chip-danger" style={{ marginLeft: "auto" }}>
-                      <X size={12} /> Uygun değil
-                    </span>
-                  </div>
-                  <p className="mf-block-reason">{b.reason}</p>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-
-          <div className="mf-callout mf-callout--warn">
-            <span className="mf-callout-ic"><Droplet size={18} /></span>
-            <p>
-              <strong>Yıkama varsayılan değildir.</strong> Mikro filizde yıkama, mikrobiyel riski her zaman
-              düşürmez; ıslak ürün raf ömrünü kısaltır. Yıkama kararı tohum kaynağı, su kalitesi ve teslimat
-              zincirine göre ayrı verilir — reçete bunu otomatik varsaymaz.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* ==================== 3. REÇETE KARTLARI ==================== */}
+      {/* ==================== 01. REÇETE KATALOĞU ==================== */}
       <section className="section" id="recete">
         <div className="container-x">
           <NumberedHeading
-            n="02"
+            n="01"
             eyebrow="Doğrulanmış reçeteler"
-            title="Her çeşit bir aralık, tek bir sabit değil"
+            title="Reçete kataloğu — bir çeşit seç"
           />
-          <Reveal>
-            <p className="mf-section-lead">
-              Yoğunluk, karartma ve hasat günleri birer <strong>aralık</strong> olarak verilir — tek bir “doğru
-              sayı” yoktur. Bu aralıklar Penn State ve Utah State Extension verilerine dayanır ve kendi tepsin,
-              tohum lotun ve iklimin ile kalibre edilir. Bir kartı seçtiğinde büyüme evreleri ve maliyet
-              hesaplayıcısı o reçeteye göre güncellenir.
-            </p>
-          </Reveal>
+          <p className="mf-section-lead">
+            Yoğunluk, karartma ve hasat günleri birer <strong>aralık</strong> (Penn State / Utah State Extension).
+            Bir kart seç: büyüme evreleri ve maliyet hesaplayıcısı o reçeteye göre güncellenir. Karşılaştırmak için
+            kartların köşesindeki kutucukları işaretle.
+          </p>
 
           <div className="mf-recipes">
             {MICROGREEN_RECIPES.map((r, i) => (
@@ -742,58 +552,18 @@ export function Studio({ hasSession, room, subscriptions, capacityPlan }: Studio
         </div>
       </section>
 
-      {/* ==================== 4. BÜYÜME EVRELERİ ==================== */}
-      <section className="section paper-section">
+      {/* ==================== 02. TEPSİ MALİYET HESAPLAYICI ==================== */}
+      <section className="section paper-section" id="hesaplayici">
         <div className="container-x">
           <NumberedHeading
-            n="03"
-            eyebrow="Sürekli toprak çizgisi"
-            title="Ekimden hasada büyüme evreleri"
-          />
-          <div className="card mf-stages-card" style={{ ["--rc" as string]: accent }}>
-            <div className="mf-stages-head">
-              <span className="mf-emoji mf-emoji--lg" aria-hidden="true">{recipe.emoji}</span>
-              <div>
-                <h3 style={{ margin: 0 }}>{recipe.name}</h3>
-                <p className="mf-sci">{recipe.scientificName}</p>
-              </div>
-              <span className="chip" style={{ marginLeft: "auto" }}>
-                <Calendar size={13} /> Toplam {recipe.harvestDays[0]}–{recipe.harvestDays[1]} gün
-              </span>
-            </div>
-
-            <SoilLineStages stages={stages} />
-
-            <p className="mf-stages-note">
-              {recipe.presoakHours[1] === 0 ? (
-                <>
-                  <Sprout size={15} /> Bu çeşit <strong>ön ıslatma istemez</strong> — tohum doğrudan ekilir.
-                </>
-              ) : (
-                <>
-                  <Droplet size={15} /> Ön ıslatma <strong>{recipe.presoakHours[0]}–{recipe.presoakHours[1]} saat</strong>{" "}
-                  zorunludur; atlanırsa çimlenme düzensizleşir.
-                </>
-              )}
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* ==================== 5. TEPSİ MALİYET HESAPLAYICI ==================== */}
-      <section className="section" id="hesaplayici">
-        <div className="container-x">
-          <NumberedHeading
-            n="04"
-            eyebrow="GTM · edinme aracı"
+            n="02"
+            eyebrow="Maliyet & marj aracı"
             title="Tepsi başına maliyet ve marj hesaplayıcı"
           />
-          <Reveal>
-            <p className="mf-section-lead">
-              Kendi rakamlarını gir; hesaplayıcı seçili reçetenin verim ve yoğunluk ortalamalarını kullanır. Bütün
-              çıktılar girdilerinden türetilir — sahte bir “sektör ortalaması” eklenmez.
-            </p>
-          </Reveal>
+          <p className="mf-section-lead">
+            Kendi rakamlarını gir; hesaplayıcı seçili reçetenin verim ortalamasını kullanır. Bütün çıktılar
+            girdilerinden türetilir — sahte bir “sektör ortalaması” yok.
+          </p>
 
           <div className="mf-calc">
             {/* --- Girdiler --- */}
@@ -1031,11 +801,49 @@ export function Studio({ hasSession, room, subscriptions, capacityPlan }: Studio
         </div>
       </section>
 
-      {/* ==================== 6. RESTORAN ABONELİĞİ ==================== */}
+      {/* ==================== 03. BÜYÜME EVRELERİ ==================== */}
+      <section className="section">
+        <div className="container-x">
+          <NumberedHeading
+            n="03"
+            eyebrow="Seçili reçete"
+            title="Ekimden hasada büyüme evreleri"
+          />
+          <div className="card mf-stages-card" style={{ ["--rc" as string]: accent }}>
+            <div className="mf-stages-head">
+              <span className="mf-emoji mf-emoji--lg" aria-hidden="true">{recipe.emoji}</span>
+              <div>
+                <h3 style={{ margin: 0 }}>{recipe.name}</h3>
+                <p className="mf-sci">{recipe.scientificName}</p>
+              </div>
+              <span className="chip" style={{ marginLeft: "auto" }}>
+                <Calendar size={13} /> Toplam {recipe.harvestDays[0]}–{recipe.harvestDays[1]} gün
+              </span>
+            </div>
+
+            <SoilLineStages stages={stages} />
+
+            <p className="mf-stages-note">
+              {recipe.presoakHours[1] === 0 ? (
+                <>
+                  <Sprout size={15} /> Bu çeşit <strong>ön ıslatma istemez</strong> — tohum doğrudan ekilir.
+                </>
+              ) : (
+                <>
+                  <Droplet size={15} /> Ön ıslatma <strong>{recipe.presoakHours[0]}–{recipe.presoakHours[1]} saat</strong>{" "}
+                  zorunludur; atlanırsa çimlenme düzensizleşir.
+                </>
+              )}
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* ==================== 04. RESTORAN ABONELİĞİ ==================== */}
       <section className="section paper-section">
         <div className="container-x">
           <NumberedHeading
-            n="05"
+            n="04"
             eyebrow="Restoran aboneliği"
             title="Sabit teslimat gününe geriye planlama"
           />
@@ -1119,11 +927,11 @@ export function Studio({ hasSession, room, subscriptions, capacityPlan }: Studio
         </div>
       </section>
 
-      {/* ==================== 6. GERÇEK KAPASİTE PLANLAMA ==================== */}
+      {/* ==================== 05. GERÇEK KAPASİTE PLANLAMA ==================== */}
       <section className="section" id="kapasite">
         <div className="container-x">
           <NumberedHeading
-            n="06"
+            n="05"
             eyebrow="Gerçek oda + abonelik"
             title="Kendi odanın kapasitesini planla"
           />
@@ -1250,6 +1058,53 @@ export function Studio({ hasSession, room, subscriptions, capacityPlan }: Studio
         </div>
       </section>
 
+      {/* ==================== 06. GIDA GÜVENLİĞİ SERT BLOK ==================== */}
+      <section className="section paper-section">
+        <div className="container-x">
+          <NumberedHeading
+            n="06"
+            eyebrow="Önce gıda güvenliği"
+            title="Sert blok: bu türler reçeteye eklenemez"
+          />
+          <p className="mf-section-lead">
+            Yenebilir bir bitkinin tohumu her zaman yenebilir mikro filiz vermez. Aşağıdaki türler{" "}
+            <strong>sert blok</strong>tur — bir çeşit olarak listeye <em>hiç</em> gelmez, uyarıyla geçiştirilmez.
+            Kaynak: Penn State Extension, FDA FSMA Produce Safety, Utah State Extension.
+          </p>
+
+          <div className="mf-blocked">
+            {BLOCKED_MICROGREENS.map((b, i) => (
+              <Reveal i={i} key={b.name}>
+                <div className="card mf-block-card">
+                  <div className="mf-block-top">
+                    <span className="mf-block-x" aria-hidden="true">
+                      <X size={18} />
+                    </span>
+                    <div>
+                      <strong className="mf-block-name">{b.name}</strong>
+                      <span className="font-mono mf-block-fam">{b.family}</span>
+                    </div>
+                    <span className="chip chip-danger" style={{ marginLeft: "auto" }}>
+                      <X size={12} /> Uygun değil
+                    </span>
+                  </div>
+                  <p className="mf-block-reason">{b.reason}</p>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+
+          <div className="mf-callout mf-callout--warn">
+            <span className="mf-callout-ic"><Droplet size={18} /></span>
+            <p>
+              <strong>Yıkama varsayılan değildir.</strong> Mikro filizde yıkama, mikrobiyel riski her zaman
+              düşürmez; ıslak ürün raf ömrünü kısaltır. Yıkama kararı tohum kaynağı, su kalitesi ve teslimat
+              zincirine göre ayrı verilir — reçete bunu otomatik varsaymaz.
+            </p>
+          </div>
+        </div>
+      </section>
+
       {compareIds.length > 0 && !compareOpen && (
         <div className="compare-bar" role="status">
           <span className="font-mono" style={{ fontSize: "var(--fs-sm)" }}>
@@ -1281,34 +1136,12 @@ export function Studio({ hasSession, room, subscriptions, capacityPlan }: Studio
       <style>{`
         .mf-root { --mf-radius: var(--radius-card); }
 
-        /* HERO */
-        .mf-hero { position: relative; overflow: hidden; padding-block: clamp(3rem, 7vw, 6rem); }
-        .mf-hero-grid {
-          display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 3rem; align-items: center;
-        }
-        .mf-hero-title { font-size: var(--fs-display); line-height: 1.02; margin: 0.4rem 0 0; }
-        .mf-lead { font-size: var(--fs-lead); color: var(--text-mid); max-width: 40ch; margin-top: 1rem; }
-        .mf-vprops { display: grid; gap: 0.75rem; margin-top: 1.5rem; }
-        .mf-vprop { display: flex; gap: 0.75rem; align-items: flex-start; }
-        .mf-vicon {
-          flex: none; width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center;
-          background: color-mix(in srgb, var(--primary) 10%, transparent); color: var(--primary);
-          border: 1px solid color-mix(in srgb, var(--primary) 22%, transparent);
-        }
-        .mf-vprop strong { display: block; font-size: var(--fs-base); }
-        .mf-vprop span { color: var(--text-mid); font-size: var(--fs-sm); }
-        .mf-hero-cta { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.75rem; }
-        .mf-hero-stats { display: flex; gap: 2rem; margin-top: 2rem; flex-wrap: wrap; }
-        .mf-hero-stats > div { display: flex; flex-direction: column; }
-        .mf-stat-n { font-size: 1.6rem; font-weight: 600; color: var(--text-hi); line-height: 1; }
-        .mf-stat-l { font-size: var(--fs-sm); color: var(--text-low); margin-top: 4px; }
-
-        .mf-hero-visual { position: relative; }
-        .mf-tray-card { position: relative; padding: 1.25rem; overflow: visible; }
-        .mf-tray-card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; }
-        .mf-tray-cycle { font-size: var(--fs-sm); color: var(--text-mid); }
-        .mf-tray-cap { font-size: var(--fs-sm); color: var(--text-mid); margin-top: 0.75rem; line-height: 1.5; }
-        .mf-stamp { position: absolute; right: -18px; bottom: -22px; }
+        /* KOMPAKT BAŞLIK */
+        .mf-header { position: relative; overflow: hidden; padding-block: clamp(1.75rem, 4vw, 2.75rem); }
+        .mf-header-inner { position: relative; }
+        .mf-header-title { font-size: clamp(1.9rem, 4.5vw, 2.9rem); line-height: 1.05; margin: 0.35rem 0 0; }
+        .mf-header-sub { font-size: var(--fs-lead); color: var(--text-mid); max-width: 60ch; margin-top: 0.6rem; }
+        .mf-header-chips { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1.1rem; }
 
         /* Bölüm ortak */
         .mf-section-lead { font-size: var(--fs-lead); color: var(--text-mid); max-width: 68ch; margin: -0.5rem 0 2rem; line-height: 1.55; }
@@ -1472,8 +1305,6 @@ export function Studio({ hasSession, room, subscriptions, capacityPlan }: Studio
 
         /* RESPONSIVE */
         @media (max-width: 960px) {
-          .mf-hero-grid { grid-template-columns: 1fr; }
-          .mf-hero-visual { max-width: 460px; }
           .mf-calc { grid-template-columns: 1fr; }
           .mf-inputs { position: static; }
           .mf-result-lower { grid-template-columns: 1fr; }
@@ -1482,7 +1313,6 @@ export function Studio({ hasSession, room, subscriptions, capacityPlan }: Studio
         @media (max-width: 560px) {
           .mf-kpis { grid-template-columns: 1fr; }
           .mf-metrics { grid-template-columns: 1fr; }
-          .mf-hero-stats { gap: 1.25rem; }
         }
       `}</style>
     </div>
