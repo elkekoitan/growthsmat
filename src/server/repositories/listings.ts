@@ -3,12 +3,16 @@
 // src/data/commerce.ts'teki CatalogListing şekliyle uyumlu tutulur (aynı alanlar).
 import "server-only";
 
+import crypto from "node:crypto";
 import { getDb } from "../db";
-import type {
-  ProductFormat,
-  StockType,
-  ChannelId,
-  OrganicClaimStatus,
+import { hashPassword } from "../password";
+import {
+  CATALOG,
+  type ProductFormat,
+  type StockType,
+  type ChannelId,
+  type OrganicClaimStatus,
+  type CatalogListing,
 } from "@/data/commerce";
 
 export interface ListingInput {
@@ -104,8 +108,91 @@ export async function createListing(workspaceId: string, input: ListingInput): P
   return toRealListing(row);
 }
 
+// ---------- Pazarı ilk açılışta gerçek ilanlarla doldur (seed-if-empty) ----------
+// src/server/repositories/tasks.ts listOrSeedTasks() ve lots.ts listOrSeedLots() ile AYNI
+// desen: sayaç 0 ise tohum satırları oluştur. Fark: ilanların bir sahip workspace+user'ı
+// olması gerekir (per-caller seed'lerin aksine), bu yüzden önce özel bir "örnek üreticiler"
+// workspace'i ve kimse-giriş-yapamayan bir sistem kullanıcısı upsert edilir. Böylece HERKESE
+// AÇIK /pazar boş bir vitrin yerine gerçek, tıklanabilir Listing satırları gösterir.
+// DÜRÜSTLÜK NOTU: repeatOrderRate KASITLI OLARAK 0 tohumlanır (yeni pazarın gerçek tekrar-
+// sipariş geçmişi yoktur, hiçbir yerde de gösterilmez); stockQty ise gerçek bir envanter
+// adedidir (siparişte azalır) — sabit, makul bir >0 değer atanır.
+const DEMO_PRODUCER_WORKSPACE_ID = "sg-demo-hasat-pazari";
+const DEMO_PRODUCER_USER_EMAIL = "vitrin@demo.smartgrowth.local";
+
+function seedStockQty(l: CatalogListing): number {
+  // stockType yalnız kategorik bir etiket — gerçek adet buradan türetilir (makul, >0).
+  switch (l.stockType) {
+    case "mevcut":
+      return 24;
+    case "tahmini-hasat":
+      return 12;
+    case "on-siparis":
+      return 40;
+    default:
+      return 10;
+  }
+}
+
+/** Örnek üreticiler workspace'ini (ve onu sahiplenen sistem kullanıcısı + üyeliği) upsert eder. */
+async function ensureDemoProducerWorkspace(): Promise<string> {
+  const db = getDb();
+  // Sistem sahibi kullanıcı — rastgele, hiçbir yerde saklanmayan şifre: kimse bununla giriş yapamaz.
+  const user = await db.user.upsert({
+    where: { email: DEMO_PRODUCER_USER_EMAIL },
+    update: {},
+    create: {
+      email: DEMO_PRODUCER_USER_EMAIL,
+      passwordHash: hashPassword(crypto.randomBytes(32).toString("hex")),
+    },
+  });
+  await db.workspace.upsert({
+    where: { id: DEMO_PRODUCER_WORKSPACE_ID },
+    update: {},
+    create: { id: DEMO_PRODUCER_WORKSPACE_ID, name: "Hasat Pazarı — Örnek Üreticiler" },
+  });
+  await db.membership.upsert({
+    where: { userId_workspaceId: { userId: user.id, workspaceId: DEMO_PRODUCER_WORKSPACE_ID } },
+    update: {},
+    create: { userId: user.id, workspaceId: DEMO_PRODUCER_WORKSPACE_ID, role: "sahip", status: "aktif" },
+  });
+  return DEMO_PRODUCER_WORKSPACE_ID;
+}
+
+/**
+ * Veritabanında HİÇ ilan yoksa (ilk açılış) katalogdaki 8 ürünü gerçek Listing satırı olarak
+ * tohumlar. Idempotent: toplam ilan sayısı > 0 ise hiçbir şey yapmaz (aktif/pasif fark etmez —
+ * total count'a bakılır, böylece tüm ilanlar pasifleştirilse bile yeniden tohumlanmaz).
+ */
+export async function seedMarketplaceIfEmpty(): Promise<void> {
+  const db = getDb();
+  const count = await db.listing.count();
+  if (count > 0) return;
+  const workspaceId = await ensureDemoProducerWorkspace();
+  await db.listing.createMany({
+    data: CATALOG.map((l) => ({
+      workspaceId,
+      cropId: l.cropId,
+      microgreenId: l.microgreenId,
+      title: l.title,
+      producer: l.producer,
+      region: l.region,
+      format: l.format,
+      unitLabel: l.unitLabel,
+      priceTRY: l.priceTRY,
+      stockType: l.stockType,
+      stockQty: seedStockQty(l),
+      channels: l.channels,
+      claim: l.claim,
+      shelfLifeDays: l.shelfLifeDays,
+      repeatOrderRate: 0,
+    })),
+  });
+}
+
 export async function listActiveListings(): Promise<RealListing[]> {
   const db = getDb();
+  await seedMarketplaceIfEmpty();
   const rows = await db.listing.findMany({
     where: { active: true },
     orderBy: { createdAt: "desc" },

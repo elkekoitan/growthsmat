@@ -4,10 +4,8 @@ import { useActionState, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
-  CATALOG_WITH_EMOJI,
   CHANNELS,
   DELIVERY_ZONES,
-  B2B_FLOW,
   FORMAT_LABELS,
   STOCK_LABELS,
   CLAIM_LABELS,
@@ -19,24 +17,19 @@ import {
   USD_TO_TRY_REFERENCE,
   type ChannelId,
   type PaymentCountry,
-  type CatalogListing,
 } from "@/data/commerce";
 import { CROPS, CROP_BY_ID, type CropCategory } from "@/data/crops";
 import { cropPhotoPath, primaryCredit } from "@/data/photoCredits";
 import { microgreenPhotoPath } from "@/data/microgreenPhotoCredits";
-import { NumberedHeading, StampBadge, WaveDivider } from "@/components/graphics";
-import { SpotlightCard, KpiCard } from "@/components/visuals";
-import { Reveal } from "@/components/ui";
+import { NumberedHeading, WaveDivider } from "@/components/graphics";
+import { KpiCard } from "@/components/visuals";
 import {
   Store,
   Package,
   Globe,
-  Scale,
   Check,
   X,
-  ArrowRight,
   ShieldCheck,
-  MapPin,
   Calendar,
   Sparkles,
   Search,
@@ -97,9 +90,8 @@ const HASAT_CATEGORY_META: Record<CropCategory, { label: string; color: string; 
   "agac-meyve": { label: "Ağaç meyvesi", color: "#6b4226", emoji: "🫒" },
 };
 
-// Kategori rozeti gerçek fotoğraf gösterir (emoji-üzerine-emoji değil) — kataloğun kendi
-// gerçek fotoğraflı ürünlerinden, kategori başına bir temsilci. Fotoğrafı olmayan bir
-// kategori seçilirse (bu kataloğun kapsamadığı) emoji'ye zarifçe düşülür.
+// Kategori rozeti gerçek fotoğraf gösterir (emoji-üzerine-emoji değil) — kategori başına bir
+// temsilci. Fotoğrafı olmayan bir kategori seçilirse emoji'ye zarifçe düşülür.
 const CATEGORY_REPRESENTATIVE_CROP: Partial<Record<CropCategory, string>> = {
   "meyveli-sebze": "cherry-domates-kompakt",
   yaprakli: "roka",
@@ -108,13 +100,6 @@ const CATEGORY_REPRESENTATIVE_CROP: Partial<Record<CropCategory, string>> = {
 };
 
 const INITIAL_FORM_STATE: MarketFormState = {};
-
-const CHANNEL_ICON: Record<ChannelId, typeof Store> = {
-  "yerel-vitrin": Store,
-  "restoran-b2b": Scale,
-  "csa-kutu": Package,
-  etsy: Globe,
-};
 
 const CHANNEL_LABEL_SHORT: Record<ChannelId, string> = {
   "yerel-vitrin": "Yerel Vitrin",
@@ -130,11 +115,12 @@ const COUNTRY_LABELS: Record<PaymentCountry, string> = {
   UK: "Birleşik Krallık",
 };
 
-function catalogCategory(l: CatalogListing): CropCategory | undefined {
+// Gerçek ilanın kategorisi/fotoğrafı — statik CATALOG değil, canlı RealListing üzerinden.
+function listingCategory(l: RealListing): CropCategory | undefined {
   return l.cropId ? CROP_BY_ID[l.cropId]?.category : undefined;
 }
 
-function catalogPhoto(l: CatalogListing): { path?: string; isApprox: boolean } {
+function listingPhoto(l: RealListing): { path?: string; isApprox: boolean } {
   if (l.cropId) return { path: cropPhotoPath(l.cropId), isApprox: primaryCredit(l.cropId)?.isApproximation ?? false };
   if (l.microgreenId) return { path: microgreenPhotoPath(l.microgreenId), isApprox: false };
   return { path: undefined, isApprox: false };
@@ -230,25 +216,26 @@ function MarketInner({ session, realListings, myListings, myOrders, incomingOrde
   const [categoryFilter, setCategoryFilter] = useState<CropCategory | "hepsi">("hepsi");
   const [query, setQuery] = useState("");
 
-  const catalogCounts = useMemo(() => {
+  // Kategori sayıları GERÇEK ilanlar üzerinden — statik katalog değil.
+  const categoryCounts = useMemo(() => {
     const m: Partial<Record<CropCategory, number>> = {};
-    for (const l of CATALOG_WITH_EMOJI) {
-      const cat = catalogCategory(l);
+    for (const l of realListings) {
+      const cat = listingCategory(l);
       if (cat) m[cat] = (m[cat] ?? 0) + 1;
     }
     return m;
-  }, []);
+  }, [realListings]);
 
   const q = trLower(query.trim());
-  const filteredCatalog = useMemo(
+  const filteredListings = useMemo(
     () =>
-      CATALOG_WITH_EMOJI.filter((l) => {
+      realListings.filter((l) => {
         if (channelFilter !== "hepsi" && !l.channels.includes(channelFilter)) return false;
-        if (categoryFilter !== "hepsi" && catalogCategory(l) !== categoryFilter) return false;
+        if (categoryFilter !== "hepsi" && listingCategory(l) !== categoryFilter) return false;
         if (q && !(trLower(l.title).includes(q) || trLower(l.producer).includes(q))) return false;
         return true;
       }),
-    [channelFilter, categoryFilter, q]
+    [realListings, channelFilter, categoryFilter, q]
   );
   const anyMarketFilter = channelFilter !== "hepsi" || categoryFilter !== "hepsi" || query.trim() !== "";
 
@@ -281,28 +268,22 @@ function MarketInner({ session, realListings, myListings, myOrders, incomingOrde
 
   return (
     <>
-      {/* ---------- HASAT PAZARI HERO + KEŞFET ---------- */}
-      {/* Görsel kimlik kaynağı: ADR-009 (Ekosistem önceliklendirmesi ve iki katmanlı görsel
-          kimlik) + docs/design/hasat-pazari-gorsel-yon.html referans önizlemesi — kullanıcının
-          kendi Pinterest panosu (pin.it/3hy0iVoBY, "Organic Store Website Design" ve ilişkili
-          onlarca organik market tasarımı) temel alınarak hazırlandı. "Hasat Pazarı": toprak/
-          terracotta birincil + hasat altını aksan + krem zemin; orman yeşili YALNIZ doğrulanmış
-          "sertifikalı organik" rozetinde kullanılır (renk = kanıt sinyali). Evergreen Ledger'ın
-          orman/altın kimliği profesyonel/üretici yüzeylerinde (plan, rotasyon, izlenebilirlik,
-          sensör, kurasyon, uzman danışma, roller) AYNEN kalır — bu yalnız /pazar'a scoped.
-          Kullanıcı geri bildirimi (2026-07-13): önce güçlü, alışverişe-hazır bir vitrin —
-          kanal/ücret araçları önemli ama ikinci sırada. Tek hero, gerçek fotoğraflı ürün
-          grid'i, çalışan arama+kategori+kanal filtresi buraya taşındı. */}
+      {/* ---------- HASAT PAZARI — KOMPAKT VİTRİN BAŞLIĞI + GERÇEK ÜRÜN GRID'İ ---------- */}
+      {/* Kullanıcı geri bildirimi (2026-07-13/14): önce güçlü, alışverişe-hazır, TIKLANABİLİR
+          bir vitrin. Ana grid artık canlı Postgres ilanları (statik demo katalog değil) —
+          her kart /pazar/[id] detay sayfasına gider, sipariş/sepet butonları bağımsız çalışır.
+          Görsel kimlik: ADR-009 + docs/design/hasat-pazari-gorsel-yon.html — yalnız /pazar'a
+          scoped toprak/altın vurgu; Evergreen Ledger'ın global token'ları değişmedi. */}
       <section className="market-hero-band">
         <div className="container-x">
-          <div style={{ textAlign: "center", marginBottom: 28 }}>
+          <div style={{ textAlign: "center", marginBottom: 22 }}>
             <span className="eyebrow market-hero-eyebrow">HASAT PAZARI</span>
-            <h1 style={{ fontSize: "var(--fs-h1)", marginTop: 10, marginBottom: 10 }} className="text-balance">
-              Ürettiğini <em style={{ fontStyle: "italic", color: "#A1502E" }}>kaçırmadan</em> sat, aradığını güvenle bul.
+            <h1 style={{ fontSize: "var(--fs-h2)", marginTop: 8, marginBottom: 8 }} className="text-balance">
+              Yerel üreticilerin <em style={{ fontStyle: "italic", color: "#A1502E" }}>gerçek</em> ürünleri.
             </h1>
-            <p style={{ color: "var(--text-mid)", fontSize: "var(--fs-lead)", maxWidth: 580, margin: "0 auto" }}>
-              Yerel vitrin, restoran aboneliği, CSA kutusu ve Etsy — tek master katalogdan.
-              Sertifikasız ürün &quot;organik&quot; olarak yayınlanamaz.
+            <p style={{ color: "var(--text-mid)", fontSize: "var(--fs-base)", maxWidth: 560, margin: "0 auto" }}>
+              Sertifikasız ürün &quot;organik&quot; olarak yayınlanamaz. Ödeme tahsilatı henüz
+              entegre değil — sipariş, alıcı ve üretici arasında kalıcı bir talep kaydı oluşturur.
             </p>
           </div>
 
@@ -319,7 +300,7 @@ function MarketInner({ session, realListings, myListings, myOrders, incomingOrde
               <span>Tümü</span>
             </button>
             {(Object.keys(HASAT_CATEGORY_META) as CropCategory[])
-              .filter((catId) => (catalogCounts[catId] ?? 0) > 0)
+              .filter((catId) => (categoryCounts[catId] ?? 0) > 0)
               .map((catId) => {
                 const meta = HASAT_CATEGORY_META[catId];
                 const on = categoryFilter === catId;
@@ -397,50 +378,138 @@ function MarketInner({ session, realListings, myListings, myOrders, incomingOrde
           </div>
 
           <div className="market-result-bar">
-            <strong className="tnum">{filteredCatalog.length}</strong> ürün
-            {anyMarketFilter && <span style={{ color: "var(--text-low)" }}> · {CATALOG_WITH_EMOJI.length} içinde</span>}
+            <strong className="tnum">{filteredListings.length}</strong> ürün
+            {anyMarketFilter && <span style={{ color: "var(--text-low)" }}> · {realListings.length} içinde</span>}
           </div>
 
-          {/* --- Ana ürün listeleme grid'i (master katalog, gerçek fotoğraflar) --- */}
-          {filteredCatalog.length === 0 ? (
+          {/* --- Ana ürün grid'i: canlı ilanlar, tıklanabilir kartlar --- */}
+          {realListings.length === 0 ? (
+            <div className="card" style={{ padding: 28, textAlign: "center" }}>
+              <p style={{ color: "var(--text-mid)", marginBottom: 4 }}>
+                Henüz yayınlanmış ilan yok — ilk ilanı sen aç.
+              </p>
+              {!session && (
+                <Link href="/giris" className="btn btn-primary btn-sm" style={{ marginTop: 12 }}>
+                  Giriş yap ve ilan aç
+                </Link>
+              )}
+            </div>
+          ) : filteredListings.length === 0 ? (
             <div className="card" style={{ padding: 28, textAlign: "center" }}>
               <p style={{ color: "var(--text-mid)", margin: 0 }}>Bu filtrelerle eşleşen ürün yok.</p>
             </div>
           ) : (
             <div className="market-shop-grid">
-              {filteredCatalog.map((l) => {
-                const photo = catalogPhoto(l);
+              {filteredListings.map((l) => {
+                const photo = listingPhoto(l);
                 const stock = STOCK_LABELS[l.stockType];
                 const claim = CLAIM_LABELS[l.claim];
-                const cat = catalogCategory(l);
+                const cat = listingCategory(l);
                 const catMeta = cat ? HASAT_CATEGORY_META[cat] : undefined;
+                const crop = l.cropId ? CROP_BY_ID[l.cropId] : undefined;
+                const incoming = incomingOrdersByListing[l.id] ?? [];
+                const isMine = myListings.some((m) => m.id === l.id);
                 return (
                   <div key={l.id} className="market-shop-card">
-                    <div className="market-shop-photo">
-                      {photo.path ? (
-                        <Image src={photo.path} alt={l.title} fill sizes="280px" style={{ objectFit: "cover" }} />
-                      ) : (
-                        <span className="market-shop-photo-fallback">{l.emoji}</span>
-                      )}
-                      {catMeta && (
-                        <span className="market-shop-cat-tag" style={{ background: catMeta.color }}>
-                          {catMeta.label}
-                        </span>
-                      )}
-                      {photo.isApprox && <span className="market-shop-approx">≈ analog görsel</span>}
-                    </div>
+                    {/* Kart gövdesi (foto + başlık) detaya götürür; butonlar bağımsız kalır. */}
+                    <Link href={`/pazar/${l.id}`} className="market-shop-photo-link" aria-label={`${l.title} detayını aç`}>
+                      <div className="market-shop-photo">
+                        {photo.path ? (
+                          <Image src={photo.path} alt={l.title} fill sizes="280px" style={{ objectFit: "cover" }} />
+                        ) : (
+                          <span className="market-shop-photo-fallback">{crop?.emoji ?? "🌱"}</span>
+                        )}
+                        {catMeta && (
+                          <span className="market-shop-cat-tag" style={{ background: catMeta.color }}>
+                            {catMeta.label}
+                          </span>
+                        )}
+                        {photo.isApprox && <span className="market-shop-approx">≈ analog görsel</span>}
+                      </div>
+                    </Link>
                     <div className="market-shop-body">
-                      <div className="market-shop-producer">{l.producer} · {l.region}</div>
-                      <div className="market-shop-title">{l.title}</div>
+                      <Link href={`/pazar/${l.id}`} className="market-shop-title-link">
+                        <div className="market-shop-producer">{l.producer} · {l.region}</div>
+                        <div className="market-shop-title">{l.title}</div>
+                      </Link>
                       <div className="market-shop-price-row">
                         <span className="market-shop-price">{l.priceTRY.toLocaleString("tr-TR")} ₺</span>
                         <span className="market-shop-unit">{l.unitLabel}</span>
                       </div>
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 }}>
-                        <span className={`chip chip-${stock.tone}`}>{stock.label}</span>
+                        <span className={`chip ${l.stockQty > 0 ? (l.stockQty <= 3 ? "chip-warn" : "chip-ok") : "chip-danger"}`}>
+                          <Package size={11} /> {l.stockQty > 0 ? `${l.stockQty} adet stokta` : "Tükendi"}
+                        </span>
                         <span className={`chip chip-${claim.tone}`}>
                           <ShieldCheck size={11} /> {claim.label}
                         </span>
+                      </div>
+                      <div className="market-shop-spec">
+                        <Calendar size={12} style={{ verticalAlign: -2, marginRight: 4 }} />
+                        {FORMAT_LABELS[l.format]} · Raf ömrü {l.shelfLifeDays} gün · {stock.label}
+                      </div>
+
+                      {/* --- Satın alma / sahiplik eylemleri --- */}
+                      <div className="market-shop-actions">
+                        {isMine ? (
+                          <div style={{ display: "grid", gap: 6 }}>
+                            <span className="chip chip-info" style={{ width: "fit-content" }}>Senin ilanın</span>
+                            {incoming.length > 0 && (
+                              <div style={{ display: "grid", gap: 6, marginTop: 6 }}>
+                                {incoming.map((o) => (
+                                  <div key={o.id} style={{ fontSize: "var(--fs-xs)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
+                                    <span>{o.quantity}× · {o.totalPriceTRY.toLocaleString("tr-TR")} ₺ · {o.status}</span>
+                                    {o.status === "beklemede" && canManageCommerce && (
+                                      <div style={{ display: "flex", gap: 4 }}>
+                                        <button className="btn btn-primary btn-sm" style={{ padding: "4px 8px" }} disabled={orderPending} onClick={() => handleOrderStatus(o.id, "onaylandi")}>
+                                          <Check size={12} />
+                                        </button>
+                                        <button className="btn btn-ghost btn-sm" style={{ padding: "4px 8px" }} disabled={orderPending} onClick={() => handleOrderStatus(o.id, "iptal")}>
+                                          <X size={12} />
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ) : l.stockQty <= 0 ? (
+                          <span className="chip chip-danger" style={{ width: "fit-content" }}>Stok tükendi</span>
+                        ) : (
+                          <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                            <input
+                              type="number"
+                              min={1}
+                              max={l.stockQty}
+                              defaultValue={1}
+                              onChange={(e) => setQtyByListing((qm) => ({ ...qm, [l.id]: Math.min(l.stockQty, Math.max(1, Number(e.target.value) || 1)) }))}
+                              style={{ width: 56, padding: "6px 8px", borderRadius: 8, border: "1px solid var(--border-soft)" }}
+                              aria-label="Miktar"
+                            />
+                            <button
+                              className="btn btn-primary btn-sm"
+                              disabled={orderPending}
+                              onClick={() => handlePlaceOrder(l.id)}
+                            >
+                              Sipariş ver
+                            </button>
+                            <button
+                              className="btn btn-ghost btn-sm"
+                              onClick={() =>
+                                addItem(
+                                  { listingId: l.id, title: l.title, priceTRY: l.priceTRY, unitLabel: l.unitLabel, maxQty: l.stockQty },
+                                  qtyByListing[l.id] ?? 1
+                                )
+                              }
+                            >
+                              Sepete ekle
+                            </button>
+                          </div>
+                        )}
+                        {orderMsg[l.id] && (
+                          <p style={{ fontSize: "var(--fs-xs)", marginTop: 8, color: "var(--text-mid)" }}>{orderMsg[l.id]}</p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -448,135 +517,6 @@ function MarketInner({ session, realListings, myListings, myOrders, incomingOrde
               })}
             </div>
           )}
-        </div>
-        <WaveDivider fill="var(--color-paper-50)" />
-      </section>
-
-      {/* ---------- GERÇEK İLANLAR (canlı Postgres — statik katalog değil) ---------- */}
-      <section className="section" style={{ paddingTop: "clamp(2rem, 4vw, 3rem)" }}>
-        <div className="container-x">
-          <NumberedHeading n="00" eyebrow="Canlı, veritabanından" title="Az önce eklenen gerçek ilanlar" />
-          <p style={{ color: "var(--text-mid)", maxWidth: 620, marginBottom: 24 }}>
-            Yukarıdaki katalog örnek bir vitrindir; buradaki ilanlar gerçek üreticilerin
-            hesaplarından geliyor. Ödeme tahsilatı henüz entegre değil — sipariş iki gerçek
-            hesap arasında kalıcı bir talep kaydı oluşturur.
-          </p>
-
-          {/* --- Gerçek ilan grid'i (Postgres) --- */}
-          <div className="market-real-grid">
-            {realListings.length === 0 ? (
-              <div className="card" style={{ padding: 28, textAlign: "center", gridColumn: "1 / -1" }}>
-                <p style={{ color: "var(--text-mid)", marginBottom: 4 }}>
-                  Henüz yayınlanmış gerçek ilan yok — ilk ilanı sen aç.
-                </p>
-                {!session && (
-                  <Link href="/giris" className="btn btn-primary btn-sm" style={{ marginTop: 12 }}>
-                    Giriş yap ve ilan aç
-                  </Link>
-                )}
-              </div>
-            ) : (
-              realListings.map((l) => {
-                const crop = l.cropId ? CROPS.find((c) => c.id === l.cropId) : undefined;
-                const photoPath = l.cropId ? cropPhotoPath(l.cropId) : undefined;
-                const credit = l.cropId ? primaryCredit(l.cropId) : undefined;
-                const incoming = incomingOrdersByListing[l.id] ?? [];
-                const isMine = myListings.some((m) => m.id === l.id);
-                return (
-                  <div key={l.id} className="card card-hover market-real-card">
-                    {photoPath ? (
-                      <div className="market-real-card-photo">
-                        <Image src={photoPath} alt={credit?.isApproximation ? `${l.title} (analog görsel)` : l.title} fill sizes="280px" style={{ objectFit: "cover" }} />
-                      </div>
-                    ) : null}
-                    <div style={{ padding: 16 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                      {!photoPath && <span className="market-real-card-emoji">{crop?.emoji ?? "🌱"}</span>}
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 600 }}>{l.title}</div>
-                        <div style={{ fontSize: "var(--fs-xs)", color: "var(--text-low)" }}>
-                          {l.producer} · {l.region}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="font-mono" style={{ fontSize: "var(--fs-lg)", fontWeight: 600, color: "#7c3b21" }}>
-                      {l.priceTRY.toLocaleString("tr-TR")} ₺
-                    </div>
-                    <div style={{ fontSize: "var(--fs-xs)", color: "var(--text-low)", marginBottom: 8 }}>{l.unitLabel}</div>
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
-                      <span className={`chip chip-${CLAIM_LABELS[l.claim].tone}`}>
-                        <ShieldCheck size={11} /> {CLAIM_LABELS[l.claim].label}
-                      </span>
-                      <span className={`chip ${l.stockQty > 0 ? (l.stockQty <= 3 ? "chip-warn" : "chip-ok") : "chip-danger"}`}>
-                        <Package size={11} /> {l.stockQty > 0 ? `${l.stockQty} adet stokta` : "Tükendi"}
-                      </span>
-                    </div>
-
-                    {isMine ? (
-                      <div style={{ display: "grid", gap: 6 }}>
-                        <span className="chip chip-info" style={{ width: "fit-content" }}>Senin ilanın</span>
-                        {incoming.length > 0 && (
-                          <div style={{ display: "grid", gap: 6, marginTop: 6 }}>
-                            {incoming.map((o) => (
-                              <div key={o.id} style={{ fontSize: "var(--fs-xs)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
-                                <span>{o.quantity}× · {o.totalPriceTRY.toLocaleString("tr-TR")} ₺ · {o.status}</span>
-                                {o.status === "beklemede" && canManageCommerce && (
-                                  <div style={{ display: "flex", gap: 4 }}>
-                                    <button className="btn btn-primary btn-sm" style={{ padding: "4px 8px" }} disabled={orderPending} onClick={() => handleOrderStatus(o.id, "onaylandi")}>
-                                      <Check size={12} />
-                                    </button>
-                                    <button className="btn btn-ghost btn-sm" style={{ padding: "4px 8px" }} disabled={orderPending} onClick={() => handleOrderStatus(o.id, "iptal")}>
-                                      <X size={12} />
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ) : l.stockQty <= 0 ? (
-                      <span className="chip chip-danger" style={{ width: "fit-content" }}>Stok tükendi</span>
-                    ) : (
-                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                        <input
-                          type="number"
-                          min={1}
-                          max={l.stockQty}
-                          defaultValue={1}
-                          onChange={(e) => setQtyByListing((q) => ({ ...q, [l.id]: Math.min(l.stockQty, Math.max(1, Number(e.target.value) || 1)) }))}
-                          style={{ width: 56, padding: "6px 8px", borderRadius: 8, border: "1px solid var(--border-soft)" }}
-                          aria-label="Miktar"
-                        />
-                        <button
-                          className="btn btn-primary btn-sm"
-                          disabled={orderPending}
-                          onClick={() => handlePlaceOrder(l.id)}
-                        >
-                          Sipariş ver
-                        </button>
-                        <button
-                          className="btn btn-ghost btn-sm"
-                          onClick={() =>
-                            addItem(
-                              { listingId: l.id, title: l.title, priceTRY: l.priceTRY, unitLabel: l.unitLabel, maxQty: l.stockQty },
-                              qtyByListing[l.id] ?? 1
-                            )
-                          }
-                        >
-                          Sepete ekle
-                        </button>
-                      </div>
-                    )}
-                    {orderMsg[l.id] && (
-                      <p style={{ fontSize: "var(--fs-xs)", marginTop: 8, color: "var(--text-mid)" }}>{orderMsg[l.id]}</p>
-                    )}
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
         </div>
         <WaveDivider fill="var(--color-paper-50)" />
       </section>
@@ -643,7 +583,9 @@ function MarketInner({ session, realListings, myListings, myOrders, incomingOrde
                   {myListings.map((l) => (
                     <div key={l.id} className="card" style={{ padding: 12, display: "grid", gap: 8 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                        <span style={{ fontSize: "var(--fs-sm)" }}>{l.title} — {l.priceTRY.toLocaleString("tr-TR")} ₺</span>
+                        <Link href={`/pazar/${l.id}`} style={{ fontSize: "var(--fs-sm)", color: "inherit", textDecoration: "none" }}>
+                          {l.title} — {l.priceTRY.toLocaleString("tr-TR")} ₺
+                        </Link>
                         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                           <span className={`chip chip-${CLAIM_LABELS[l.claim].tone}`}>
                             <ShieldCheck size={11} /> {CLAIM_LABELS[l.claim].label}
@@ -916,197 +858,10 @@ function MarketInner({ session, realListings, myListings, myOrders, incomingOrde
         </section>
       )}
 
-      {/* ---------- KANAL KARŞILAŞTIRMA ---------- */}
-      <section id="kanallar" className="section paper-section">
-        <div className="container-x">
-          <NumberedHeading n="01" eyebrow="Dört kanal, tek merkez" title="Hangi kanal senin için uygun?" />
-          <div className="bento" style={{ gridTemplateColumns: "repeat(4, minmax(0,1fr))" }}>
-            {CHANNELS.map((c, i) => {
-              const Icon = CHANNEL_ICON[c.id];
-              return (
-                <Reveal key={c.id} i={i} as="div">
-                  <SpotlightCard style={{ padding: 22, height: "100%", display: "flex", flexDirection: "column" }}>
-                    <div
-                      style={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: 12,
-                        display: "grid",
-                        placeItems: "center",
-                        background: "color-mix(in srgb, var(--primary) 12%, transparent)",
-                        color: "var(--primary)",
-                        marginBottom: 16,
-                      }}
-                    >
-                      <Icon size={22} />
-                    </div>
-                    <h3 style={{ fontSize: "var(--fs-lg)", marginBottom: 6 }}>{c.name}</h3>
-                    <p style={{ color: "var(--text-mid)", fontSize: "var(--fs-sm)", marginBottom: 14, flex: 1 }}>
-                      {c.tagline}
-                    </p>
-                    <div className="chip" style={{ marginBottom: 12, width: "fit-content" }}>
-                      <Scale size={13} /> {c.feePct[0] === c.feePct[1] ? `%${c.feePct[0]}` : `%${c.feePct[0]}–${c.feePct[1]}`}
-                    </div>
-                    <p style={{ fontSize: "var(--fs-xs)", color: "var(--text-low)", marginBottom: 14 }}>{c.feeNote}</p>
-                    <ul style={{ display: "grid", gap: 6, listStyle: "none", padding: 0, margin: 0, fontSize: "var(--fs-xs)" }}>
-                      {c.requirements.map((r, ri) => (
-                        <li key={ri} style={{ display: "flex", gap: 6, color: "var(--text-mid)" }}>
-                          <Check size={13} style={{ color: "var(--color-success)", flexShrink: 0, marginTop: 2 }} />
-                          {r}
-                        </li>
-                      ))}
-                    </ul>
-                    <p style={{ marginTop: 14, fontSize: "var(--fs-xs)", fontWeight: 600, color: "var(--primary)" }}>
-                      {c.bestFor}
-                    </p>
-                  </SpotlightCard>
-                </Reveal>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* ---------- MASTER KATALOG ---------- */}
-      <section className="section">
-        <div className="container-x">
-          <NumberedHeading n="02" eyebrow="Tek kayıt, çoklu kanal" title="Master katalog" />
-          <p style={{ color: "var(--text-mid)", maxWidth: 640, marginBottom: 24 }}>
-            Her ürün tek yerde tanımlanır; hangi kanalda satılacağını sen seçersin. Stok durumu
-            (mevcut / tahmini hasat / ön sipariş) ve organik iddia durumu her kartta açıkça
-            görünür — kanıt olmadan rozet verilmez.
-          </p>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 24 }}>
-            <button
-              onClick={() => setChannelFilter("hepsi")}
-              className="chip"
-              aria-pressed={channelFilter === "hepsi"}
-              style={{
-                cursor: "pointer",
-                border: "none",
-                background: channelFilter === "hepsi" ? "var(--primary)" : "var(--bg-surface-2)",
-                color: channelFilter === "hepsi" ? "var(--primary-fg)" : "var(--text-mid)",
-              }}
-            >
-              Tüm kanallar ({CATALOG_WITH_EMOJI.length})
-            </button>
-            {CHANNELS.map((c) => {
-              const count = CATALOG_WITH_EMOJI.filter((l) => l.channels.includes(c.id)).length;
-              const active = channelFilter === c.id;
-              return (
-                <button
-                  key={c.id}
-                  onClick={() => setChannelFilter(c.id)}
-                  className="chip"
-                  aria-pressed={active}
-                  style={{
-                    cursor: "pointer",
-                    border: "none",
-                    background: active ? "var(--primary)" : "var(--bg-surface-2)",
-                    color: active ? "var(--primary-fg)" : "var(--text-mid)",
-                  }}
-                >
-                  {CHANNEL_LABEL_SHORT[c.id]} ({count})
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="catalog-grid">
-            {filteredCatalog.map((l, i) => {
-              const stock = STOCK_LABELS[l.stockType];
-              const claim = CLAIM_LABELS[l.claim];
-              return (
-                <Reveal key={l.id} i={i % 4} as="div">
-                  <div className="card card-hover market-card" style={{ padding: 18, height: "100%", display: "flex", flexDirection: "column" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-                      <span
-                        style={{
-                          width: 40,
-                          height: 40,
-                          borderRadius: 10,
-                          display: "grid",
-                          placeItems: "center",
-                          fontSize: 20,
-                          background: "var(--bg-surface-2)",
-                        }}
-                        aria-hidden="true"
-                      >
-                        {l.emoji}
-                      </span>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 600, fontSize: "var(--fs-base)" }}>{l.title}</div>
-                        <div style={{ fontSize: "var(--fs-xs)", color: "var(--text-low)" }}>
-                          {l.producer} · {l.region}
-                        </div>
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
-                      <span className={`chip chip-${stock.tone}`}>{stock.label}</span>
-                      <span className="chip">{FORMAT_LABELS[l.format]}</span>
-                    </div>
-                    <div className="font-mono" style={{ fontSize: "var(--fs-lg)", fontWeight: 600, marginBottom: 4 }}>
-                      {l.priceTRY.toLocaleString("tr-TR")} ₺
-                    </div>
-                    <div style={{ fontSize: "var(--fs-xs)", color: "var(--text-low)", marginBottom: 12 }}>{l.unitLabel}</div>
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
-                      {l.channels.map((ch) => (
-                        <span key={ch} className="chip" style={{ fontSize: 11 }}>
-                          {CHANNEL_LABEL_SHORT[ch]}
-                        </span>
-                      ))}
-                    </div>
-                    <div
-                      className={`chip chip-${claim.tone}`}
-                      style={{ marginTop: "auto", display: "flex", alignItems: "flex-start", gap: 6 }}
-                    >
-                      <ShieldCheck size={13} style={{ flexShrink: 0, marginTop: 1 }} />
-                      <span>{claim.label}</span>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: 10, fontSize: "var(--fs-xs)", color: "var(--text-low)" }}>
-                      <span>
-                        <Calendar size={12} style={{ verticalAlign: -2, marginRight: 3 }} />
-                        Raf ömrü {l.shelfLifeDays} gün
-                      </span>
-                      <span className="font-mono">%{Math.round(l.repeatOrderRate * 100)} tekrar sipariş</span>
-                    </div>
-                  </div>
-                </Reveal>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* ---------- TESLİMAT BÖLGELERİ ---------- */}
+      {/* ---------- ÜCRET SİMÜLATÖRLERİ (araç — vitrin/vitrinimden sonra, demote edildi) ---------- */}
       <section className="section paper-section">
         <div className="container-x">
-          <NumberedHeading n="03" eyebrow="Bölgesel teslimat yarıçapı" title="Nerede teslim edebilirsin?" />
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>
-            {DELIVERY_ZONES.map((z, i) => (
-              <Reveal key={z.id} i={i} as="div" className="card" style={{ padding: 18 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                  <MapPin size={16} style={{ color: "var(--primary)" }} />
-                  <strong style={{ fontSize: "var(--fs-base)" }}>{z.region}</strong>
-                </div>
-                <div style={{ display: "grid", gap: 6, fontSize: "var(--fs-sm)", color: "var(--text-mid)" }}>
-                  <div>Yarıçap: <span className="font-mono">{z.radiusKm} km</span></div>
-                  <div>Min. sipariş: <span className="font-mono">{z.minOrderTRY} ₺</span></div>
-                  <div>Teslimat: <span className="font-mono">{z.deliveryFeeTRY} ₺</span></div>
-                </div>
-                <span className={`chip ${z.sameDay ? "chip-ok" : "chip-info"}`} style={{ marginTop: 12 }}>
-                  {z.sameDay ? "Aynı gün teslimat" : "Ertesi gün teslimat"}
-                </span>
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ---------- ÜCRET SİMÜLATÖRLERİ ---------- */}
-      <section className="section">
-        <div className="container-x">
-          <NumberedHeading n="04" eyebrow="Satmadan önce gör" title="Ücret simülatörleri" />
+          <NumberedHeading n="00" eyebrow="Satmadan önce gör" title="Ücret simülatörleri" />
           <p style={{ color: "var(--text-mid)", maxWidth: 640, marginBottom: 28 }}>
             Her işlemde toplam ücret ve net üretici geliri ödeme öncesi görünür. Etsy ve
             SmartGrowth ücretleri her zaman ayrı gösterilir.
@@ -1259,72 +1014,13 @@ function MarketInner({ session, realListings, myListings, myOrders, incomingOrde
         </div>
       </section>
 
-      {/* ---------- B2B TALEP AKIŞI ---------- */}
-      <section className="section paper-section">
-        <div className="container-x">
-          <NumberedHeading n="05" eyebrow="Restoran ve şef talebi" title="B2B talep nasıl işler?" />
-          <div style={{ display: "grid", gridTemplateColumns: `repeat(${B2B_FLOW.length}, 1fr)`, gap: 16 }} className="b2b-grid">
-            {B2B_FLOW.map((s, i) => (
-              <Reveal key={s.stage} i={i} as="div" className="card" style={{ padding: 18, position: "relative" }}>
-                <span
-                  className="font-mono"
-                  style={{
-                    display: "inline-block",
-                    fontSize: "var(--fs-sm)",
-                    fontWeight: 700,
-                    color: "var(--accent)",
-                    marginBottom: 10,
-                  }}
-                >
-                  {String(i + 1).padStart(2, "0")}
-                </span>
-                <h4 style={{ fontSize: "var(--fs-base)", marginBottom: 6 }}>{s.stage}</h4>
-                <p style={{ fontSize: "var(--fs-xs)", color: "var(--text-mid)", margin: 0 }}>{s.detail}</p>
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ---------- DÜRÜSTLÜK / UYUM KAPISI ---------- */}
-      <section className="pine-band grain section" style={{ position: "relative" }}>
-        <div className="container-x" style={{ display: "flex", alignItems: "center", gap: 40, flexWrap: "wrap" }}>
-          <StampBadge
-            center={
-              <div style={{ textAlign: "center" }}>
-                <Sparkles size={20} />
-                <div style={{ fontSize: 11, marginTop: 4, fontWeight: 600 }}>DÜRÜST<br />TİCARET</div>
-              </div>
-            }
-          />
-          <div style={{ flex: 1, minWidth: 280 }}>
-            <h2 style={{ fontSize: "var(--fs-h2)", marginBottom: 12 }}>Sertifika yoksa &quot;organik&quot; rozeti yok.</h2>
-            <p style={{ color: "rgba(232,237,233,.78)", maxWidth: 620, marginBottom: 8 }}>
-              Sponsorlu ürün organik sıralamayı değiştirmez, &quot;en uygun&quot; rozeti satın
-              alınamaz. Etsy&apos;de başlayan işlem platform dışına yönlendirilmez; her işlemde
-              toplam ücret ve net üretici geliri ödeme öncesi görünür. Her satış lotu tohumdan
-              sevkiyata izlenebilir.
-            </p>
-          </div>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", flexShrink: 0 }}>
-            <Link href="/izlenebilirlik" className="btn btn-secondary btn-lg">
-              Lot zincirini gör
-            </Link>
-            <Link href="/plan" className="btn btn-accent btn-lg">
-              Satışa hazır plan oluştur <ArrowRight size={16} />
-            </Link>
-          </div>
-        </div>
-      </section>
-
       <style>{`
         /* "Hasat Pazarı" — ADR-009 + docs/design/hasat-pazari-gorsel-yon.html referans
-           önizlemesiyle BİREBİR: altın→krem→orman yeşili degrade hero (koyu solid yeşil DEĞİL),
-           toprak/terracotta vurgu metni, kategoriye-özel renkli rozetler (Explorer.tsx'teki
-           CATEGORY_META ile aynı palet), gerçek ürün fotoğrafları. Yalnız bu bant/kart setine
-           scoped — Evergreen Ledger'ın global token'ları değişmedi. */
+           önizlemesiyle BİREBİR: altın→krem→orman yeşili degrade hero, toprak/terracotta vurgu,
+           kategoriye-özel renkli rozetler (Explorer.tsx CATEGORY_META ile aynı palet), gerçek
+           ürün fotoğrafları. Yalnız bu bant/kart setine scoped — global token'lar değişmedi. */
         .market-hero-band {
-          padding: 56px 0 0;
+          padding: 40px 0 0;
           background: linear-gradient(135deg, #f7de9f 0%, #F9F8F3 55%, #dcede1 100%);
         }
         .market-hero-eyebrow { color: #7c3b21; }
@@ -1406,7 +1102,7 @@ function MarketInner({ session, realListings, myListings, myOrders, incomingOrde
         .market-chip.is-on { background: #A1502E; border-color: #A1502E; color: #fff; }
         .market-result-bar { font-size: var(--fs-sm); color: var(--text-mid); margin-bottom: 16px; }
 
-        /* --- ana ürün listeleme grid'i (master katalog) --- */
+        /* --- ana ürün grid'i (gerçek, tıklanabilir ilanlar) --- */
         .market-shop-grid {
           display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px;
           padding-bottom: 16px;
@@ -1421,6 +1117,7 @@ function MarketInner({ session, realListings, myListings, myOrders, incomingOrde
         }
         .dark .market-shop-card { background: var(--bg-surface); }
         .market-shop-card:hover { transform: translateY(-3px); border-color: #A1502E; box-shadow: 0 10px 26px color-mix(in srgb, #A1502E 18%, transparent); }
+        .market-shop-photo-link { display: block; color: inherit; text-decoration: none; }
         .market-shop-photo { position: relative; width: 100%; height: 148px; background: var(--color-paper-200, var(--bg-surface-2)); flex-shrink: 0; }
         .market-shop-photo-fallback { position: absolute; inset: 0; display: grid; place-items: center; font-size: 40px; }
         .market-shop-cat-tag {
@@ -1433,67 +1130,19 @@ function MarketInner({ session, realListings, myListings, myOrders, incomingOrde
           padding: 3px 8px; border-radius: 999px; color: #fff;
           background: color-mix(in srgb, var(--color-warning) 80%, black 8%);
         }
-        .market-shop-body { padding: 14px 16px 16px; }
+        .market-shop-body { padding: 14px 16px 16px; display: flex; flex-direction: column; flex: 1; }
+        .market-shop-title-link { display: block; color: inherit; text-decoration: none; }
         .market-shop-producer { font-size: 11px; color: var(--color-ink-500, var(--text-low)); margin-bottom: 6px; }
-        .market-shop-title { font-weight: 700; font-size: 15px; margin-bottom: 8px; }
+        .market-shop-title { font-weight: 700; font-size: 15px; margin-bottom: 8px; transition: color var(--dur-fast, 150ms) ease; }
+        .market-shop-title-link:hover .market-shop-title { color: #A1502E; }
         .market-shop-price-row { display: flex; align-items: baseline; gap: 8px; }
         .market-shop-price { font-family: var(--font-mono); font-size: 19px; font-weight: 700; color: #7c3b21; }
         .dark .market-shop-price { color: var(--color-gold-300, #A1502E); }
         .market-shop-unit { font-size: 11px; color: var(--color-ink-500, var(--text-low)); }
+        .market-shop-spec { font-size: 11px; color: var(--color-ink-500, var(--text-low)); margin-top: 10px; }
+        .market-shop-actions { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-hair); }
 
-        .market-real-grid {
-          display: grid;
-          grid-template-columns: repeat(4, minmax(0, 1fr));
-          gap: 14px;
-          padding-bottom: 8px;
-        }
-        .market-real-card {
-          background: #FDFCF8 !important;
-          padding: 0 !important;
-          overflow: hidden;
-          display: flex;
-          flex-direction: column;
-        }
-        .market-real-card-photo {
-          position: relative;
-          width: 100%;
-          height: 132px;
-          background: var(--bg-surface-2);
-          flex-shrink: 0;
-        }
-        .market-real-card-emoji {
-          width: 40px; height: 40px; border-radius: 999px;
-          display: grid; place-items: center; font-size: 20px;
-          background: color-mix(in srgb, #A1502E 12%, transparent);
-        }
-        @media (max-width: 1100px) { .market-real-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } }
-        @media (max-width: 560px) { .market-real-grid { grid-template-columns: 1fr; } }
         @media (max-width: 800px) { #vitrinim-grid { grid-template-columns: 1fr !important; } }
-
-        .catalog-grid {
-          display: grid;
-          grid-template-columns: repeat(4, minmax(0, 1fr));
-          gap: 16px;
-        }
-        @media (max-width: 1100px) { .catalog-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } }
-        @media (max-width: 560px) { .catalog-grid { grid-template-columns: 1fr; } }
-
-        /* "Hasat pazarı" sıcak aksanı — yalnız bu vitrin kartlarına özel, katmanlı (additive).
-           Kaynak: Dribbble "Organic Food (Marketplace) V18" (Vitali Zahharov) paylaşılan paleti
-           (#F9F8F3 krem, #A1502E toprak/kiremit) — Evergreen Ledger'ın orman yeşili/altın kimliğini
-           DEĞİŞTİRMEZ, yalnız pazar sayfasının ürün kartlarına sıcak bir vurgu katmanı ekler. */
-        .market-card {
-          background: color-mix(in srgb, #F9F8F3 88%, var(--bg-surface));
-          border-color: color-mix(in srgb, #A1502E 22%, var(--border-hair));
-        }
-        .dark .market-card {
-          background: color-mix(in srgb, #A1502E 10%, var(--bg-surface));
-          border-color: color-mix(in srgb, #A1502E 30%, var(--border-hair));
-        }
-        .market-card:hover {
-          border-color: #A1502E;
-          box-shadow: 0 8px 24px color-mix(in srgb, #A1502E 18%, transparent);
-        }
 
         .sim-input {
           display: block;
@@ -1510,10 +1159,6 @@ function MarketInner({ session, realListings, myListings, myOrders, incomingOrde
 
         @media (max-width: 900px) {
           .sim-grid { grid-template-columns: 1fr !important; }
-          .b2b-grid { grid-template-columns: repeat(2, 1fr) !important; }
-        }
-        @media (max-width: 560px) {
-          .b2b-grid { grid-template-columns: 1fr !important; }
         }
       `}</style>
     </>
