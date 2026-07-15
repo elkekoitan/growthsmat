@@ -281,8 +281,13 @@ export default function Home() {
                 </p>
 
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-                  <Link href="/plan" className="btn btn-accent btn-lg">
-                    Ücretsiz planını oluştur <ArrowRight size={18} />
+                  {/* E-ticaret ön planda (kullanıcı direktifi): birincil CTA Hasat Pazarı'na,
+                      plan oluşturma ikincil olarak korunur. */}
+                  <Link href="/pazar" className="btn btn-accent btn-lg">
+                    Hasat Pazarı&apos;nı keşfet <ArrowRight size={18} />
+                  </Link>
+                  <Link href="/plan" className="btn btn-secondary btn-lg">
+                    Ücretsiz planını oluştur
                   </Link>
                   <a href="#nasil-calisir" className="btn btn-ghost btn-lg">
                     Nasıl çalışır

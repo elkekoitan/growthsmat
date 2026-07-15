@@ -6,8 +6,6 @@ import Image from "next/image";
 import {
   CHANNELS,
   DELIVERY_ZONES,
-  FORMAT_LABELS,
-  STOCK_LABELS,
   CLAIM_LABELS,
   simulateEtsyFees,
   simulateLocalFees,
@@ -30,7 +28,6 @@ import {
   Check,
   X,
   ShieldCheck,
-  Calendar,
   Sparkles,
   Search,
   Grid,
@@ -204,6 +201,26 @@ function MarketInner({ session, realListings, myListings, myOrders, incomingOrde
     });
   }
 
+  // "Sepete ekle" başarı durumu: sepete ekleme senkron (context) olduğundan spinner'a gerek
+  // yok — ~1.5 sn "Sepete eklendi ✓" gösterilir, sonra buton eski haline döner.
+  const [addedByListing, setAddedByListing] = useState<Record<string, boolean>>({});
+  function handleAddToCart(l: RealListing) {
+    const photo = listingPhoto(l);
+    addItem(
+      {
+        listingId: l.id,
+        title: l.title,
+        priceTRY: l.priceTRY,
+        unitLabel: l.unitLabel,
+        maxQty: l.stockQty,
+        photoPath: photo.path ?? (l.cropId || l.microgreenId ? undefined : "/brand/harvest-box.svg"),
+      },
+      qtyByListing[l.id] ?? 1
+    );
+    setAddedByListing((m) => ({ ...m, [l.id]: true }));
+    setTimeout(() => setAddedByListing((m) => ({ ...m, [l.id]: false })), 1500);
+  }
+
   function handleOrderStatus(orderId: string, status: "onaylandi" | "iptal") {
     startOrderTransition(async () => {
       await updateOrderStatusAction(orderId, status);
@@ -276,7 +293,7 @@ function MarketInner({ session, realListings, myListings, myOrders, incomingOrde
           scoped toprak/altın vurgu; Evergreen Ledger'ın global token'ları değişmedi. */}
       <section className="market-hero-band">
         <div className="container-x">
-          <div style={{ textAlign: "center", marginBottom: 22 }}>
+          <div style={{ textAlign: "center", marginBottom: 16 }}>
             <span className="eyebrow market-hero-eyebrow">HASAT PAZARI</span>
             <h1 style={{ fontSize: "var(--fs-h2)", marginTop: 8, marginBottom: 8 }} className="text-balance">
               Yerel üreticilerin <em style={{ fontStyle: "italic", color: "#A1502E" }}>gerçek</em> ürünleri.
@@ -285,6 +302,24 @@ function MarketInner({ session, realListings, myListings, myOrders, incomingOrde
               Sertifikasız ürün &quot;organik&quot; olarak yayınlanamaz. Ödeme tahsilatı henüz
               entegre değil — sipariş, alıcı ve üretici arasında kalıcı bir talep kaydı oluşturur.
             </p>
+          </div>
+
+          {/* Güven şeridi — yalnız DOĞRU, sayısız iddialar (Baymard: uydurma sosyal kanıt
+              güveni düşürür; gerçek mekanizma iddiaları yükseltir). Yeşil kullanılmaz —
+              forest green /pazar'da yalnız sertifika rozetine ayrılmıştır (ADR-009). */}
+          <div className="market-trust-strip" role="list" aria-label="Pazar güven ilkeleri">
+            <span className="market-trust-item" role="listitem">
+              <Grid size={14} /> İzlenebilir lot · QR doğrulama
+            </span>
+            <span className="market-trust-item" role="listitem">
+              <ShieldCheck size={14} /> Sertifika doğrulamalı organik iddia
+            </span>
+            <span className="market-trust-item" role="listitem">
+              <Store size={14} /> Yerel üretici
+            </span>
+            <span className="market-trust-item" role="listitem">
+              <Package size={14} /> Gerçek zamanlı stok
+            </span>
           </div>
 
           <div className="market-category-row">
@@ -402,26 +437,30 @@ function MarketInner({ session, realListings, myListings, myOrders, incomingOrde
             <div className="market-shop-grid">
               {filteredListings.map((l) => {
                 const photo = listingPhoto(l);
-                const stock = STOCK_LABELS[l.stockType];
-                const claim = CLAIM_LABELS[l.claim];
-                const cat = listingCategory(l);
-                const catMeta = cat ? HASAT_CATEGORY_META[cat] : undefined;
                 const crop = l.cropId ? CROP_BY_ID[l.cropId] : undefined;
                 const incoming = incomingOrdersByListing[l.id] ?? [];
                 const isMine = myListings.some((m) => m.id === l.id);
                 return (
                   <div key={l.id} className="market-shop-card">
-                    {/* Kart gövdesi (foto + başlık) detaya götürür; butonlar bağımsız kalır. */}
+                    {/* Kart gövdesi (foto + başlık) detaya götürür; butonlar bağımsız kalır.
+                        Fotoğraf üzerinde YALNIZ forest-green sertifikalı-organik rozeti durur
+                        (ADR-009) + "≈ analog görsel" dürüstlük işareti (rozet değil, bilgi). */}
                     <Link href={`/pazar/${l.id}`} className="market-shop-photo-link" aria-label={`${l.title} detayını aç`}>
                       <div className="market-shop-photo">
-                        {photo.path ? (
-                          <Image src={photo.path} alt={l.title} fill sizes="280px" style={{ objectFit: "cover" }} />
-                        ) : (
-                          <span className="market-shop-photo-fallback">{crop?.emoji ?? "🌱"}</span>
-                        )}
-                        {catMeta && (
-                          <span className="market-shop-cat-tag" style={{ background: catMeta.color }}>
-                            {catMeta.label}
+                        <div className="market-shop-photo-inner">
+                          {photo.path ? (
+                            <Image src={photo.path} alt={l.title} fill sizes="280px" style={{ objectFit: "cover" }} />
+                          ) : crop ? (
+                            <span className="market-shop-photo-fallback">{crop.emoji}</span>
+                          ) : (
+                            // CSA kutu / abonelik gibi katalogsuz ilanlar: özgün Hasat Pazarı illüstrasyonu.
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src="/brand/harvest-box.svg" alt="" className="market-shop-photo-illust" />
+                          )}
+                        </div>
+                        {l.claim === "sertifikali" && (
+                          <span className="market-cert-badge">
+                            <ShieldCheck size={12} /> Organik
                           </span>
                         )}
                         {photo.isApprox && <span className="market-shop-approx">≈ analog görsel</span>}
@@ -429,24 +468,17 @@ function MarketInner({ session, realListings, myListings, myOrders, incomingOrde
                     </Link>
                     <div className="market-shop-body">
                       <Link href={`/pazar/${l.id}`} className="market-shop-title-link">
-                        <div className="market-shop-producer">{l.producer} · {l.region}</div>
                         <div className="market-shop-title">{l.title}</div>
+                        <div className="market-shop-producer">{l.producer} · {l.region}</div>
                       </Link>
                       <div className="market-shop-price-row">
                         <span className="market-shop-price">{l.priceTRY.toLocaleString("tr-TR")} ₺</span>
-                        <span className="market-shop-unit">{l.unitLabel}</span>
                       </div>
-                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 }}>
+                      <div className="market-shop-unit">{l.unitLabel}</div>
+                      <div style={{ marginTop: 10 }}>
                         <span className={`chip ${l.stockQty > 0 ? (l.stockQty <= 3 ? "chip-warn" : "chip-ok") : "chip-danger"}`}>
                           <Package size={11} /> {l.stockQty > 0 ? `${l.stockQty} adet stokta` : "Tükendi"}
                         </span>
-                        <span className={`chip chip-${claim.tone}`}>
-                          <ShieldCheck size={11} /> {claim.label}
-                        </span>
-                      </div>
-                      <div className="market-shop-spec">
-                        <Calendar size={12} style={{ verticalAlign: -2, marginRight: 4 }} />
-                        {FORMAT_LABELS[l.format]} · Raf ömrü {l.shelfLifeDays} gün · {stock.label}
                       </div>
 
                       {/* --- Satın alma / sahiplik eylemleri --- */}
@@ -475,36 +507,44 @@ function MarketInner({ session, realListings, myListings, myOrders, incomingOrde
                             )}
                           </div>
                         ) : l.stockQty <= 0 ? (
-                          <span className="chip chip-danger" style={{ width: "fit-content" }}>Stok tükendi</span>
+                          // Tükendi: kart görünür kalır, CTA disabled — gizlenmez (dürüst durum).
+                          <button type="button" className="market-cta" disabled>
+                            Tükendi
+                          </button>
                         ) : (
-                          <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                            <input
-                              type="number"
-                              min={1}
-                              max={l.stockQty}
-                              defaultValue={1}
-                              onChange={(e) => setQtyByListing((qm) => ({ ...qm, [l.id]: Math.min(l.stockQty, Math.max(1, Number(e.target.value) || 1)) }))}
-                              style={{ width: 56, padding: "6px 8px", borderRadius: 8, border: "1px solid var(--border-soft)" }}
-                              aria-label="Miktar"
-                            />
+                          <div style={{ display: "grid", gap: 8 }}>
                             <button
-                              className="btn btn-primary btn-sm"
-                              disabled={orderPending}
-                              onClick={() => handlePlaceOrder(l.id)}
+                              type="button"
+                              className={`market-cta${addedByListing[l.id] ? " is-added" : ""}`}
+                              onClick={() => handleAddToCart(l)}
                             >
-                              Sipariş ver
+                              {addedByListing[l.id] ? (
+                                <>
+                                  <Check size={15} /> Sepete eklendi ✓
+                                </>
+                              ) : (
+                                "Sepete ekle"
+                              )}
                             </button>
-                            <button
-                              className="btn btn-ghost btn-sm"
-                              onClick={() =>
-                                addItem(
-                                  { listingId: l.id, title: l.title, priceTRY: l.priceTRY, unitLabel: l.unitLabel, maxQty: l.stockQty },
-                                  qtyByListing[l.id] ?? 1
-                                )
-                              }
-                            >
-                              Sepete ekle
-                            </button>
+                            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                              <input
+                                type="number"
+                                min={1}
+                                max={l.stockQty}
+                                defaultValue={1}
+                                onChange={(e) => setQtyByListing((qm) => ({ ...qm, [l.id]: Math.min(l.stockQty, Math.max(1, Number(e.target.value) || 1)) }))}
+                                style={{ width: 56, padding: "6px 8px", borderRadius: 8, border: "1px solid var(--border-soft)" }}
+                                aria-label="Miktar"
+                              />
+                              <button
+                                className="btn btn-secondary btn-sm"
+                                style={{ flex: 1 }}
+                                disabled={orderPending}
+                                onClick={() => handlePlaceOrder(l.id)}
+                              >
+                                {orderPending ? "Gönderiliyor…" : "Sipariş ver"}
+                              </button>
+                            </div>
                           </div>
                         )}
                         {orderMsg[l.id] && (
@@ -1020,10 +1060,27 @@ function MarketInner({ session, realListings, myListings, myOrders, incomingOrde
            kategoriye-özel renkli rozetler (Explorer.tsx CATEGORY_META ile aynı palet), gerçek
            ürün fotoğrafları. Yalnız bu bant/kart setine scoped — global token'lar değişmedi. */
         .market-hero-band {
-          padding: 40px 0 0;
+          padding: 32px 0 0;
           background: linear-gradient(135deg, #f7de9f 0%, #F9F8F3 55%, #dcede1 100%);
         }
         .market-hero-eyebrow { color: #7c3b21; }
+
+        /* --- güven şeridi: 4 kısa, doğru, sayısız iddia --- */
+        .market-trust-strip {
+          display: flex; justify-content: center; align-items: center;
+          gap: 8px 26px; flex-wrap: wrap;
+          margin: 0 auto 22px; max-width: 900px;
+          padding: 10px 12px;
+          border-top: 1px solid color-mix(in srgb, #A1502E 16%, transparent);
+          border-bottom: 1px solid color-mix(in srgb, #A1502E 16%, transparent);
+        }
+        .market-trust-item {
+          display: inline-flex; align-items: center; gap: 7px;
+          font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+          color: #7c3b21; white-space: nowrap;
+        }
+        .dark .market-trust-item { color: var(--text-mid); }
+        .market-trust-item svg { color: #A1502E; flex-shrink: 0; }
         .market-category-row {
           display: flex;
           justify-content: center;
@@ -1108,7 +1165,8 @@ function MarketInner({ session, realListings, myListings, myOrders, incomingOrde
           padding-bottom: 16px;
         }
         @media (max-width: 1100px) { .market-shop-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } }
-        @media (max-width: 560px) { .market-shop-grid { grid-template-columns: 1fr; } }
+        /* Mobil: 2 kolon — fiyat + stok çipi kesilmeden görünür (kart tipografisi ölçekli). */
+        @media (max-width: 560px) { .market-shop-grid { grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; } }
         .market-shop-card {
           background: #fff; border-radius: var(--radius-card); overflow: hidden;
           border: 1px solid color-mix(in srgb, #A1502E 18%, var(--border-soft));
@@ -1118,29 +1176,73 @@ function MarketInner({ session, realListings, myListings, myOrders, incomingOrde
         .dark .market-shop-card { background: var(--bg-surface); }
         .market-shop-card:hover { transform: translateY(-3px); border-color: #A1502E; box-shadow: 0 10px 26px color-mix(in srgb, #A1502E 18%, transparent); }
         .market-shop-photo-link { display: block; color: inherit; text-decoration: none; }
-        .market-shop-photo { position: relative; width: 100%; height: 148px; background: var(--color-paper-200, var(--bg-surface-2)); flex-shrink: 0; }
-        .market-shop-photo-fallback { position: absolute; inset: 0; display: grid; place-items: center; font-size: 40px; }
-        .market-shop-cat-tag {
-          position: absolute; left: 10px; bottom: 10px; color: #fff; font-weight: 700;
-          font-size: 10px; letter-spacing: 0.03em; text-transform: uppercase;
-          padding: 3px 9px; border-radius: 999px; box-shadow: var(--shadow-sm);
+        /* Fotoğraf: 1/1 kare + 8px krem passe-partout; hover'da hafif scale (crossfade yok). */
+        .market-shop-photo {
+          position: relative; width: 100%; padding: 8px;
+          background: #F9F8F3; flex-shrink: 0;
+        }
+        .dark .market-shop-photo { background: var(--bg-surface-2); }
+        .market-shop-photo-inner {
+          position: relative; aspect-ratio: 1 / 1; overflow: hidden;
+          border-radius: calc(var(--radius-card) - 6px);
+          background: var(--color-paper-200, var(--bg-surface-2));
+        }
+        .market-shop-photo-inner img { transition: transform var(--dur-med, 250ms) var(--ease-out, ease); }
+        .market-shop-card:hover .market-shop-photo-inner img { transform: scale(1.02); }
+        .market-shop-photo-fallback { position: absolute; inset: 0; display: grid; place-items: center; font-size: 44px; }
+        .market-shop-photo-illust {
+          position: absolute; inset: 0; width: 100%; height: 100%;
+          object-fit: contain; padding: 14%;
+        }
+        /* YALNIZ sertifikalı-organik rozeti fotoğraf üstünde — forest green sadece burada (ADR-009). */
+        .market-cert-badge {
+          position: absolute; left: 14px; top: 14px; height: 24px;
+          display: inline-flex; align-items: center; gap: 4px; padding: 0 9px;
+          border-radius: 999px; background: #2C6B49; color: #fff;
+          font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+          box-shadow: var(--shadow-sm);
         }
         .market-shop-approx {
-          position: absolute; right: 10px; top: 10px; font-size: 9px; font-weight: 700;
+          position: absolute; right: 14px; top: 14px; font-size: 9px; font-weight: 700;
           padding: 3px 8px; border-radius: 999px; color: #fff;
           background: color-mix(in srgb, var(--color-warning) 80%, black 8%);
         }
-        .market-shop-body { padding: 14px 16px 16px; display: flex; flex-direction: column; flex: 1; }
+        .market-shop-body { padding: 10px 14px 14px; display: flex; flex-direction: column; flex: 1; }
         .market-shop-title-link { display: block; color: inherit; text-decoration: none; }
-        .market-shop-producer { font-size: 11px; color: var(--color-ink-500, var(--text-low)); margin-bottom: 6px; }
-        .market-shop-title { font-weight: 700; font-size: 15px; margin-bottom: 8px; transition: color var(--dur-fast, 150ms) ease; }
+        .market-shop-title {
+          font-family: var(--font-display); font-weight: 600; font-size: 18px; line-height: 1.25;
+          margin-bottom: 4px; transition: color var(--dur-fast, 150ms) ease;
+        }
+        .market-shop-producer { font-size: 13px; color: var(--color-ink-500, var(--text-low)); margin-bottom: 8px; }
         .market-shop-title-link:hover .market-shop-title { color: #A1502E; }
         .market-shop-price-row { display: flex; align-items: baseline; gap: 8px; }
-        .market-shop-price { font-family: var(--font-mono); font-size: 19px; font-weight: 700; color: #7c3b21; }
+        .market-shop-price { font-family: var(--font-mono); font-size: 22px; font-weight: 700; color: #A1502E; }
         .dark .market-shop-price { color: var(--color-gold-300, #A1502E); }
-        .market-shop-unit { font-size: 11px; color: var(--color-ink-500, var(--text-low)); }
-        .market-shop-spec { font-size: 11px; color: var(--color-ink-500, var(--text-low)); margin-top: 10px; }
-        .market-shop-actions { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-hair); }
+        .market-shop-unit { font-size: 13px; color: var(--color-ink-500, var(--text-low)); margin-top: 1px; }
+        .market-shop-actions { margin-top: auto; padding-top: 12px; }
+
+        /* --- birincil terracotta CTA (min 44px, tam genişlik) + durumları ---
+           DİKKAT: .market-cta'nın ikizi [id]/DetailActions.tsx'te de tanımlı (iki sayfa
+           hiç birlikte render olmaz). Buradaki bir değişikliği orada da yansıt. --- */
+        .market-cta {
+          width: 100%; min-height: 44px; border: none; cursor: pointer;
+          display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+          border-radius: var(--radius-control, 10px);
+          background: #A1502E; color: #fff; font-weight: 700; font-size: var(--fs-sm);
+          transition: background var(--dur-fast, 150ms) ease;
+        }
+        .market-cta:hover:not(:disabled) { background: #91462a; } /* ~%8 koyu terracotta */
+        .market-cta:disabled {
+          /* Beyaz metin okunur kalsın diye %30 yerine %60 terracotta karışımı (kontrast). */
+          background: color-mix(in srgb, #A1502E 60%, var(--border-soft));
+          cursor: not-allowed;
+        }
+        .market-cta.is-added { background: #7c3b21; }
+        @media (max-width: 560px) {
+          .market-shop-body { padding: 8px 10px 12px; }
+          .market-shop-title { font-size: 15px; }
+          .market-shop-price { font-size: 18px; }
+        }
 
         @media (max-width: 800px) { #vitrinim-grid { grid-template-columns: 1fr !important; } }
 

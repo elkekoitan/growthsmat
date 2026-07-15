@@ -13,7 +13,7 @@ import {
 import { CROP_BY_ID } from "@/data/crops";
 import { cropPhotoPath, primaryCredit } from "@/data/photoCredits";
 import { microgreenPhotoPath } from "@/data/microgreenPhotoCredits";
-import { Package, ShieldCheck, MapPin, Calendar, ArrowRight, Store } from "@/components/icons";
+import { Package, ShieldCheck, MapPin, ArrowRight, Store } from "@/components/icons";
 import { DetailActions } from "./DetailActions";
 
 export const metadata = {
@@ -95,8 +95,12 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
                     sizes="(max-width: 860px) 100vw, 480px"
                     style={{ objectFit: "cover" }}
                   />
+                ) : crop ? (
+                  <span className="listing-detail-photo-fallback">{crop.emoji}</span>
                 ) : (
-                  <span className="listing-detail-photo-fallback">{crop?.emoji ?? "🌱"}</span>
+                  // CSA kutu / abonelik gibi katalogsuz ilanlar: özgün Hasat Pazarı illüstrasyonu.
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src="/brand/harvest-box.svg" alt="" className="listing-detail-photo-illust" />
                 )}
                 {isApprox && <span className="listing-detail-approx">≈ analog görsel</span>}
               </div>
@@ -114,7 +118,7 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
                 </h1>
 
                 <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 6 }}>
-                  <span className="font-mono" style={{ fontSize: "var(--fs-h2)", fontWeight: 700, color: "#7c3b21" }}>
+                  <span className="font-mono" style={{ fontSize: 28, fontWeight: 700, color: "#A1502E" }}>
                     {listing.priceTRY.toLocaleString("tr-TR")} ₺
                   </span>
                   <span style={{ fontSize: "var(--fs-base)", color: "var(--text-mid)" }}>{listing.unitLabel}</span>
@@ -137,8 +141,8 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
                   </p>
                 )}
 
-                {/* --- Satın alma eylemleri --- */}
-                <div className="card" style={{ padding: 18, marginBottom: 20 }}>
+                {/* --- Satın alma eylemleri (buy-box) --- */}
+                <div className="card" style={{ padding: 18, marginBottom: 14 }}>
                   <DetailActions
                     listing={{
                       id: listing.id,
@@ -146,30 +150,60 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
                       priceTRY: listing.priceTRY,
                       unitLabel: listing.unitLabel,
                       stockQty: listing.stockQty,
+                      // Katalogsuz (CSA kutu vb.) ilanlarda sepet/sticky-bar küçük görseli
+                      // Market grid'iyle aynı fallback'i kullansın (Market.tsx handleAddToCart).
+                      photoPath:
+                        photoPath ??
+                        (listing.cropId || listing.microgreenId ? undefined : "/brand/harvest-box.svg"),
                     }}
                     isOwn={isOwn}
                   />
                 </div>
 
-                {/* --- Ürün özellikleri --- */}
-                <div style={{ display: "grid", gap: 10, fontSize: "var(--fs-sm)", color: "var(--text-mid)" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <Package size={14} style={{ color: "var(--primary)" }} />
-                    Format: <strong style={{ color: "var(--text-hi)" }}>{FORMAT_LABELS[listing.format]}</strong> · {listing.unitLabel}
+                {/* --- Üretici kartı: küçük ve dürüst — ad + bölge + (varsa) sertifika rozeti.
+                       Forest green /pazar'da YALNIZ bu doğrulama rozetinde (ADR-009). --- */}
+                <div className="card" style={{ padding: 14, marginBottom: 20, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                  <Store size={17} style={{ color: "#A1502E", flexShrink: 0 }} />
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--text-hi)" }}>{listing.producer}</div>
+                    <div style={{ fontSize: "var(--fs-xs)", color: "var(--text-low)" }}>
+                      <MapPin size={11} style={{ verticalAlign: -1, marginRight: 3 }} />
+                      {listing.region}
+                    </div>
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <Calendar size={14} style={{ color: "var(--primary)" }} />
-                    Raf ömrü: <strong style={{ color: "var(--text-hi)" }}>{listing.shelfLifeDays} gün</strong>
+                  {listing.claim === "sertifikali" && (
+                    <span className="listing-cert-badge">
+                      <ShieldCheck size={12} /> Sertifikalı organik
+                    </span>
+                  )}
+                </div>
+
+                {/* --- Spec tablosu: etiket %35 muted / değer mono, hairline satır arası --- */}
+                <div className="listing-spec-table">
+                  <div className="listing-spec-row">
+                    <span className="listing-spec-label">Format</span>
+                    <span className="listing-spec-value">{FORMAT_LABELS[listing.format]} · {listing.unitLabel}</span>
                   </div>
-                  <div style={{ display: "flex", alignItems: "flex-start", gap: 8, flexWrap: "wrap" }}>
-                    <Store size={14} style={{ color: "var(--primary)", marginTop: 3 }} />
-                    Satış kanalları:
-                    <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                      {listing.channels.map((ch) => (
-                        <span key={ch} className="chip" style={{ fontSize: 11 }}>
-                          {CHANNEL_LABEL_SHORT[ch] ?? ch}
-                        </span>
-                      ))}
+                  <div className="listing-spec-row">
+                    <span className="listing-spec-label">Raf ömrü</span>
+                    <span className="listing-spec-value">{listing.shelfLifeDays} gün</span>
+                  </div>
+                  <div className="listing-spec-row">
+                    <span className="listing-spec-label">Stok tipi</span>
+                    <span className="listing-spec-value">{stock.label}</span>
+                  </div>
+                  <div className="listing-spec-row">
+                    <span className="listing-spec-label">Stok adedi</span>
+                    <span className="listing-spec-value">{listing.stockQty} adet</span>
+                  </div>
+                  <div className="listing-spec-row">
+                    <span className="listing-spec-label">Organik iddia</span>
+                    <span className="listing-spec-value">{claim.label}</span>
+                  </div>
+                  <div className="listing-spec-row">
+                    <span className="listing-spec-label">Satış kanalları</span>
+                    <span className="listing-spec-value">
+                      {listing.channels.map((ch) => CHANNEL_LABEL_SHORT[ch] ?? ch).join(" · ")}
                     </span>
                   </div>
                 </div>
@@ -197,6 +231,23 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
           .listing-detail-photo-fallback {
             position: absolute; inset: 0; display: grid; place-items: center; font-size: 88px;
           }
+          .listing-detail-photo-illust {
+            position: absolute; inset: 0; width: 100%; height: 100%;
+            object-fit: contain; padding: 12%;
+          }
+          .listing-cert-badge {
+            margin-left: auto; height: 24px;
+            display: inline-flex; align-items: center; gap: 4px; padding: 0 10px;
+            border-radius: 999px; background: #2C6B49; color: #fff;
+            font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+          }
+          .listing-spec-table { max-width: 540px; font-size: var(--fs-sm); border-top: 1px solid var(--border-hair); }
+          .listing-spec-row {
+            display: grid; grid-template-columns: 35% 1fr; gap: 12px;
+            padding: 9px 0; border-bottom: 1px solid var(--border-hair); align-items: baseline;
+          }
+          .listing-spec-label { color: var(--text-low); }
+          .listing-spec-value { font-family: var(--font-mono); font-size: 13px; color: var(--text-hi); }
           .listing-detail-approx {
             position: absolute; right: 12px; top: 12px; font-size: 10px; font-weight: 700;
             padding: 4px 9px; border-radius: 999px; color: #fff;
@@ -204,6 +255,8 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
           }
           @media (max-width: 860px) {
             #listing-detail-grid { grid-template-columns: 1fr; }
+            /* Mobil sticky bar (56px) içeriği örtmesin. */
+            main { padding-bottom: 64px; }
           }
         `}</style>
       </main>

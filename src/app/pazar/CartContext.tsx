@@ -12,6 +12,8 @@ export interface CartItem {
   unitLabel: string;
   maxQty: number;
   qty: number;
+  /** Küçük sepet thumb'ı için — yoksa satır ikonla gösterilir (eski localStorage kayıtları da alansızdır). */
+  photoPath?: string;
 }
 
 interface CartContextValue {
@@ -21,6 +23,8 @@ interface CartContextValue {
   setQty: (listingId: string, qty: number) => void;
   clear: () => void;
   totalTRY: number;
+  /** Her addItem çağrısında artar — CartDrawer bunu dinleyip kendini otomatik açar. */
+  lastAddSignal: number;
 }
 
 const CartContext = createContext<CartContextValue | null>(null);
@@ -29,6 +33,7 @@ const STORAGE_KEY = "sg-pazar-cart";
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [hydrated, setHydrated] = useState(false);
+  const [lastAddSignal, setLastAddSignal] = useState(0);
 
   useEffect(() => {
     try {
@@ -51,10 +56,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const existing = prev.find((i) => i.listingId === item.listingId);
       if (existing) {
         const nextQty = Math.min(item.maxQty, existing.qty + qty);
-        return prev.map((i) => (i.listingId === item.listingId ? { ...i, qty: nextQty, maxQty: item.maxQty } : i));
+        return prev.map((i) => (i.listingId === item.listingId ? { ...i, qty: nextQty, maxQty: item.maxQty, photoPath: item.photoPath ?? i.photoPath } : i));
       }
       return [...prev, { ...item, qty: Math.max(1, Math.min(item.maxQty, qty)) }];
     });
+    setLastAddSignal((n) => n + 1);
   }
   function removeItem(listingId: string) {
     setItems((prev) => prev.filter((i) => i.listingId !== listingId));
@@ -69,7 +75,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const totalTRY = items.reduce((sum, i) => sum + i.priceTRY * i.qty, 0);
 
   return (
-    <CartContext.Provider value={{ items, addItem, removeItem, setQty, clear, totalTRY }}>
+    <CartContext.Provider value={{ items, addItem, removeItem, setQty, clear, totalTRY, lastAddSignal }}>
       {children}
     </CartContext.Provider>
   );

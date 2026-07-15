@@ -1,0 +1,68 @@
+<svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Haftalık hasat kutusu illüstrasyonu">
+  <!-- SmartGrowth OS · "Hasat Pazarı" özgün illüstrasyon — CSA kutu ürünleri için
+       (gerçek fotoğrafı olmayan kutu/abonelik formatı). Palet: ADR-009 — krem zemin,
+       terracotta kasa, hasat altını + orman yeşili ürünler. Tamamen özgün, flat stil. -->
+  <defs>
+    <linearGradient id="hb-crate" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#A1502E"/>
+      <stop offset="1" stop-color="#7c3b21"/>
+    </linearGradient>
+  </defs>
+
+  <!-- zemin -->
+  <rect width="400" height="300" fill="#F9F8F3"/>
+  <ellipse cx="200" cy="262" rx="150" ry="16" fill="#2C6B49" opacity="0.10"/>
+
+  <!-- arka plan güneşi (hasat altını) -->
+  <circle cx="200" cy="118" r="74" fill="#E8A33D" opacity="0.16"/>
+  <circle cx="200" cy="118" r="52" fill="#E8A33D" opacity="0.14"/>
+
+  <!-- kasanın içindeki ürünler (kasa kenarının arkasından taşar) -->
+  <!-- yapraklı yeşillik (sol) -->
+  <g>
+    <path d="M118 172 C104 138 118 112 142 106 C146 130 140 156 130 174 Z" fill="#2C6B49"/>
+    <path d="M142 170 C136 136 152 110 176 108 C176 132 166 158 152 174 Z" fill="#3d8a5f"/>
+    <path d="M129 172 C127 146 133 124 148 116" fill="none" stroke="#F9F8F3" stroke-width="2.5" stroke-linecap="round" opacity="0.55"/>
+  </g>
+  <!-- domates (orta) -->
+  <g>
+    <circle cx="205" cy="150" r="30" fill="#c94f30"/>
+    <circle cx="196" cy="141" r="9" fill="#F9F8F3" opacity="0.28"/>
+    <path d="M205 122 C201 114 195 112 190 113 C196 118 199 121 205 122 Z" fill="#2C6B49"/>
+    <path d="M205 122 C209 114 215 112 220 113 C214 118 211 121 205 122 Z" fill="#3d8a5f"/>
+  </g>
+  <!-- balkabağı / kabak (sağ, altın) -->
+  <g>
+    <ellipse cx="262" cy="156" rx="34" ry="26" fill="#E8A33D"/>
+    <ellipse cx="262" cy="156" rx="20" ry="26" fill="none" stroke="#b0741b" stroke-width="2.5" opacity="0.6"/>
+    <ellipse cx="262" cy="156" rx="8" ry="26" fill="none" stroke="#b0741b" stroke-width="2" opacity="0.45"/>
+    <path d="M262 130 q2 -10 10 -12" fill="none" stroke="#7c3b21" stroke-width="5" stroke-linecap="round"/>
+  </g>
+  <!-- havuçlar (kasadan sağa doğru uzanır) -->
+  <g>
+    <path d="M286 176 L318 158 q8 -4 10 3 q2 7 -6 9 L290 184 Z" fill="#d97b29"/>
+    <path d="M318 158 q10 -12 24 -12 q-8 8 -14 10 M322 162 q12 -6 22 -2 q-10 5 -18 6" fill="none" stroke="#2C6B49" stroke-width="4" stroke-linecap="round"/>
+  </g>
+
+  <!-- terracotta kasa -->
+  <g>
+    <path d="M96 168 L304 168 L292 252 L108 252 Z" fill="url(#hb-crate)"/>
+    <!-- kasa çıtaları -->
+    <rect x="96" y="180" width="208" height="9" fill="#F9F8F3" opacity="0.14"/>
+    <rect x="99" y="206" width="202" height="9" fill="#F9F8F3" opacity="0.12"/>
+    <rect x="102" y="232" width="196" height="9" fill="#F9F8F3" opacity="0.10"/>
+    <!-- kasa üst kenarı -->
+    <rect x="90" y="162" width="220" height="12" rx="6" fill="#7c3b21"/>
+    <!-- tutma delikleri -->
+    <rect x="120" y="196" width="26" height="8" rx="4" fill="#5f2d19" opacity="0.85"/>
+    <rect x="254" y="196" width="26" height="8" rx="4" fill="#5f2d19" opacity="0.85"/>
+  </g>
+
+  <!-- kasa etiketi: filiz damgası -->
+  <g>
+    <circle cx="200" cy="214" r="21" fill="#F9F8F3"/>
+    <circle cx="200" cy="214" r="21" fill="none" stroke="#A1502E" stroke-width="2"/>
+    <path d="M200 226 L200 212 M200 212 C193 212 189 206 190 199 C197 200 201 205 200 212 M200 212 C207 212 211 206 210 199 C203 200 199 205 200 212"
+      fill="none" stroke="#2C6B49" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>
