@@ -6,10 +6,12 @@ import {
   useMemo,
   useRef,
   useState,
+  useTransition,
   type CSSProperties,
   type ReactNode,
 } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import {
   CROPS,
   CROP_BY_ID,
@@ -28,6 +30,7 @@ import { BotanicalScene } from "@/components/graphics";
 import { Reveal } from "@/components/ui";
 import { COMPARISON_METRICS, findBestCropIndex } from "@/lib/compareCrops";
 import { categorizeMechanism, type MechanismCategory } from "@/lib/intercrop";
+import { addToGardenAction } from "@/app/bahcem/actions";
 import {
   Sun,
   Droplet,
@@ -285,6 +288,75 @@ function Spec({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+/* --------------------------------------------------- Bahçeme ekle (karara bağlar) */
+
+/**
+ * Kâşifin ÇIKMAZINI bağlar: önceden bir ürünü inceleyip/karşılaştırıp karar verdikten
+ * sonra yapılabilecek hiçbir şey yoktu (karşılaştırma modalındaki tek eylem "Kaldır"dı).
+ * Artık karar tek tıkla /bahcem'e yazılır ve oradan görev takvimine bağlanır.
+ * Oturum yoksa buton yerine dürüstçe "Giriş yap" gösterilir (kaybolan tıklama yok).
+ */
+function AddToGardenButton({
+  cropId,
+  hasSession,
+  size = "sm",
+}: {
+  cropId: string;
+  hasSession: boolean;
+  size?: "sm" | "base";
+}) {
+  const [pending, startTransition] = useTransition();
+  const [added, setAdded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const cls = `btn btn-primary${size === "sm" ? " btn-sm" : ""}`;
+
+  if (!hasSession) {
+    return (
+      <Link href="/giris" className={`btn btn-secondary${size === "sm" ? " btn-sm" : ""}`}>
+        Giriş yap
+      </Link>
+    );
+  }
+
+  if (added) {
+    return (
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <span className="chip chip-ok">
+          <Check size={12} /> Bahçene eklendi
+        </span>
+        <Link href="/bahcem" style={{ fontSize: "var(--fs-xs)", color: "var(--primary)" }}>
+          Bahçeme git →
+        </Link>
+      </span>
+    );
+  }
+
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+      <button
+        type="button"
+        className={cls}
+        disabled={pending}
+        onClick={() =>
+          startTransition(async () => {
+            setError(null);
+            const res = await addToGardenAction(cropId, "Belirtilmedi");
+            if (res.applied) setAdded(true);
+            else setError(res.reason ?? "Eklenemedi.");
+          })
+        }
+      >
+        {pending ? "Ekleniyor…" : "Bahçeme ekle"}
+      </button>
+      {error && (
+        <span className="chip chip-danger">
+          <X size={12} /> {error}
+        </span>
+      )}
+    </span>
+  );
+}
+
 /* ------------------------------------------------------------------- Kart */
 
 function SeedCard({
@@ -454,10 +526,12 @@ function DetailModal({
   crop,
   onClose,
   onNavigate,
+  hasSession,
 }: {
   crop: Crop;
   onClose: () => void;
   onNavigate: (id: string) => void;
+  hasSession: boolean;
 }) {
   const closeRef = useRef<HTMLButtonElement>(null);
   const meta = CATEGORY_META[crop.category];
@@ -535,6 +609,10 @@ function DetailModal({
                   {meta.label}
                 </span>
                 <EvidenceTag grade={crop.evidence} />
+              </div>
+              {/* Tek sonraki adım — detayı okuyup karar veren kullanıcı burada tıkanmasın */}
+              <div style={{ marginTop: 12 }}>
+                <AddToGardenButton cropId={crop.id} hasSession={hasSession} />
               </div>
             </div>
           </div>
@@ -775,7 +853,17 @@ function DetailModal({
   );
 }
 
-function CompareModal({ crops, onClose, onRemove }: { crops: Crop[]; onClose: () => void; onRemove: (id: string) => void }) {
+function CompareModal({
+  crops,
+  onClose,
+  onRemove,
+  hasSession,
+}: {
+  crops: Crop[];
+  onClose: () => void;
+  onRemove: (id: string) => void;
+  hasSession: boolean;
+}) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     document.addEventListener("keydown", onKey);
@@ -857,6 +945,18 @@ function CompareModal({ crops, onClose, onRemove }: { crops: Crop[]; onClose: ()
                 );
               })}
             </tbody>
+            {/* Karşılaştırmayı KARARA bağlar — önceki tek eylem "Kaldır"dı, yani karar
+                verdikten sonra yapabileceğin hiçbir şey yoktu. */}
+            <tfoot>
+              <tr>
+                <td />
+                {crops.map((c) => (
+                  <td key={c.id} style={{ textAlign: "center" }}>
+                    <AddToGardenButton cropId={c.id} hasSession={hasSession} />
+                  </td>
+                ))}
+              </tr>
+            </tfoot>
           </table>
           <p style={{ fontSize: "var(--fs-xs)", color: "var(--text-low)", marginTop: 16 }}>
             Yeşil rozet, o metrikte tek başına en iyi adayı gösterir — eşitlik durumunda hiçbiri vurgulanmaz.
@@ -886,7 +986,7 @@ function SectionTitle({ n, title, style }: { n: string; title: string; style?: C
 
 /* ------------------------------------------------------------ Ana bileşen */
 
-export function Explorer() {
+export function Explorer({ hasSession = false }: { hasSession?: boolean }) {
   const [cats, setCats] = useState<CropCategory[]>([]);
   const [methods, setMethods] = useState<GrowMethod[]>([]);
   const [seasons, setSeasons] = useState<Season[]>([]);
@@ -1131,7 +1231,7 @@ export function Explorer() {
       </section>
 
       {selected && (
-        <DetailModal crop={selected} onClose={closeModal} onNavigate={(id) => setSelectedId(id)} />
+        <DetailModal crop={selected} onClose={closeModal} onNavigate={(id) => setSelectedId(id)} hasSession={hasSession} />
       )}
 
       {compareIds.length > 0 && !compareOpen && (
@@ -1153,6 +1253,7 @@ export function Explorer() {
       {compareOpen && compareIds.length >= 2 && (
         <CompareModal
           crops={compareIds.map((id) => CROP_BY_ID[id]).filter(Boolean)}
+          hasSession={hasSession}
           onClose={() => setCompareOpen(false)}
           onRemove={(id) => {
             setCompareIds((prev) => prev.filter((x) => x !== id));

@@ -67,6 +67,7 @@ model Workspace {
   subscriptions Subscription[]
   costCycles   CostCycle[]
   plotSeasons  PlotSeason[]
+  trackedCrops TrackedCrop[]
 }
 
 enum Role {
@@ -335,6 +336,39 @@ model Task {
   @@index([workspaceId])
   @@index([workspaceId, date])
   @@index([assignedToUserId])
+}
+
+// ---------- Bahçem: kullanıcının GERÇEKTEN takip ettiği ürünler ----------
+// DÜRÜSTLÜK NOTU: bu tablodan önce uygulamada "kullanıcının kendi ürünü" diye bir kavram
+// HİÇ YOKTU — /urunler kâşifi ve /plan sihirbazı ürün ÖNERİYOR ama seçim hiçbir yere
+// yazılmıyordu; Task.cropId ise görev başına serbest bir referanstı, ürünün kendisini
+// temsil etmiyordu. TrackedCrop, keşif (/urunler, /plan) ile yetiştirme (/gorevler) ve
+// satış (/pazar) arasındaki eksik halkadır: kullanıcının "bunu yetiştiriyorum" dediği kayıt.
+enum TrackedCropStatus {
+  planlaniyor
+  ekildi
+  buyuyor
+  hasat
+  arsiv
+}
+
+model TrackedCrop {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  // cropId: Task.cropId ile aynı desen — src/data/crops.ts'e düz string referans, DB FK değil.
+  cropId      String
+  zone        String    @default("Belirtilmedi")
+  status      TrackedCropStatus @default(planlaniyor)
+  plantedAt   DateTime? @db.Date
+  // "Bu ürün için görev takvimi üretildi mi" — aynı takvimin ikinci kez yazılmasını
+  // (görev listesinin sessizce ikiye katlanmasını) önler.
+  tasksGenerated Boolean @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([workspaceId, cropId, zone])
+  @@index([workspaceId])
 }
 
 // ---------- Lot izlenebilirlik (Phase 3: src/lib/traceability.ts) ----------

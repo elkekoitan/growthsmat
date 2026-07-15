@@ -11,6 +11,7 @@ import { signOutAction } from "@/server/auth";
 const NAV_LINKS = [
   { href: "/plan", label: "Plan" },
   { href: "/pazar", label: "Pazar" },
+  { href: "/bahcem", label: "Bahçem" },
   { href: "/asistan", label: "Asistan" },
   { href: "/urunler", label: "Ürün Kâşifi" },
   { href: "/gorevler", label: "Görevler" },

@@ -3,6 +3,7 @@
 import { useActionState, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useSearchParams } from "next/navigation";
 import {
   CHANNELS,
   DELIVERY_ZONES,
@@ -138,6 +139,12 @@ export function Market(props: MarketProps) {
 
 function MarketInner({ session, realListings, myListings, myOrders, incomingOrdersByListing, myCertificates, pendingCertificates, revocableCertificates }: MarketProps) {
   const { addItem } = useCart();
+  // /bahcem'deki "Hasadı sat →" buradan devam eder: ?cropId= ile gelen ürün ilan formunda
+  // hazır gelir (kullanıcı hasat ettiği ürünü listeden yeniden aramasın). Katalogda
+  // olmayan bir cropId sessizce yok sayılır — uydurma ön-doldurma yok.
+  const searchParams = useSearchParams();
+  const prefillCropId = searchParams.get("cropId");
+  const prefillCrop = prefillCropId ? CROP_BY_ID[prefillCropId] : undefined;
   const [createState, createAction, createPending] = useActionState(createListingAction, INITIAL_FORM_STATE);
   const [certState, certAction, certPending] = useActionState(createCertificateAction, INITIAL_CERT_FORM_STATE);
   const [certFormOpen, setCertFormOpen] = useState(false);
@@ -584,13 +591,13 @@ function MarketInner({ session, realListings, myListings, myOrders, incomingOrde
               )}
               <form action={createAction} style={{ display: "grid", gap: 10, marginBottom: 20 }} className="card" >
                 <div style={{ padding: 18, display: "grid", gap: 10 }}>
-                  <input name="title" placeholder="Ürün adı (ör. Cherry Domates)" required className="btn btn-secondary" style={{ textAlign: "left" }} />
+                  <input name="title" defaultValue={prefillCrop?.name ?? ""} placeholder="Ürün adı (ör. Cherry Domates)" required className="btn btn-secondary" style={{ textAlign: "left" }} />
                   <input name="producer" placeholder="Üretici adı" required className="btn btn-secondary" style={{ textAlign: "left" }} />
                   <input name="region" placeholder="Bölge (ör. İzmir, Ege)" required className="btn btn-secondary" style={{ textAlign: "left" }} />
                   <input name="unitLabel" placeholder="Birim (ör. 500 g file)" required className="btn btn-secondary" style={{ textAlign: "left" }} />
                   <input name="priceTRY" type="number" min={1} step={1} placeholder="Fiyat (₺)" required className="btn btn-secondary" style={{ textAlign: "left" }} />
                   <input name="stockQty" type="number" min={0} step={1} placeholder="Stok adedi (ör. 25)" required className="btn btn-secondary" style={{ textAlign: "left" }} />
-                  <select name="cropId" className="btn btn-secondary" defaultValue="">
+                  <select name="cropId" className="btn btn-secondary" defaultValue={prefillCrop?.id ?? ""}>
                     <option value="">Ürün kataloğundan seç (opsiyonel)</option>
                     {CROPS.map((c) => (
                       <option key={c.id} value={c.id}>{c.emoji} {c.name}</option>

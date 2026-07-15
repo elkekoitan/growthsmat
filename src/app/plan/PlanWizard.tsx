@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, useTransition, type ReactNode } from "react";
 import {
   runAssessment,
   assessCrop,
@@ -15,7 +15,9 @@ import {
   type Goal,
 } from "@/lib/suitability";
 import { savePlanAction } from "./actions";
+import { addToGardenAction } from "@/app/bahcem/actions";
 import type { RealPlan } from "@/server/repositories/plans";
+import Link from "next/link";
 import {
   METHOD_LABELS,
   SEASON_LABELS,
@@ -1091,10 +1093,77 @@ function ResultsView({
             />
           </div>
         )}
+
+        {/* Sihirbazın ÇIKMAZINI bağlar: sonuçlar önceden hiçbir yere yönlenmiyordu —
+            öneriyi alıp uygulayacak tek bir adım yoktu. En üstteki UYGUN aday için
+            (elenenler için değil — elenen ürün bir öneri değildir) tek eylem satırı. */}
+        {result.candidates[0] && (
+          <PlanGardenAction crop={result.candidates[0].crop} zone={METHOD_LABELS[profile.method]} />
+        )}
       </div>
 
       <ResultsStyles />
     </section>
+  );
+}
+
+/* ---------- Sonuçtan bahçeye tek adım ---------- */
+
+function PlanGardenAction({ crop, zone }: { crop: CandidateResult["crop"]; zone: string }) {
+  const [pending, startTransition] = useTransition();
+  const [added, setAdded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  return (
+    <div
+      className="card"
+      style={{
+        marginTop: 48,
+        padding: 18,
+        display: "flex",
+        alignItems: "center",
+        gap: 14,
+        flexWrap: "wrap",
+      }}
+    >
+      <span style={{ fontSize: 24 }} aria-hidden="true">
+        {crop.emoji}
+      </span>
+      <span style={{ fontWeight: 600, flex: 1, minWidth: 160 }}>{crop.name} — en uygun aday</span>
+      {added ? (
+        <>
+          <span className="chip chip-ok">
+            <Check size={13} /> Bahçene eklendi
+          </span>
+          <Link href="/bahcem" className="btn btn-secondary btn-sm">
+            Bahçeme git <ArrowRight size={15} />
+          </Link>
+        </>
+      ) : (
+        <>
+          {error && (
+            <span className="chip chip-danger">
+              <X size={13} /> {error}
+            </span>
+          )}
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            disabled={pending}
+            onClick={() =>
+              startTransition(async () => {
+                setError(null);
+                const res = await addToGardenAction(crop.id, zone);
+                if (res.applied) setAdded(true);
+                else setError(res.reason ?? "Eklenemedi.");
+              })
+            }
+          >
+            {pending ? "Ekleniyor…" : "Bahçeme ekle"}
+          </button>
+        </>
+      )}
+    </div>
   );
 }
 
