@@ -1,17 +1,59 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
+import Link from "next/link";
 import { CROPS } from "@/data/crops";
 import { evaluateRotation, type PlotHistoryEntry } from "@/lib/rotation";
 import { NumberedHeading } from "@/components/graphics";
 import { SpotlightCard } from "@/components/visuals";
 import { Reveal } from "@/components/ui";
 import { Check, X, Layers, ArrowRight } from "@/components/icons";
+import { savePlotSeasonAction, removePlotSeasonAction } from "./actions";
 
 const SEASON_SLOTS = [1, 2, 3];
+// Tek parselli MVP — şema/repo çok-parselli, UI şimdilik tek parsel adıyla çalışır.
+const DEFAULT_PLOT = "Ana parsel";
 
-export function RotationPlanner() {
-  const [history, setHistory] = useState<Record<number, string>>({ 1: "cherry-domates-kompakt" });
+export function RotationPlanner({
+  hasSession,
+  initialSeasons,
+}: {
+  hasSession: boolean;
+  initialSeasons: { plotName: string; yearSlot: number; cropId: string }[];
+}) {
+  // Oturum varsa ve gerçek kayıt varsa, geçmiş DB'den gelir — yoksa örnek varsayılan.
+  const [history, setHistory] = useState<Record<number, string>>(() => {
+    if (hasSession && initialSeasons.length > 0) {
+      const fromDb: Record<number, string> = {};
+      for (const s of initialSeasons) {
+        if (s.plotName === DEFAULT_PLOT && SEASON_SLOTS.includes(s.yearSlot)) fromDb[s.yearSlot] = s.cropId;
+      }
+      if (Object.keys(fromDb).length > 0) return fromDb;
+    }
+    return { 1: "cherry-domates-kompakt" };
+  });
+  const [savePending, startSaveTransition] = useTransition();
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [savedOnce, setSavedOnce] = useState(false);
+
+  // İyimser desen (bkz. /gorevler Tasks.tsx): yerel state anında güncellenir, kalıcılaştırma
+  // transition içinde Server Action'a gider; hata dürüstçe gösterilir.
+  function changeSlot(slot: number, cropId: string) {
+    setHistory((prev) => ({ ...prev, [slot]: cropId }));
+    if (!hasSession) return;
+    setSaveError(null);
+    startSaveTransition(async () => {
+      try {
+        const result = cropId
+          ? await savePlotSeasonAction(DEFAULT_PLOT, slot, cropId)
+          : await removePlotSeasonAction(DEFAULT_PLOT, slot);
+        if (result.applied) setSavedOnce(true);
+        else setSaveError(result.reason);
+      } catch {
+        setSaveError("Kaydedilemedi — bağlantıyı kontrol edip tekrar dene.");
+      }
+    });
+  }
 
   const historyEntries: PlotHistoryEntry[] = useMemo(
     () =>
@@ -55,7 +97,7 @@ export function RotationPlanner() {
                 </span>
                 <select
                   value={history[s] ?? ""}
-                  onChange={(e) => setHistory((prev) => ({ ...prev, [s]: e.target.value }))}
+                  onChange={(e) => changeSlot(s, e.target.value)}
                   className="rot-select"
                 >
                   <option value="">— Ekim yok / bilinmiyor —</option>
@@ -67,6 +109,34 @@ export function RotationPlanner() {
                 </select>
               </label>
             ))}
+          </div>
+
+          {/* ---------- KALICILIK DURUMU ---------- */}
+          <div style={{ marginTop: -16, marginBottom: 32, minHeight: 20 }} aria-live="polite">
+            {hasSession ? (
+              <>
+                {savePending && (
+                  <span className="font-mono" style={{ fontSize: "var(--fs-xs)", color: "var(--text-low)" }}>
+                    Kaydediliyor…
+                  </span>
+                )}
+                {!savePending && !saveError && savedOnce && (
+                  <span className="font-mono" style={{ fontSize: "var(--fs-xs)", color: "var(--color-success)", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                    <Check size={11} /> Parsel geçmişi kaydedildi
+                  </span>
+                )}
+                {!savePending && saveError && (
+                  <span style={{ fontSize: "var(--fs-xs)", color: "var(--color-danger)" }}>{saveError}</span>
+                )}
+              </>
+            ) : (
+              <p style={{ fontSize: "var(--fs-sm)", color: "var(--text-mid)", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", margin: 0 }}>
+                Parsel geçmişini kalıcı kaydetmek için giriş yap
+                <Link href="/giris" className="font-mono" style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "var(--primary)" }}>
+                  Giriş yap <ArrowRight size={12} />
+                </Link>
+              </p>
+            )}
           </div>
 
           {/* ---------- SONUÇLAR ---------- */}

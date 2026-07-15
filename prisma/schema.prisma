@@ -66,6 +66,7 @@ model Workspace {
   room         Room?
   subscriptions Subscription[]
   costCycles   CostCycle[]
+  plotSeasons  PlotSeason[]
 }
 
 enum Role {
@@ -588,6 +589,30 @@ model CostCycle {
 
   entries CostEntry[]
 
+  @@index([workspaceId])
+}
+
+// ---------- Parsel sezon geçmişi (/rotasyon kalıcılığı) ----------
+// DÜRÜSTLÜK NOTU: /rotasyon'un çözücüsü (src/lib/rotation.ts evaluateRotation) SAF kalır ve
+// hesaplanan sonuç (uygun/elenen adaylar, skor) hiçbir zaman kalıcılaştırılmaz — Plan/
+// AssessmentResult ile aynı ilke. Bu tablo yalnız kullanıcının GİRDİĞİ ham parsel geçmişini
+// saklar: hangi parselde, kaç sezon önce, ne ekildi. yearSlot planlayıcının GÖRELİ sezon
+// yuvasıdır (1 = bir sezon önce, 2 = iki sezon önce...) — mutlak takvim yılı değil; planlayıcı
+// UI'ı bu göreli yuvalarla çalışır (PlotHistoryEntry.seasonsAgo ile birebir aynı anlam).
+model PlotSeason {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  // Tek parselli MVP: varsayılan "Ana parsel" — şema baştan çok-parselli (plotName compound
+  // unique'in parçası), UI ikinci parseli eklediğinde şema değişikliği gerekmez.
+  plotName    String    @default("Ana parsel")
+  yearSlot    Int
+  // cropId: Task.cropId ile aynı desen — src/data/crops.ts'e düz string referans, DB FK değil.
+  cropId      String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([workspaceId, plotName, yearSlot])
   @@index([workspaceId])
 }
 
