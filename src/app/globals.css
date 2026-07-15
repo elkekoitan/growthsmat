@@ -308,11 +308,16 @@ a { color: inherit; text-decoration: none; }
 .chip-danger { background: color-mix(in srgb, var(--color-danger) 12%, transparent); color: var(--color-danger); border-color: color-mix(in srgb, var(--color-danger) 30%, transparent); }
 .chip-info { background: color-mix(in srgb, var(--color-info) 12%, transparent); color: var(--color-info); border-color: color-mix(in srgb, var(--color-info) 30%, transparent); }
 
-/* Glass — yalnız chrome + küçük yüzeyler */
+/* Glass — yalnız chrome + küçük yüzeyler.
+   DİKKAT (2026-07-15, canlıda bulunan bug): `-webkit-backdrop-filter` ELLE YAZILMAZ.
+   Yazıldığında Lightning CSS (Tailwind v4) öneksiz `backdrop-filter`ı gereksiz sayıp
+   düşürüyordu; canlıya YALNIZ `-webkit-` sürümü gidiyordu. Chrome öneksizi destekliyor
+   ama `-webkit-` takma adını DESTEKLEMİYOR (CSS.supports ile doğrulandı) → blur hiç
+   uygulanmıyor, %68 saydam nav içeriğin üstüne binip yazılar çakışıyordu (her sayfada).
+   Öneki Lightning CSS hedeflere göre kendi ekler — elle prefix EKLEME. */
 .glass {
   background: color-mix(in srgb, var(--bg-page) 68%, transparent);
   backdrop-filter: blur(12px) saturate(1.4);
-  -webkit-backdrop-filter: blur(12px) saturate(1.4);
   border-bottom: 1px solid var(--border-hair);
 }
 
