@@ -3,7 +3,7 @@
 // iddia" üretmez — yalnız data katmanındaki gerçek kayıtlardan alıntı yapar.
 // Yüksek risklidoz/tıbbi iddia soruları güvenlik filtresinden geçer, asistan cevap vermez.
 
-import { CROPS, EVIDENCE_LABELS, type Crop } from "@/data/crops";
+import { CROPS, CROP_BY_ID, EVIDENCE_LABELS, type Crop } from "@/data/crops";
 import { MICROGREEN_RECIPES, BLOCKED_MICROGREENS, type MicrogreenRecipe } from "@/data/microgreens";
 import { CHANNELS } from "@/data/commerce";
 
@@ -25,6 +25,65 @@ export interface AssistantAnswer {
   citations: Citation[];
   confidence: ConfidenceLevel;
   suggestedAction: string;
+}
+
+// ---------- Kişisel bağlam (Bahçem + Görevler) ----------
+// Bu modül SAF kalır: DB'ye/prisma'ya dokunmaz. Giriş yapmış kullanıcının gerçek
+// bahçe/görev satırları PARAMETRE olarak girer (page.tsx server tarafında toplar).
+// Her kişisel cevap bu gerçek satırlardan türetilir — uydurma yok.
+export interface AssistantContextCrop {
+  cropId: string;
+  status: string;
+  zone: string;
+}
+
+export interface AssistantContextTask {
+  title: string;
+  cropId: string;
+  type: string;
+}
+
+export interface AssistantContext {
+  crops: AssistantContextCrop[];
+  tasksToday: AssistantContextTask[];
+  tasksOverdue: number;
+}
+
+// Bahçem durum kodları → okunur Türkçe etiket (bkz. /bahcem STATUS_META ile uyumlu).
+const CONTEXT_STATUS_LABELS: Record<string, string> = {
+  planlaniyor: "planlanıyor",
+  ekildi: "ekildi",
+  buyuyor: "büyüyor",
+  hasat: "hasada hazır",
+  arsiv: "arşivde",
+};
+
+function contextStatusLabel(status: string): string {
+  return CONTEXT_STATUS_LABELS[status] ?? status;
+}
+
+function contextCropName(cropId: string): string {
+  return CROP_BY_ID[cropId]?.name ?? cropId;
+}
+
+const GARDEN_CITATION: Citation = { title: "Bahçem kaydın", org: "SmartGrowth Bahçem", year: 2026 };
+const TASKS_CITATION: Citation = { title: "Görev takvimin", org: "SmartGrowth Görevler", year: 2026 };
+
+const LOGIN_NOTE = "Giriş yaparsan bahçene ve görevlerine göre kişisel cevap verebilirim.";
+
+// Kişisel niyet desenleri: kullanıcı KENDİ bahçesini/görevlerini soruyor.
+const PERSONAL_INTENT = {
+  garden: /bah[çc]em|ürünlerim|urunlerim|neler ekili/i,
+  today: /bug[üu]n/i,
+  todayTopic: /ne\s+yap|yapmal[ıi]|g[öo]rev|i[şs]ler|i[şs]im/i,
+};
+
+function hasGardenIntent(query: string): boolean {
+  return PERSONAL_INTENT.garden.test(query);
+}
+
+function hasTodayIntent(query: string): boolean {
+  return PERSONAL_INTENT.today.test(query) && PERSONAL_INTENT.todayTopic.test(query);
 }
 
 // ---------- Güvenlik filtresi (06-MEVZUAT-GIDA-GUVENLIGI §10-11, PRD FR-193) ----------
@@ -99,7 +158,7 @@ const INTENT = {
 };
 
 // ---------- Ana fonksiyon ----------
-export function askAssistant(rawQuery: string): AssistantAnswer {
+export function askAssistant(rawQuery: string, context?: AssistantContext | null): AssistantAnswer {
   const query = rawQuery.trim();
 
   if (!query) {
@@ -113,6 +172,7 @@ export function askAssistant(rawQuery: string): AssistantAnswer {
     };
   }
 
+  // Güvenlik filtresi HER ZAMAN önce çalışır — kişiselleştirme onu bypass EDEMEZ.
   const safety = checkSafety(query);
   if (safety.blocked) {
     return {
@@ -123,6 +183,61 @@ export function askAssistant(rawQuery: string): AssistantAnswer {
       citations: [],
       confidence: "dusuk",
       suggestedAction: "Uzman danışmanlığı talep et veya yetkili/resmi kaynağa başvur.",
+    };
+  }
+
+  // ---------- Kişisel kurallar (yalnız gerçek bağlam satırlarından) ----------
+  if (context && hasGardenIntent(query)) {
+    if (context.crops.length === 0) {
+      return {
+        query,
+        safetyBlocked: false,
+        answer:
+          "Bahçen şu an boş — henüz takip ettiğin bir ürün yok. Uydurma bir liste göstermek yerine açıkça söylüyorum: kayıt yok.",
+        citations: [GARDEN_CITATION],
+        confidence: "yuksek",
+        suggestedAction: "Ürün kâşifinden (/urunler) bir ürün seçip \"Bahçeme ekle\" ile takibe başla.",
+      };
+    }
+    const items = context.crops.map(
+      (c) => `${contextCropName(c.cropId)} (${contextStatusLabel(c.status)}, bölge: ${c.zone})`
+    );
+    return {
+      query,
+      safetyBlocked: false,
+      answer: `Bahçende ${context.crops.length} ürün takip ediyorsun: ${items.join("; ")}.`,
+      citations: [GARDEN_CITATION],
+      confidence: "yuksek",
+      suggestedAction: "Durum güncellemek veya yeni ürün eklemek için /bahcem sayfasına git.",
+    };
+  }
+
+  if (context && hasTodayIntent(query)) {
+    const overdueNote =
+      context.tasksOverdue > 0 ? ` Ayrıca ${context.tasksOverdue} gecikmiş açık görevin var.` : "";
+    if (context.tasksToday.length === 0) {
+      return {
+        query,
+        safetyBlocked: false,
+        answer: `Bugüne planlanmış işin yok.${overdueNote}`,
+        citations: [TASKS_CITATION],
+        confidence: "yuksek",
+        suggestedAction:
+          context.tasksOverdue > 0
+            ? "Gecikmiş görevleri /gorevler sayfasından tamamla veya yeniden planla."
+            : "Yeni görev eklemek için /gorevler sayfasını kullan.",
+      };
+    }
+    const shown = context.tasksToday.slice(0, 5);
+    const lines = shown.map((t) => `${t.title} (${contextCropName(t.cropId)})`);
+    const more = context.tasksToday.length > 5 ? ` (+${context.tasksToday.length - 5} görev daha)` : "";
+    return {
+      query,
+      safetyBlocked: false,
+      answer: `Bugün ${context.tasksToday.length} açık görevin var: ${lines.join("; ")}${more}.${overdueNote}`,
+      citations: [TASKS_CITATION],
+      confidence: "yuksek",
+      suggestedAction: "Görevleri tamamladıkça /gorevler sayfasından işaretle.",
     };
   }
 
@@ -171,12 +286,22 @@ export function askAssistant(rawQuery: string): AssistantAnswer {
     } else {
       parts.push(`İlk hasat ${crop.daysToHarvest[0]}-${crop.daysToHarvest[1]} günde beklenir; ${crop.tips[0]}`);
     }
+    // Kişisel satır: sorulan ürün kullanıcının GERÇEK bahçesindeyse gerçek kaydı ekle.
+    const citations: Citation[] = [{ title: crop.source.title, org: crop.source.org, year: crop.source.year }];
+    const tracked = context?.crops.filter((c) => c.cropId === crop.id) ?? [];
+    if (tracked.length > 0) {
+      const own = tracked
+        .map((c) => `${contextStatusLabel(c.status)} durumunda, bölge: ${c.zone}`)
+        .join(" | ");
+      parts.push(`Senin bahçende ${crop.name} ${own}.`);
+      citations.push(GARDEN_CITATION);
+    }
     return {
       query,
       safetyBlocked: false,
       matchedCrop: crop.id,
       answer: parts.join(" "),
-      citations: [{ title: crop.source.title, org: crop.source.org, year: crop.source.year }],
+      citations,
       confidence: crop.evidence === "A" || crop.evidence === "B" ? "yuksek" : "orta",
       suggestedAction: `Konumuna göre tam uygunluk skoru ve güven düzeyi için /plan sihirbazını kullan.`,
     };
@@ -194,11 +319,16 @@ export function askAssistant(rawQuery: string): AssistantAnswer {
     };
   }
 
+  // Kişisel niyetli soru ama bağlam yok (oturum kapalı): mevcut dürüst "veri boşluğu"
+  // davranışı korunur, yalnız küçük bir giriş notu eklenir — kişisel veri UYDURULMAZ.
+  const loginHint = !context && (hasGardenIntent(query) || hasTodayIntent(query)) ? ` ${LOGIN_NOTE}` : "";
+
   return {
     query,
     safetyBlocked: false,
     answer:
-      "Bu soruyu bilgi grafiğimizdeki bir ürün, mikro filiz türü veya satış kanalıyla eşleştiremedim. Kaynağı olmayan bir cevap uydurmak yerine açıkça söylüyorum: veri boşluğu var.",
+      "Bu soruyu bilgi grafiğimizdeki bir ürün, mikro filiz türü veya satış kanalıyla eşleştiremedim. Kaynağı olmayan bir cevap uydurmak yerine açıkça söylüyorum: veri boşluğu var." +
+      loginHint,
     citations: [],
     confidence: "dusuk",
     suggestedAction: "Ürün kâşifinde (/urunler) tam listeye bakabilir veya soruyu bir ürün adıyla tekrar sorabilirsin.",

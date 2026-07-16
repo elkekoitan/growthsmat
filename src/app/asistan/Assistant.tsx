@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import Link from "next/link";
-import { askAssistant, EXAMPLE_QUESTIONS, type AssistantAnswer } from "@/lib/assistant";
+import { askAssistant, EXAMPLE_QUESTIONS, type AssistantAnswer, type AssistantContext } from "@/lib/assistant";
 import { suggestSpecialtyForQuery, SPECIALTY_LABELS } from "@/lib/expertConsult";
 import { Reveal } from "@/components/ui";
 import { Sparkles, ShieldCheck, Check, ArrowRight, Globe } from "@/components/icons";
@@ -19,7 +19,7 @@ const CONFIDENCE_LABEL: Record<AssistantAnswer["confidence"], string> = {
   dusuk: "Düşük güven",
 };
 
-export function Assistant() {
+export function Assistant({ context }: { context: AssistantContext | null }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const listEndRef = useRef<HTMLDivElement>(null);
@@ -27,7 +27,7 @@ export function Assistant() {
   function send(q: string) {
     const query = q.trim();
     if (!query) return;
-    const answer = askAssistant(query);
+    const answer = askAssistant(query, context);
     setMessages((prev) => [...prev, { role: "user", text: query }, { role: "assistant", text: answer.answer, answer }]);
     setInput("");
     requestAnimationFrame(() => listEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }));
@@ -48,6 +48,14 @@ export function Assistant() {
             Bu asistan bir dil modeli çağırmaz — bilgi grafiğimizdeki gerçek kayıtlarla kural
             tabanlı eşleştirme yapar. Pestisit dozu ve sağlık iddiası içeren sorularda cevap
             üretmez; uzmana yönlendirir.
+          </p>
+          {/* Dürüst durum satırı: asistanın GERÇEKTE hangi kişisel veriyi bildiği. */}
+          <p style={{ fontSize: "var(--fs-xs)", color: "var(--text-low)", marginTop: 12 }}>
+            {context
+              ? `Bahçendeki ${context.crops.length} ürünü ve bugünkü ${context.tasksToday.length} görevini biliyorum${
+                  context.tasksOverdue > 0 ? ` (${context.tasksOverdue} gecikmiş görev var)` : ""
+                }.`
+              : "Giriş yapmadın — cevaplar genel bilgi grafiğinden gelir; giriş yaparsan bahçene ve görevlerine göre kişiselleşir."}
           </p>
         </div>
       </section>

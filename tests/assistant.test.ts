@@ -87,3 +87,78 @@ test("classifySafetyBlock: tıbbi iddia deseniyle eşleşince 'tibbi-iddia' dön
 test("classifySafetyBlock: sıradan soruda undefined döner (yanlış pozitif yok)", () => {
   assert.equal(classifySafetyBlock("Balkonda cherry domates yetişir mi?"), undefined);
 });
+
+// ---------- Kişisel bağlam (AssistantContext) testleri ----------
+
+const CTX = {
+  crops: [
+    { cropId: "cherry-domates-kompakt", status: "buyuyor", zone: "Balkon — Güney" },
+    { cropId: "feslegen", status: "ekildi", zone: "Mutfak pervazı" },
+  ],
+  tasksToday: [
+    { title: "Sabah sulaması", cropId: "feslegen", type: "sulama" },
+    { title: "Koltuk alma", cropId: "cherry-domates-kompakt", type: "budama" },
+  ],
+  tasksOverdue: 2,
+};
+
+test("KİŞİSEL: context'li 'bahçemde ne var' gerçek listeden cevap verir (uydurma yok)", () => {
+  const r = askAssistant("Bahçemde ne var?", CTX);
+  assert.equal(r.safetyBlocked, false);
+  assert.match(r.answer, /2 ürün/);
+  assert.match(r.answer, /Cherry Domates/);
+  assert.match(r.answer, /Fesleğen/);
+  assert.match(r.answer, /Balkon — Güney/);
+  assert.ok(r.citations.some((c) => c.title === "Bahçem kaydın"));
+  assert.equal(r.confidence, "yuksek");
+});
+
+test("KİŞİSEL: context'li 'bugün ne yapmalıyım' gerçek görev başlıkları + gecikmiş sayısı döner", () => {
+  const r = askAssistant("Bugün ne yapmalıyım?", CTX);
+  assert.match(r.answer, /Sabah sulaması/);
+  assert.match(r.answer, /Koltuk alma/);
+  assert.match(r.answer, /2 gecikmiş/);
+  assert.ok(r.citations.some((c) => c.title === "Görev takvimin"));
+});
+
+test("KİŞİSEL: bahçedeki ürün sorulunca genel cevaba gerçek 'senin bahçende' satırı eklenir", () => {
+  const r = askAssistant("Cherry domates için sıcaklık ne kadar olmalı?", CTX);
+  assert.equal(r.matchedCrop, "cherry-domates-kompakt");
+  assert.match(r.answer, /Senin bahçende Cherry Domates/);
+  assert.match(r.answer, /bölge: Balkon — Güney/);
+  assert.ok(r.citations.some((c) => c.title === "Bahçem kaydın"));
+});
+
+test("GERİYE UYUM: context'siz çağrı eski davranışla birebir aynı (kişisel satır yok)", () => {
+  const oldStyle = askAssistant("Cherry domates için sıcaklık ne kadar olmalı?");
+  const withNull = askAssistant("Cherry domates için sıcaklık ne kadar olmalı?", null);
+  assert.deepEqual(oldStyle, withNull);
+  assert.equal(oldStyle.matchedCrop, "cherry-domates-kompakt");
+  assert.doesNotMatch(oldStyle.answer, /Senin bahçende/);
+  assert.ok(!oldStyle.citations.some((c) => c.title === "Bahçem kaydın"));
+});
+
+test("GERİYE UYUM: context'siz 'bahçem' sorusu veri boşluğu + dürüst giriş notu döner", () => {
+  const r = askAssistant("Bahçemde ne var?");
+  assert.equal(r.confidence, "dusuk");
+  assert.match(r.answer, /Giriş yaparsan/);
+  assert.equal(r.citations.length, 0);
+});
+
+test("GÜVENLİK: kişisel bağlam güvenlik filtresini BYPASS EDEMEZ", () => {
+  const r = askAssistant("Bahçemdeki domateslere kaç ml ilaçlama yapmalıyım?", CTX);
+  assert.equal(r.safetyBlocked, true);
+  assert.equal(r.citations.length, 0);
+  assert.doesNotMatch(r.answer, /Senin bahçende/);
+});
+
+test("KİŞİSEL: boş bahçe dürüstçe 'kayıt yok' der, sahte liste üretmez", () => {
+  const r = askAssistant("Bahçemde neler var?", { crops: [], tasksToday: [], tasksOverdue: 0 });
+  assert.match(r.answer, /boş|kayıt yok/i);
+  assert.doesNotMatch(r.answer, /takip ediyorsun:/);
+});
+
+test("KİŞİSEL: bugüne görev yoksa dürüstçe 'planlanmış işin yok' der", () => {
+  const r = askAssistant("Bugünkü işler neler?", { crops: [], tasksToday: [], tasksOverdue: 0 });
+  assert.match(r.answer, /Bugüne planlanmış işin yok/);
+});
