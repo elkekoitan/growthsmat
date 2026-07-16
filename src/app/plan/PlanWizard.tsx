@@ -191,17 +191,17 @@ export function PlanWizard({ initialPlan }: { initialPlan?: RealPlan }) {
 
   return (
     <>
-      {/* ---------- HERO ---------- */}
+      {/* ---------- KOMPAKT BAŞLIK ---------- */}
       <section
         className="mesh-light grain"
         style={{ position: "relative", overflow: "hidden" }}
       >
         <div
-          className="container-narrow hero-stagger"
+          className="container-narrow"
           style={{
             position: "relative",
             zIndex: 1,
-            paddingBlock: "clamp(3rem, 7vw, 5rem) 2.25rem",
+            paddingBlock: "clamp(1.75rem, 4vw, 2.75rem)",
           }}
         >
           <span className="eyebrow">
@@ -209,33 +209,32 @@ export function PlanWizard({ initialPlan }: { initialPlan?: RealPlan }) {
           </span>
           <h1
             className="text-balance"
-            style={{ margin: "18px 0 0", fontSize: "var(--fs-h1)", lineHeight: 1.05 }}
+            style={{
+              margin: "0.35rem 0 0",
+              fontSize: "clamp(1.9rem, 4.5vw, 2.9rem)",
+              lineHeight: 1.05,
+            }}
           >
-            Konumunuza göre <span className="shimmer-text">dürüst</span> bir üretim
-            planı
+            Üretim planı <span className="shimmer-text">sihirbazı</span>
           </h1>
           <p
             className="text-pretty"
             style={{
-              margin: "16px 0 0",
+              margin: "0.6rem 0 0",
               color: "var(--text-mid)",
               fontSize: "var(--fs-lead)",
-              maxWidth: 620,
+              maxWidth: "60ch",
             }}
           >
-            Birkaç soruyla alanınıza uygun ürünleri sıralarız. Uygunluk{" "}
-            <strong>skoru</strong> ile veri <strong>güveni</strong> ayrı gösterilir —
-            veriniz eksikse bunu saklamayız, açıkça yazarız.
+            Birkaç soruyla alanınıza uygun ürünleri sıralarız — uygunluk skoru ile veri
+            güveni ayrı gösterilir.
           </p>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 20 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: "1.1rem" }}>
             <span className="chip chip-info">
               <ShieldCheck size={13} /> Skor ≠ güven
             </span>
             <span className="chip">
-              <MapPin size={13} /> 7 iklim bölgesi · 21 ürün
-            </span>
-            <span className="chip">
-              <Beaker size={13} /> Kanıt seviyeli veri
+              <MapPin size={13} /> {CITIES.length} şehir · {Object.keys(CLIMATE_ZONES).length} iklim bölgesi
             </span>
           </div>
         </div>
@@ -1073,10 +1072,8 @@ function ResultsView({
               className="text-pretty"
               style={{ margin: "-10px 0 20px", color: "var(--text-mid)", maxWidth: 640 }}
             >
-              Aynı ürün ({compare.crop.emoji} {compare.crop.name}), aynı koşullar — tek
-              fark toprak pH&apos;ının ölçülüp ölçülmediği. Sürgüyü kaydırın: skor küçük
-              değişir ama <strong>veri güveni</strong> belirgin artar. Küresel tahmin bir
-              başlangıçtır; asıl doğruluk sizin ölçümünüzden gelir.
+              Aynı ürün ({compare.crop.emoji} {compare.crop.name}), aynı koşullar — tek fark
+              pH&apos;ın ölçülmesi: skor az değişir, <strong>veri güveni</strong> belirgin artar.
             </p>
             <CompareSlider
               height={340}

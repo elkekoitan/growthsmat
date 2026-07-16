@@ -59,13 +59,13 @@ export async function signUp(_prevState: AuthFormState, formData: FormData): Pro
   });
 
   await startSession(user.id);
-  // DÜRÜSTLÜK NOTU (2026-07-13, canlı kullanıcı bulgusu): önceden burada /panel'e
-  // yönlendiriliyordu — ama /panel, SmartGrowth OS'in KENDİ yapım durumunu gösteren dahili
-  // bir yol haritası panosudur (bkz. src/app/panel/page.tsx metadata'sı), kullanıcının kendi
-  // hesabıyla HİÇBİR ilgisi yok. Yeni kaydolan biri kendi işiyle alakasız, localStorage'daki
-  // sahte epik yüzdelerini gören bir sayfaya düşüyordu — "her şey statik" hissinin gerçek
-  // kaynağı buydu. Artık gerçek vitrinine (kendi ilanları, sipariş akışı) yönlendiriliyor.
-  redirect("/pazar");
+  // DÜRÜSTLÜK NOTU (2026-07-13 → 2026-07-15 güncellendi): önce /panel'e (dahili yol
+  // haritası — kullanıcının işiyle alakasız), sonra /pazar'a yönlendiriyorduk. Kullanıcı
+  // geri bildirimi "ne yapacak belli değil, kullanıcı kayboluyor" idi; artık ana üs
+  // /bahcem — kullanıcının KENDİ ürünleri + "Sıradaki adımın: …" yönlendirme satırı.
+  // Yeni hesapta bahçe boştur ve boş durum tek cümleyle Ürün Kâşifi'ne yönlendirir:
+  // doğal onboarding. (Keşfet → yetiştir → sat omurgasının giriş kapısı.)
+  redirect("/bahcem");
 }
 
 export async function signIn(_prevState: AuthFormState, formData: FormData): Promise<AuthFormState> {
@@ -79,7 +79,9 @@ export async function signIn(_prevState: AuthFormState, formData: FormData): Pro
   }
 
   await startSession(user.id);
-  redirect("/pazar");
+  // Girişte de ana üs /bahcem (bkz. signUp'taki not) — dönen kullanıcı kendi ürünlerini
+  // ve sıradaki adımını görür; boş bahçe Ürün Kâşifi'ne yönlendirir.
+  redirect("/bahcem");
 }
 
 export async function signOutAction(): Promise<void> {
