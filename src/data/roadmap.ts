@@ -462,7 +462,14 @@ export const EPICS: Epic[] = [
       // atama gerçek/işlevsel; yanıtlama paneli DÜRÜSTÇE hâlâ hiçbir hesap için açılmıyor
       // (hiçbir gerçek kullanıcı EXPERTS rosterindeki bir kimliğe bağlı değil — yeni bir
       // "uzman hesabı" sistemi kurmak bu fazın kapsamı dışında, sahte bir eşleşme uydurulmadı).
-      status: (["todo", "done", "todo", "in_progress", "done", "todo", "todo", "done", "todo", "todo", "in_progress"][i]) as TaskStatus,
+      // 2026-07-17: /asistan artık kullanıcının GERÇEK verisiyle kişisel — AssistantContext
+      // (gerçek TrackedCrop bahçesi + bugünkü/gecikmiş görevler) parametre olarak girer
+      // (src/lib saflığı korunur), "bahçemde ne var / bugün ne yapmalıyım" gerçek satırlardan
+      // cevaplanır, güvenlik filtresi kişisel bloklardan ÖNCE çalışır (bypass yapısal olarak
+      // imkânsız, testli). Bu "Domain tool registry"nin (P11-03) ilk gerçek adımı: asistan
+      // artık domain verisine (bahçe/görev) bağlanıyor — genel bir registry mimarisi değil
+      // henüz, o yüzden in_progress; LLM/gateway hâlâ yok (dış anahtar ister).
+      status: (["todo", "done", "in_progress", "in_progress", "done", "todo", "todo", "done", "todo", "todo", "in_progress"][i]) as TaskStatus,
       title: ["Model gateway ve adaptör", "Politika/risk sınıflandırma", "Domain tool registry", "Sürümlü kaynak/RAG indeksi", "Kaynaklı sohbet UI/API", "Yazma taslağı ve onay", "Görsel gözlem vaka akışı", "Uzman profil ve görüş", "Topluluk/deney paylaşımı", "Moderasyon ve itiraz", "AI altın set ve eval"][i],
     })),
   },
