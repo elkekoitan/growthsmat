@@ -39,7 +39,7 @@ import { PAYMENT_METHOD_LABELS } from "@/lib/payment";
 import { CartProvider, useCart } from "./CartContext";
 import { CartDrawer } from "./CartDrawer";
 import type { RealListing } from "@/server/repositories/listings";
-import type { RealOrder } from "@/server/repositories/orders";
+import type { RealOrder, BuyerOrderView } from "@/server/repositories/orders";
 import type { RealCertificate } from "@/server/repositories/certificates";
 import type { Jurisdiction } from "@/lib/rulePacks";
 import { JURISDICTION_LABELS } from "@/lib/rulePacks";
@@ -67,7 +67,7 @@ export interface MarketProps {
   session: MarketSession | null;
   realListings: RealListing[];
   myListings: RealListing[];
-  myOrders: RealOrder[];
+  myOrders: BuyerOrderView[];
   incomingOrdersByListing: Record<string, RealOrder[]>;
   myCertificates: RealCertificate[];
   pendingCertificates: RealCertificate[];
@@ -707,18 +707,46 @@ function MarketInner({ session, realListings, myListings, myOrders, incomingOrde
                 <p style={{ color: "var(--text-mid)" }}>Henüz sipariş vermedin.</p>
               ) : (
                 <div style={{ display: "grid", gap: 8 }}>
-                  {myOrders.map((o) => (
-                    <div key={o.id} className="card" style={{ padding: 12, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                      <span style={{ fontSize: "var(--fs-sm)" }}>{o.quantity}× · {o.totalPriceTRY.toLocaleString("tr-TR")} ₺</span>
-                      <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                        {/* Ödeme durumu: üretici tahsilatı elle işaretler (kapıda/havale) — ağ geçidi yok. */}
-                        <span className={`chip ${o.paymentStatus === "odendi" ? "chip-ok" : "chip-warn"}`}>
-                          {o.paymentStatus === "odendi" ? "Ödendi" : "Ödeme bekliyor"}
-                        </span>
-                        <span className={`chip ${o.status === "onaylandi" ? "chip-ok" : o.status === "iptal" ? "chip-danger" : "chip-warn"}`}>{o.status}</span>
+                  {myOrders.map((o) => {
+                    const statusLabel = o.status === "onaylandi" ? "Onaylandı" : o.status === "iptal" ? "İptal edildi" : "Onay bekliyor";
+                    return (
+                      <div key={o.id} className="card" style={{ padding: 14, display: "grid", gap: 8 }}>
+                        {/* HANGİ ürün — alıcı "3× · 45 ₺" değil ürün adını görsün (kayıp önleme). */}
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "baseline" }}>
+                          <Link href={`/pazar/${o.listingId}`} style={{ fontWeight: 600, color: "var(--text-hi)" }}>
+                            {o.listingTitle}
+                          </Link>
+                          <span className="font-mono" style={{ fontWeight: 600, color: "#A1502E" }}>
+                            {o.totalPriceTRY.toLocaleString("tr-TR")} ₺
+                          </span>
+                        </div>
+                        <div style={{ fontSize: "var(--fs-xs)", color: "var(--text-mid)" }}>
+                          {o.producer} · {o.region} · {o.quantity}× {o.unitLabel} · {o.createdAt.slice(0, 10)}
+                        </div>
+                        <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                          <span className={`chip ${o.status === "onaylandi" ? "chip-ok" : o.status === "iptal" ? "chip-danger" : "chip-warn"}`}>{statusLabel}</span>
+                          {/* Ödeme durumu: üretici tahsilatı elle işaretler (kapıda/havale) — ağ geçidi yok. */}
+                          <span className={`chip ${o.paymentStatus === "odendi" ? "chip-ok" : "chip-warn"}`}>
+                            {o.paymentStatus === "odendi" ? "Ödendi" : "Ödeme bekliyor"}
+                          </span>
+                          {o.paymentMethod !== "belirtilmedi" && (
+                            <span className="chip">{PAYMENT_METHOD_LABELS[o.paymentMethod]}</span>
+                          )}
+                          {/* Bekleyen siparişi alıcı iptal edebilir (updateOrderStatus sunucuda yetkilendirir). */}
+                          {o.status === "beklemede" && (
+                            <button
+                              className="btn btn-ghost btn-sm"
+                              style={{ marginLeft: "auto", padding: "4px 10px" }}
+                              disabled={orderPending}
+                              onClick={() => handleOrderStatus(o.id, "iptal")}
+                            >
+                              Siparişi iptal et
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

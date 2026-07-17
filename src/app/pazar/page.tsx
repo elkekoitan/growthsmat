@@ -4,7 +4,7 @@ import { RevealProvider } from "@/components/ui";
 import { Market } from "./Market";
 import { getOptionalMembership } from "@/server/session";
 import { listActiveListings, listMyListings } from "@/server/repositories/listings";
-import { listMyOrdersAsBuyer, listOrdersForListing } from "@/server/repositories/orders";
+import { listMyOrdersDetailed, listOrdersForListing } from "@/server/repositories/orders";
 import { listCertificates, listPendingCertificates, listRevocableCertificates } from "@/server/repositories/certificates";
 import { can } from "@/lib/roles";
 
@@ -21,7 +21,7 @@ export default async function PazarPage() {
   const realListings = await listActiveListings();
 
   let myListings: Awaited<ReturnType<typeof listMyListings>> = [];
-  let myOrders: Awaited<ReturnType<typeof listMyOrdersAsBuyer>> = [];
+  let myOrders: Awaited<ReturnType<typeof listMyOrdersDetailed>> = [];
   let incomingOrdersByListing: Record<string, Awaited<ReturnType<typeof listOrdersForListing>>> = {};
   let myCertificates: Awaited<ReturnType<typeof listCertificates>> = [];
   let pendingCertificates: Awaited<ReturnType<typeof listPendingCertificates>> = [];
@@ -29,7 +29,7 @@ export default async function PazarPage() {
 
   if (session) {
     myListings = await listMyListings(session.membership.workspaceId);
-    myOrders = await listMyOrdersAsBuyer(session.membership.workspaceId);
+    myOrders = await listMyOrdersDetailed(session.membership.workspaceId);
     const ordersPerListing = await Promise.all(myListings.map((l) => listOrdersForListing(l.id)));
     incomingOrdersByListing = Object.fromEntries(myListings.map((l, i) => [l.id, ordersPerListing[i]]));
     myCertificates = await listCertificates(session.membership.workspaceId);

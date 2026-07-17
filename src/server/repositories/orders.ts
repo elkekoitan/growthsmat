@@ -174,6 +174,36 @@ export async function listMyOrdersAsBuyer(buyerWorkspaceId: string): Promise<Rea
   return rows.map(toRealOrder);
 }
 
+/** Alıcı siparişini, HANGİ ürün/satıcı/birim olduğunu gösterecek detaylarla döner. */
+export interface BuyerOrderView extends RealOrder {
+  listingTitle: string;
+  producer: string;
+  region: string;
+  unitLabel: string;
+}
+
+/**
+ * "Siparişlerim" görünümü için: her siparişi ilan başlığı/üretici/birim ile birlikte döner.
+ * DÜRÜSTLÜK/UX: alıcı "3× · 45 ₺" yerine HANGİ ürünü sipariş ettiğini net görsün diye
+ * (eski minimal görünüm "kullanıcı kayboluyor" geri bildiriminin bir örneğiydi).
+ * Yalnız kendi workspace'inin siparişleri (buyerWorkspaceId ile scoped).
+ */
+export async function listMyOrdersDetailed(buyerWorkspaceId: string): Promise<BuyerOrderView[]> {
+  const db = getDb();
+  const rows = await db.order.findMany({
+    where: { buyerWorkspaceId },
+    orderBy: { createdAt: "desc" },
+    include: { listing: true },
+  });
+  return rows.map((r) => ({
+    ...toRealOrder(r),
+    listingTitle: r.listing.title,
+    producer: r.listing.producer,
+    region: r.listing.region,
+    unitLabel: r.listing.unitLabel,
+  }));
+}
+
 export interface UpdateOrderStatusResult {
   order?: RealOrder;
   applied: boolean;
