@@ -149,7 +149,16 @@ export const EPICS: Epic[] = [
       // ve aşım varsa uyarı gösteriyor. BİLİNÇLİ SINIR: Plan'ın TEK workspace-geneli areaM2'si
       // var (ürün başına ayrı alan tahsisi yok) — aynı planda birden fazla ürün varsa dakika
       // tahmini olduğundan yüksek çıkabilir (bkz. src/server/repositories/laborCapacity.ts notu).
-      status: (["in_progress", "todo", "todo", "todo", "in_progress", "todo", "in_progress", "todo", "done", "todo", "done"][i]) as TaskStatus,
+      // 2026-07-17: /alan-kalitesi artık sahte "Demo Alan" oyuncağı DEĞİL — gerçek Postgres
+      // Site + SoilTest + WaterTest tabloları (workspace-scoped, additive migration), gerçek
+      // alan/test kayıt formları, skor her okumada TAZE hesaplanır (asla kalıcılaştırılmaz —
+      // dünkü "güncel" bugün "bayat" olabilsin). Oturumsuz kullanıcı eski demoyu "bu bir demo"
+      // dürüst etiketiyle görür. "Toprak örnek ve ölçüm modeli" (P03-05) böylece done: gerçek
+      // örnek kaydı + bayatlık değerlendirmesi çalışıyor (lab PDF/CSV içe aktarma ayrı görev,
+      // P03-06, hâlâ todo). "Su kaynağı ve test modeli" (P03-07) in_progress kalır: test kaydı
+      // gerçek ama su KAYNAĞI (kuyu/şebeke/yağmur) modeli yok. "Site şeması" (P03-01) da
+      // in_progress kalır: Site gerçek ama ProductionUnit (parsel/yatak) hâlâ yok.
+      status: (["in_progress", "todo", "todo", "todo", "done", "todo", "in_progress", "todo", "done", "todo", "done"][i]) as TaskStatus,
       title: ["Site ve ProductionUnit şeması", "Harita/GPS/adres onboarding", "Parsel/yatak/saksı editörü", "Güneş/gölge/rüzgâr profili", "Toprak örnek ve ölçüm modeli", "Laboratuvar PDF/CSV içe aktarma", "Su kaynağı ve test modeli", "Sera/CEA ortam profili", "İş gücü/bütçe kapasitesi", "Veri kökeni görünümü", "Alan veri kalite skoru"][i],
     })),
   },

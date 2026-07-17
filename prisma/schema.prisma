@@ -68,6 +68,7 @@ model Workspace {
   costCycles   CostCycle[]
   plotSeasons  PlotSeason[]
   trackedCrops TrackedCrop[]
+  sites        Site[]
 }
 
 enum Role {
@@ -660,4 +661,57 @@ model CostEntry {
   createdAt DateTime  @default(now())
 
   @@index([cycleId])
+}
+
+// ---------- Alan veri kalitesi (/alan-kalitesi kalıcılığı) ----------
+// DÜRÜSTLÜK NOTU: /alan-kalitesi'nin skoru (src/lib/siteQuality.ts computeDataQuality) SAF
+// kalır ve hesaplanan DataQualityResult (skor/grade/issues) hiçbir zaman kalıcılaştırılmaz —
+// PlotSeason/Plan/AssessmentResult ile aynı ilke. Bu tablolar yalnız kullanıcının GİRDİĞİ ham
+// alan gözlemlerini saklar: alan profili + yapılmış toprak/su testleri. Skor her okumada
+// "şimdi"ye göre yeniden hesaplanır — bayatlık zamanla değişen bir yargıdır, dondurulmaz.
+model Site {
+  id                  String    @id @default(cuid())
+  workspaceId         String
+  workspace           Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name                String
+  areaM2              Float
+  // Gözlemlenen güneş saati — null = "henüz girilmedi" (0 saat DEĞİL; skor motoru bu ayrımı
+  // "eksik" olarak işaretler, sahte bir varsayılan yazılmaz).
+  sunHoursObserved    Float?
+  exactLocationKnown  Boolean   @default(false)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  soilTests  SoilTest[]
+  waterTests WaterTest[]
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId])
+}
+
+// Testler ayrı satırlar olarak birikir (Site üstünde tek "son test" kolonu DEĞİL): skor
+// motoru yalnız en yenisine bakar ama geçmiş testler kullanıcının gerçek kaydıdır — üzerine
+// yazılıp kaybedilmez.
+model SoilTest {
+  id               String   @id @default(cuid())
+  siteId           String
+  site             Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  ph               Float
+  ec               Float
+  organicMatterPct Float
+  sampledAt        DateTime
+  createdAt        DateTime @default(now())
+
+  @@index([siteId, sampledAt])
+}
+
+model WaterTest {
+  id        String   @id @default(cuid())
+  siteId    String
+  site      Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  qualityOk Boolean
+  testedAt  DateTime
+  createdAt DateTime @default(now())
+
+  @@index([siteId, testedAt])
 }

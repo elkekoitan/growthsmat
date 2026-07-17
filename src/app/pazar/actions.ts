@@ -13,6 +13,7 @@ import {
   type RealCertificate,
 } from "@/server/repositories/certificates";
 import { getWorkspaceHomeJurisdiction } from "@/server/repositories/workspaces";
+import { nowInTurkeyISO } from "@/server/trDate";
 import type { ProductFormat, StockType, ChannelId, OrganicClaimStatus } from "@/data/commerce";
 import type { Jurisdiction } from "@/lib/rulePacks";
 import { CROP_BY_ID } from "@/data/crops";
@@ -28,18 +29,8 @@ export interface MarketFormState {
 // kullanılıyor — hâlâ signup'ta varsayılan TR (ADR-009: tek pazardan başla) ve bunu
 // değiştirecek bir ayarlar UI'ı yok, ama en azından artık sabit-kodlanmış değil, gerçek bir
 // workspace alanı — bir sonraki adım bunu değiştirebilen bir ayarlar sayfası.
-const TR_UTC_OFFSET_MS = 3 * 60 * 60 * 1000; // Türkiye yıl boyu UTC+3, DST yok.
-
-/**
- * Türkiye yerel takvim gününü (yyyy-mm-dd) döner. Ham `new Date().toISOString()` UTC
- * bugününü verir — UTC 21:00–23:59 arası (TR yerel 00:00–02:59) bu, henüz TR takvimi bir
- * gün ilerlemişken hâlâ "dünü" döner, ki bu tam olarak adversarial review'ün bulduğu
- * hatadır (sertifika süresi TR yerel gece yarısında dolar, ama UTC saat 3 saat sonra
- * güncellenirdi — o pencerede süresi dolmuş bir sertifika hâlâ geçerli sayılırdı).
- */
-function nowInTurkeyISO(): string {
-  return new Date(Date.now() + TR_UTC_OFFSET_MS).toISOString().slice(0, 10);
-}
+// NOT: TR yerel gün hesabı (nowInTurkeyISO) src/server/trDate.ts'e taşındı — /alan-kalitesi
+// de aynı hesabı kullanıyor, davranış birebir aynı.
 
 export async function createListingAction(_prev: MarketFormState, formData: FormData): Promise<MarketFormState> {
   const { membership } = await requireMembership();
