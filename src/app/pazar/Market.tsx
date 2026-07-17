@@ -35,6 +35,7 @@ import {
 } from "@/components/icons";
 import type { Role } from "@/lib/roles";
 import { can } from "@/lib/roles";
+import { PAYMENT_METHOD_LABELS } from "@/lib/payment";
 import { CartProvider, useCart } from "./CartContext";
 import { CartDrawer } from "./CartDrawer";
 import type { RealListing } from "@/server/repositories/listings";
@@ -49,6 +50,7 @@ import {
   toggleListingActiveAction,
   setListingStockAction,
   updateOrderStatusAction,
+  markOrderPaidAction,
   createCertificateAction,
   reviewCertificateAction,
   revokeCertificateAction,
@@ -231,6 +233,15 @@ function MarketInner({ session, realListings, myListings, myOrders, incomingOrde
   function handleOrderStatus(orderId: string, status: "onaylandi" | "iptal") {
     startOrderTransition(async () => {
       await updateOrderStatusAction(orderId, status);
+    });
+  }
+
+  // Üretici, onaylanmış siparişin parasını (kapıda/havale) aldığını elle "Ödendi" işaretler
+  // — MANUEL tahsilat, ağ geçidi çağrısı yok. Aynı pending yönetimi (orderPending) kullanılır.
+  function handlePayment(orderId: string) {
+    startOrderTransition(async () => {
+      const res = await markOrderPaidAction(orderId);
+      setOrderMsg((m) => ({ ...m, [orderId]: res.error ?? res.success ?? "" }));
     });
   }
 
@@ -496,17 +507,38 @@ function MarketInner({ session, realListings, myListings, myOrders, incomingOrde
                             {incoming.length > 0 && (
                               <div style={{ display: "grid", gap: 6, marginTop: 6 }}>
                                 {incoming.map((o) => (
-                                  <div key={o.id} style={{ fontSize: "var(--fs-xs)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
-                                    <span>{o.quantity}× · {o.totalPriceTRY.toLocaleString("tr-TR")} ₺ · {o.status}</span>
-                                    {o.status === "beklemede" && canManageCommerce && (
-                                      <div style={{ display: "flex", gap: 4 }}>
-                                        <button className="btn btn-primary btn-sm" style={{ padding: "4px 8px" }} disabled={orderPending} onClick={() => handleOrderStatus(o.id, "onaylandi")}>
-                                          <Check size={12} />
+                                  <div key={o.id} style={{ fontSize: "var(--fs-xs)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                                    <span style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                                      {o.quantity}× · {o.totalPriceTRY.toLocaleString("tr-TR")} ₺ · {o.status}
+                                      {/* Ödeme durumu chip'i: MANUEL tahsilat kaydı (ağ geçidi yok). */}
+                                      <span className={`chip ${o.paymentStatus === "odendi" ? "chip-ok" : "chip-warn"}`}>
+                                        {o.paymentStatus === "odendi" ? "Ödendi" : "Ödeme bekliyor"}
+                                      </span>
+                                      {o.paymentMethod !== "belirtilmedi" && (
+                                        <span style={{ color: "var(--text-low)" }}>{PAYMENT_METHOD_LABELS[o.paymentMethod]}</span>
+                                      )}
+                                    </span>
+                                    <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                                      {o.status === "beklemede" && canManageCommerce && (
+                                        <>
+                                          <button className="btn btn-primary btn-sm" style={{ padding: "4px 8px" }} disabled={orderPending} onClick={() => handleOrderStatus(o.id, "onaylandi")}>
+                                            <Check size={12} />
+                                          </button>
+                                          <button className="btn btn-ghost btn-sm" style={{ padding: "4px 8px" }} disabled={orderPending} onClick={() => handleOrderStatus(o.id, "iptal")}>
+                                            <X size={12} />
+                                          </button>
+                                        </>
+                                      )}
+                                      {/* Yalnız onaylanmış + henüz ödenmemiş siparişte "Ödendi işaretle" —
+                                          onaylanmadan tahsilat kaydedilemez (dürüstlük, markOrderPaid'de de zorlanır). */}
+                                      {o.status === "onaylandi" && o.paymentStatus === "bekliyor" && canManageCommerce && (
+                                        <button className="btn btn-secondary btn-sm" style={{ padding: "4px 8px" }} disabled={orderPending} onClick={() => handlePayment(o.id)}>
+                                          <Check size={12} /> Ödendi işaretle
                                         </button>
-                                        <button className="btn btn-ghost btn-sm" style={{ padding: "4px 8px" }} disabled={orderPending} onClick={() => handleOrderStatus(o.id, "iptal")}>
-                                          <X size={12} />
-                                        </button>
-                                      </div>
+                                      )}
+                                    </div>
+                                    {orderMsg[o.id] && (
+                                      <span style={{ width: "100%", color: "var(--text-mid)" }}>{orderMsg[o.id]}</span>
                                     )}
                                   </div>
                                 ))}
@@ -577,7 +609,7 @@ function MarketInner({ session, realListings, myListings, myOrders, incomingOrde
               {myListings.length > 0 && (
                 <div className="card" style={{ padding: 16, marginBottom: 18, display: "flex", gap: 24, flexWrap: "wrap" }}>
                   <div>
-                    <div style={{ fontSize: "var(--fs-xs)", color: "var(--text-low)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Onaylanmış gelir</div>
+                    <div style={{ fontSize: "var(--fs-xs)", color: "var(--text-low)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Onaylanan sipariş tutarı</div>
                     <div className="font-mono" style={{ fontSize: "var(--fs-lg)", fontWeight: 600, color: "#7c3b21" }}>{sellerRevenue.totalTRY.toLocaleString("tr-TR")} ₺</div>
                   </div>
                   <div>
@@ -585,7 +617,9 @@ function MarketInner({ session, realListings, myListings, myOrders, incomingOrde
                     <div className="font-mono" style={{ fontSize: "var(--fs-lg)", fontWeight: 600 }}>{sellerRevenue.orderCount}</div>
                   </div>
                   <p style={{ fontSize: "var(--fs-xs)", color: "var(--text-low)", alignSelf: "center", marginLeft: "auto" }}>
-                    Yalnız senin onayladığın siparişler sayılır — ödeme tahsilatı henüz entegre değil.
+                    Onayladığın siparişlerin TUTARI — tahsilat ayrı takip edilir (her siparişte
+                    &quot;Ödeme bekliyor&quot;/&quot;Ödendi&quot;). Online kart tahsilatı henüz yok;
+                    parayı kapıda ya da havale ile alıp elle &quot;Ödendi&quot; işaretlersin.
                   </p>
                 </div>
               )}
@@ -674,9 +708,15 @@ function MarketInner({ session, realListings, myListings, myOrders, incomingOrde
               ) : (
                 <div style={{ display: "grid", gap: 8 }}>
                   {myOrders.map((o) => (
-                    <div key={o.id} className="card" style={{ padding: 12, display: "flex", justifyContent: "space-between" }}>
+                    <div key={o.id} className="card" style={{ padding: 12, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                       <span style={{ fontSize: "var(--fs-sm)" }}>{o.quantity}× · {o.totalPriceTRY.toLocaleString("tr-TR")} ₺</span>
-                      <span className={`chip ${o.status === "onaylandi" ? "chip-ok" : o.status === "iptal" ? "chip-danger" : "chip-warn"}`}>{o.status}</span>
+                      <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                        {/* Ödeme durumu: üretici tahsilatı elle işaretler (kapıda/havale) — ağ geçidi yok. */}
+                        <span className={`chip ${o.paymentStatus === "odendi" ? "chip-ok" : "chip-warn"}`}>
+                          {o.paymentStatus === "odendi" ? "Ödendi" : "Ödeme bekliyor"}
+                        </span>
+                        <span className={`chip ${o.status === "onaylandi" ? "chip-ok" : o.status === "iptal" ? "chip-danger" : "chip-warn"}`}>{o.status}</span>
+                      </div>
                     </div>
                   ))}
                 </div>

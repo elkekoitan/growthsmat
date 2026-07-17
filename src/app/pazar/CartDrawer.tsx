@@ -10,6 +10,7 @@ import Link from "next/link";
 import { useCart, type CartItem } from "./CartContext";
 import { placeCartOrdersAction } from "./actions";
 import { Package, X, Check } from "@/components/icons";
+import { PAYMENT_METHODS, ONLINE_PAYMENT_NOTE, type PaymentMethod } from "@/lib/payment";
 
 interface ConfirmedOrder {
   items: CartItem[];
@@ -23,6 +24,9 @@ export function CartDrawer() {
   const [msg, setMsg] = useState<string | null>(null);
   const [failedIds, setFailedIds] = useState<Set<string>>(new Set());
   const [confirmed, setConfirmed] = useState<ConfirmedOrder | null>(null);
+  // Ödeme yöntemi sepet GENELİDİR (tek checkout = tek yöntem). Varsayılan "kapida" —
+  // Türkiye yerel organik satışının baskın modu. Online seçenek YOK (ağ geçidi entegre değil).
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("kapida");
   const prevSignal = useRef(0);
 
   // "Sepete ekle"de çekmece otomatik açılır (yalnız yeni bir ekleme sinyalinde).
@@ -43,7 +47,7 @@ export function CartDrawer() {
     const snapshotItems = items.map((i) => ({ ...i }));
     const snapshotTotal = totalTRY;
     startTransition(async () => {
-      const res = await placeCartOrdersAction(items.map((i) => ({ listingId: i.listingId, quantity: i.qty })));
+      const res = await placeCartOrdersAction(items.map((i) => ({ listingId: i.listingId, quantity: i.qty })), paymentMethod);
       if (res.error) {
         setMsg(res.error);
         if (res.failedListingIds) {
@@ -194,18 +198,36 @@ export function CartDrawer() {
                 ))}
               </div>
 
-              {/* --- sticky footer: ara toplam → tam genişlik terracotta CTA → mikrokopy --- */}
+              {/* --- sticky footer: ara toplam → ödeme yöntemi → CTA → dürüst şerit --- */}
               <div className="cart-footer">
                 <div className="cart-subtotal">
                   <span>Ara toplam</span>
                   <span className="font-mono">{totalTRY.toLocaleString("tr-TR")} ₺</span>
                 </div>
+                {/* Ödeme yöntemi (sepet geneli). Yalnız kapıda + havale — online ağ geçidi entegre
+                    değil, öyleymiş gibi bir seçenek göstermek dürüst olmaz. */}
+                <fieldset className="cart-pay-group">
+                  <legend className="cart-pay-legend">Ödeme yöntemi</legend>
+                  {PAYMENT_METHODS.map((m) => (
+                    <label key={m.value} className={`cart-pay-option${paymentMethod === m.value ? " is-on" : ""}`}>
+                      <input
+                        type="radio"
+                        name="cart-payment-method"
+                        value={m.value}
+                        checked={paymentMethod === m.value}
+                        onChange={() => setPaymentMethod(m.value)}
+                      />
+                      <span>{m.label}</span>
+                    </label>
+                  ))}
+                </fieldset>
                 <button type="button" className="cart-checkout-cta" disabled={pending} onClick={handleCheckout}>
                   {pending ? "Gönderiliyor…" : "Siparişi tamamla"}
                 </button>
                 <p style={{ fontSize: "var(--fs-xs)", color: "var(--text-low)", marginTop: 8, textAlign: "center" }}>
-                  Ödeme yok — sipariş kaydı oluşturulur.
+                  Online tahsilat yok — sipariş kaydı oluşturulur, ödemeyi üretici {paymentMethod === "havale" ? "havale/EFT" : "kapıda"} alır.
                 </p>
+                <p className="cart-pay-honest">{ONLINE_PAYMENT_NOTE}</p>
               </div>
             </>
           )}
@@ -259,6 +281,25 @@ export function CartDrawer() {
         }
 
         .cart-footer { margin-top: 12px; border-top: 1px solid var(--border-hair); padding-top: 10px; }
+        .cart-pay-group { border: none; margin: 0 0 10px; padding: 0; display: grid; gap: 6px; }
+        .cart-pay-legend {
+          font-size: var(--fs-xs); font-weight: 600; color: var(--text-mid);
+          padding: 0; margin-bottom: 2px;
+        }
+        .cart-pay-option {
+          display: flex; align-items: center; gap: 8px; cursor: pointer;
+          border: 1px solid var(--border-soft); border-radius: var(--radius-control, 10px);
+          padding: 8px 10px; font-size: var(--fs-sm); color: var(--text-mid);
+          transition: border-color var(--dur-fast, 150ms) ease, background var(--dur-fast, 150ms) ease;
+        }
+        .cart-pay-option.is-on {
+          border-color: #A1502E; color: var(--text-hi);
+          background: color-mix(in srgb, #A1502E 8%, transparent);
+        }
+        .cart-pay-option input { accent-color: #A1502E; margin: 0; }
+        .cart-pay-honest {
+          font-size: var(--fs-xs); color: var(--text-low); margin-top: 6px; text-align: center;
+        }
         .cart-subtotal { display: flex; justify-content: space-between; align-items: baseline; font-weight: 600; margin-bottom: 10px; }
         .cart-subtotal .font-mono { font-size: 17px; font-weight: 700; text-align: right; }
         .cart-checkout-cta {

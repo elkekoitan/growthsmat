@@ -246,9 +246,17 @@ model Order {
   buyerWorkspace   Workspace @relation(fields: [buyerWorkspaceId], references: [id])
   quantity         Float
   totalPriceTRY    Float
-  // Yalnız "beklemede" | "onaylandi" | "iptal" — gerçek bir ödeme/tahsilat durumu DEĞİL,
-  // yalnızca sipariş talebinin işleniş durumu (bkz. src/server/repositories/orders.ts).
+  // Yalnız "beklemede" | "onaylandi" | "iptal" — sipariş TALEBİNİN işleniş durumu
+  // (bkz. src/server/repositories/orders.ts).
   status    String   @default("beklemede")
+  // ÖDEME/TAHSİLAT (2026-07-17): artık MANUEL bir tahsilat kaydı var — üretici parayı
+  // ELDEN (kapıda nakit/kart) ya da HAVALE/EFT ile alır ve sistemde "Ödendi" işaretler.
+  // Bir ödeme AĞ GEÇİDİ (iyzico/Stripe) HÂLÂ ENTEGRE DEĞİL — hiçbir online kart tahsilatı,
+  // hiçbir dış ağ çağrısı yok. paymentStatus="odendi" yalnız üreticinin elle onayladığı
+  // fiziksel/hesaben tahsilatı ifade eder (bkz. src/lib/payment.ts, markOrderPaid).
+  paymentMethod String    @default("belirtilmedi") // "kapida" | "havale" | "belirtilmedi"
+  paymentStatus String    @default("bekliyor")     // "bekliyor" | "odendi"
+  paidAt        DateTime?
   note      String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

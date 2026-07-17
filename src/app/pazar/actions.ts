@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { requireMembership } from "@/server/session";
 import { createListing, setListingActive, setListingStock } from "@/server/repositories/listings";
-import { placeOrder, placeMultipleOrders, updateOrderStatus, type OrderStatus, type CartOrderItem } from "@/server/repositories/orders";
+import { placeOrder, placeMultipleOrders, updateOrderStatus, markOrderPaid, type OrderStatus, type CartOrderItem } from "@/server/repositories/orders";
+import { isSelectablePaymentMethod, type PaymentMethod } from "@/lib/payment";
 import {
   createCertificate,
   evaluateWorkspaceClaim,
@@ -117,9 +118,11 @@ export async function setListingStockAction(listingId: string, stockQty: number)
   return { success: `Stok güncellendi: ${updated.stockQty} adet.` };
 }
 
-export async function placeOrderAction(listingId: string, quantity: number): Promise<MarketFormState> {
+export async function placeOrderAction(listingId: string, quantity: number, paymentMethod?: string): Promise<MarketFormState> {
   const { user, membership } = await requireMembership();
-  const result = await placeOrder(listingId, membership.workspaceId, user.id, quantity);
+  // Geçersiz/eksik yöntem "belirtilmedi"e düşer (placeOrder da ayrıca doğrular) — sipariş engellenmez.
+  const method: PaymentMethod = isSelectablePaymentMethod(paymentMethod) ? paymentMethod : "belirtilmedi";
+  const result = await placeOrder(listingId, membership.workspaceId, user.id, quantity, undefined, method);
   revalidatePath("/pazar");
   if (!result.applied) return { error: result.reason };
   return { success: "Sipariş talebi gönderildi." };
@@ -132,11 +135,13 @@ export interface CartCheckoutResult {
 }
 
 /** Sepetteki birden fazla ilanı TEK seferde sipariş talebine dönüştürür. */
-export async function placeCartOrdersAction(items: CartOrderItem[]): Promise<CartCheckoutResult> {
+export async function placeCartOrdersAction(items: CartOrderItem[], paymentMethod: string): Promise<CartCheckoutResult> {
   const { user, membership } = await requireMembership();
   if (items.length === 0) return { error: "Sepet boş." };
 
-  const result = await placeMultipleOrders(items, membership.workspaceId, user.id);
+  // Ödeme yöntemi sepet geneli — geçersizse "belirtilmedi"e düşer (placeMultipleOrders'a geçer).
+  const method: PaymentMethod = isSelectablePaymentMethod(paymentMethod) ? paymentMethod : "belirtilmedi";
+  const result = await placeMultipleOrders(items, membership.workspaceId, user.id, method);
   revalidatePath("/pazar");
 
   const failed = result.lines.filter((l) => !l.applied);
@@ -158,6 +163,19 @@ export async function updateOrderStatusAction(orderId: string, status: OrderStat
   revalidatePath("/pazar");
   if (!result.applied) return { error: result.reason };
   return { success: "Sipariş durumu güncellendi." };
+}
+
+/**
+ * Üretici, onaylanmış bir siparişin parasını (kapıda nakit/kart ya da havale ile) aldığını
+ * elle "Ödendi" işaretler — MANUEL tahsilat kaydı, hiçbir ödeme ağ geçidi çağrılmaz.
+ * Sahiplik/rol kapısı repository'de (markOrderPaid): yalnız satıcı + commerce.manage.
+ */
+export async function markOrderPaidAction(orderId: string): Promise<MarketFormState> {
+  const { user, membership } = await requireMembership();
+  const result = await markOrderPaid(orderId, user.id, membership.workspaceId, membership.role);
+  revalidatePath("/pazar");
+  if (!result.applied) return { error: result.reason };
+  return { success: "Tahsilat kaydedildi." };
 }
 
 export interface CertificateFormState {

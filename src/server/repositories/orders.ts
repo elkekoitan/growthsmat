@@ -6,6 +6,7 @@ import "server-only";
 
 import { getDb } from "../db";
 import { can, type Role } from "@/lib/roles";
+import { isSelectablePaymentMethod, evaluateMarkOrderPaid, type PaymentMethod, type PaymentStatus } from "@/lib/payment";
 
 export type OrderStatus = "beklemede" | "onaylandi" | "iptal";
 
@@ -17,6 +18,10 @@ export interface RealOrder {
   quantity: number;
   totalPriceTRY: number;
   status: OrderStatus;
+  // Ödeme: MANUEL tahsilat kaydı (kapıda/havale) — online ağ geçidi YOK (bkz. src/lib/payment.ts).
+  paymentMethod: PaymentMethod;
+  paymentStatus: PaymentStatus;
+  paidAt?: string;
   note?: string;
   createdAt: string;
   updatedAt: string;
@@ -30,6 +35,9 @@ function toRealOrder(row: {
   quantity: number;
   totalPriceTRY: number;
   status: string;
+  paymentMethod: string;
+  paymentStatus: string;
+  paidAt: Date | null;
   note: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -42,6 +50,9 @@ function toRealOrder(row: {
     quantity: row.quantity,
     totalPriceTRY: row.totalPriceTRY,
     status: row.status as OrderStatus,
+    paymentMethod: row.paymentMethod as PaymentMethod,
+    paymentStatus: row.paymentStatus as PaymentStatus,
+    paidAt: row.paidAt ? row.paidAt.toISOString() : undefined,
     note: row.note ?? undefined,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
@@ -59,7 +70,8 @@ export async function placeOrder(
   buyerWorkspaceId: string,
   buyerUserId: string,
   quantity: number,
-  note?: string
+  note?: string,
+  paymentMethod: PaymentMethod = "belirtilmedi"
 ): Promise<PlaceOrderResult> {
   const db = getDb();
   const listing = await db.listing.findUnique({ where: { id: listingId } });
@@ -89,6 +101,12 @@ export async function placeOrder(
     return { applied: false, reason: "Stok az önce değişti, tekrar dene." };
   }
 
+  // Yöntemi doğrula: yalnız "kapida"/"havale" kabul edilir; geçersizse (çöp, "online" vb.)
+  // "belirtilmedi"e DÜŞÜLÜR — sipariş yine oluşur (yöntem, siparişin gerçekleşmesi için
+  // zorunlu değildir; üretici sonradan da tahsilat yöntemini belirleyebilir). paymentStatus
+  // her zaman "bekliyor" başlar — tahsilat ancak markOrderPaid ile elle işaretlenir.
+  const method: PaymentMethod = isSelectablePaymentMethod(paymentMethod) ? paymentMethod : "belirtilmedi";
+
   const row = await db.order.create({
     data: {
       listingId,
@@ -97,6 +115,8 @@ export async function placeOrder(
       quantity,
       totalPriceTRY: Math.round(listing.priceTRY * quantity * 100) / 100,
       status: "beklemede",
+      paymentMethod: method,
+      paymentStatus: "bekliyor",
       note,
     },
   });
@@ -129,11 +149,14 @@ export interface PlaceMultipleOrdersResult {
 export async function placeMultipleOrders(
   items: CartOrderItem[],
   buyerWorkspaceId: string,
-  buyerUserId: string
+  buyerUserId: string,
+  paymentMethod: PaymentMethod = "belirtilmedi"
 ): Promise<PlaceMultipleOrdersResult> {
+  // Ödeme yöntemi sepet GENELİDİR (tek checkout = tek yöntem) — CartOrderItem'a ayrı alan
+  // eklenmedi. Her satır aynı yöntemle placeOrder()'a geçer; placeOrder geçersizi düşürür.
   const lines: CartOrderLineResult[] = [];
   for (const item of items) {
-    const result = await placeOrder(item.listingId, buyerWorkspaceId, buyerUserId, item.quantity);
+    const result = await placeOrder(item.listingId, buyerWorkspaceId, buyerUserId, item.quantity, undefined, paymentMethod);
     lines.push({ listingId: item.listingId, applied: result.applied, reason: result.reason, order: result.order });
   }
   return { lines, allApplied: lines.every((l) => l.applied) };
@@ -192,5 +215,51 @@ export async function updateOrderStatus(
   }
 
   const row = await db.order.update({ where: { id: orderId }, data: { status: newStatus } });
+  return { applied: true, order: toRealOrder(row) };
+}
+
+export interface MarkOrderPaidResult {
+  order?: RealOrder;
+  applied: boolean;
+  reason?: string;
+}
+
+/**
+ * Üretici, ONAYLANMIŞ bir siparişin parasını ELDEN (kapıda) ya da HAVALE ile aldığını
+ * elle "Ödendi" işaretler — bu MANUEL bir tahsilat kaydıdır, hiçbir ödeme ağ geçidi
+ * çağrılmaz (bkz. src/lib/payment.ts). Yalnız SATICI + commerce.manage + kendi ilanı
+ * yapabilir (updateOrderStatus'taki rol/sahiplik kapısı deseninin BİREBİR aynısı) —
+ * alıcı kendi siparişini "ödendi" işaretleyemez.
+ *
+ * DÜRÜSTLÜK KAPISI: yalnız "onaylandi" siparişte tahsilat işaretlenebilir. "beklemede"
+ * (henüz kabul edilmemiş) veya "iptal" siparişte para alınmış sayılmaz — onaylanmadan
+ * tahsilat kaydı tutmak gerçeği yanlış gösterir. paymentStatus zaten "odendi" ise işlem
+ * idempotenttir (tekrar tıklamada yeniden yazmaz, dürüst bir sebeple döner).
+ */
+export async function markOrderPaid(
+  orderId: string,
+  actorUserId: string,
+  actorWorkspaceId: string,
+  actorRole: Role
+): Promise<MarkOrderPaidResult> {
+  const db = getDb();
+  const order = await db.order.findUnique({ where: { id: orderId }, include: { listing: true } });
+  if (!order) return { applied: false, reason: "Sipariş bulunamadı." };
+
+  // Yetki/durum kapısı saf katmanda (src/lib/payment.ts) — testli, tek gerçek kaynak.
+  const decision = evaluateMarkOrderPaid(
+    {
+      sellerWorkspaceId: order.listing.workspaceId,
+      orderStatus: order.status,
+      paymentStatus: order.paymentStatus as PaymentStatus,
+    },
+    { workspaceId: actorWorkspaceId, canManageCommerce: can(actorRole, "commerce.manage") }
+  );
+  if (!decision.allowed) return { applied: false, reason: decision.reason };
+
+  const row = await db.order.update({
+    where: { id: orderId },
+    data: { paymentStatus: "odendi", paidAt: new Date() },
+  });
   return { applied: true, order: toRealOrder(row) };
 }

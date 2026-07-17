@@ -445,8 +445,15 @@ export const EPICS: Epic[] = [
       // 2026-07-13 (kritik canlı bulgu sonrası): "B2C sepet/sipariş/ödeme" hâlâ "in_progress" —
       // artık gerçek, localStorage'da tutulan çok-ilanlı bir sepet var (/pazar, CartContext.tsx),
       // "Siparişi tamamla" tek tıkla her ilan için AYRI gerçek sipariş talebi oluşturuyor
-      // (placeMultipleOrders). Eksik olan tek şey hâlâ "ödeme" — hiçbir ödeme ağ geçidi
-      // entegre değil, bu dürüstçe böyle kalıyor (bkz. orders.ts başındaki not).
+      // (placeMultipleOrders).
+      // 2026-07-17: "ödeme" artık kısmen gerçek — AĞ GEÇİTSİZ tahsilat eklendi. Alıcı
+      // checkout'ta kapıda ödeme / havale-EFT seçer (Order.paymentMethod), üretici parayı
+      // alınca "Ödendi işaretle" ile gerçek tahsilat kaydeder (Order.paymentStatus/paidAt;
+      // markOrderPaid — satıcı+commerce.manage+onaylı sipariş, yetki kapısı saf+testli).
+      // Türkiye yerel organik satışının baskın modu bu; pazar bugün gerçek satışa açık.
+      // ONLINE KART ÖDEMESİ (iyzico/Stripe ağ geçidi) HÂLÂ YOK ve sahte bir düğme
+      // gösterilmiyor — o yüzden görev "in_progress" kalır (ağ geçidi kullanıcının
+      // sağlayıcı seçimi + hesabını gerektirir, bkz. /panel "Canlıya çıkış" bölümü).
       status: (["done", "done", "in_progress", "done", "in_progress", "in_progress", "todo", "done", "todo", "todo", "in_progress", "todo", "todo", "done"][i]) as TaskStatus,
       title: ["Maliyet kategorisi modeli", "Ürün/lot/kanal marj hesabı", "Tahmini hasat stok modeli", "Üretici vitrini ve teslimat", "B2C sepet/sipariş/ödeme", "B2B talep/teklif/fiyat", "Restoran/CSA aboneliği", "Master katalog/kanal listing", "Etsy OAuth 2.0 PKCE", "Etsy taslak listing akışı", "Etsy politika/iddia kapısı", "Etsy webhook idempotency", "QPS/QPD limit/reconciliation", "Kanal ücret simülasyonu"][i],
     })),
