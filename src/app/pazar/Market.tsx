@@ -247,6 +247,53 @@ function MarketInner({ session, realListings, myListings, myOrders, incomingOrde
 
   const canManageCommerce = session ? can(session.role, "commerce.manage") : false;
 
+  // Bir ilana gelen siparişlerin satıcı yönetim bloğu (onayla/iptal/Ödendi işaretle).
+  // Hem aktif mağaza grid'indeki kendi kartında HEM Vitrinim'de kullanılır — böylece
+  // ilan Pasif yapılsa da siparişler yönetilebilir kalır (eski çıkmaz: pasif ilanın
+  // onaylı-ödenmemiş siparişi hiçbir yerden işaretlenemiyordu — UX denetimi).
+  function renderIncomingOrders(orders: RealOrder[]) {
+    if (orders.length === 0) return null;
+    return (
+      <div style={{ display: "grid", gap: 6, marginTop: 6 }}>
+        {orders.map((o) => (
+          <div key={o.id} style={{ fontSize: "var(--fs-xs)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              {o.quantity}× · {o.totalPriceTRY.toLocaleString("tr-TR")} ₺ · {o.status}
+              <span className={`chip ${o.paymentStatus === "odendi" ? "chip-ok" : "chip-warn"}`}>
+                {o.paymentStatus === "odendi" ? "Ödendi" : "Ödeme bekliyor"}
+              </span>
+              {o.paymentMethod !== "belirtilmedi" && (
+                <span style={{ color: "var(--text-low)" }}>{PAYMENT_METHOD_LABELS[o.paymentMethod]}</span>
+              )}
+            </span>
+            <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+              {o.status === "beklemede" && canManageCommerce && (
+                <>
+                  <button className="btn btn-primary btn-sm" style={{ padding: "4px 8px" }} disabled={orderPending} onClick={() => handleOrderStatus(o.id, "onaylandi")} aria-label="Onayla">
+                    <Check size={12} />
+                  </button>
+                  <button className="btn btn-ghost btn-sm" style={{ padding: "4px 8px" }} disabled={orderPending} onClick={() => handleOrderStatus(o.id, "iptal")} aria-label="İptal et">
+                    <X size={12} />
+                  </button>
+                </>
+              )}
+              {/* Yalnız onaylanmış + henüz ödenmemiş siparişte "Ödendi işaretle" —
+                  onaylanmadan tahsilat kaydedilemez (dürüstlük, markOrderPaid'de de zorlanır). */}
+              {o.status === "onaylandi" && o.paymentStatus === "bekliyor" && canManageCommerce && (
+                <button className="btn btn-secondary btn-sm" style={{ padding: "4px 8px" }} disabled={orderPending} onClick={() => handlePayment(o.id)}>
+                  <Check size={12} /> Ödendi işaretle
+                </button>
+              )}
+            </div>
+            {orderMsg[o.id] && (
+              <span style={{ width: "100%", color: "var(--text-mid)" }}>{orderMsg[o.id]}</span>
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   const [channelFilter, setChannelFilter] = useState<ChannelId | "hepsi">("hepsi");
   const [categoryFilter, setCategoryFilter] = useState<CropCategory | "hepsi">("hepsi");
   const [query, setQuery] = useState("");
@@ -504,46 +551,7 @@ function MarketInner({ session, realListings, myListings, myOrders, incomingOrde
                         {isMine ? (
                           <div style={{ display: "grid", gap: 6 }}>
                             <span className="chip chip-info" style={{ width: "fit-content" }}>Senin ilanın</span>
-                            {incoming.length > 0 && (
-                              <div style={{ display: "grid", gap: 6, marginTop: 6 }}>
-                                {incoming.map((o) => (
-                                  <div key={o.id} style={{ fontSize: "var(--fs-xs)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                                    <span style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                                      {o.quantity}× · {o.totalPriceTRY.toLocaleString("tr-TR")} ₺ · {o.status}
-                                      {/* Ödeme durumu chip'i: MANUEL tahsilat kaydı (ağ geçidi yok). */}
-                                      <span className={`chip ${o.paymentStatus === "odendi" ? "chip-ok" : "chip-warn"}`}>
-                                        {o.paymentStatus === "odendi" ? "Ödendi" : "Ödeme bekliyor"}
-                                      </span>
-                                      {o.paymentMethod !== "belirtilmedi" && (
-                                        <span style={{ color: "var(--text-low)" }}>{PAYMENT_METHOD_LABELS[o.paymentMethod]}</span>
-                                      )}
-                                    </span>
-                                    <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                                      {o.status === "beklemede" && canManageCommerce && (
-                                        <>
-                                          <button className="btn btn-primary btn-sm" style={{ padding: "4px 8px" }} disabled={orderPending} onClick={() => handleOrderStatus(o.id, "onaylandi")}>
-                                            <Check size={12} />
-                                          </button>
-                                          <button className="btn btn-ghost btn-sm" style={{ padding: "4px 8px" }} disabled={orderPending} onClick={() => handleOrderStatus(o.id, "iptal")}>
-                                            <X size={12} />
-                                          </button>
-                                        </>
-                                      )}
-                                      {/* Yalnız onaylanmış + henüz ödenmemiş siparişte "Ödendi işaretle" —
-                                          onaylanmadan tahsilat kaydedilemez (dürüstlük, markOrderPaid'de de zorlanır). */}
-                                      {o.status === "onaylandi" && o.paymentStatus === "bekliyor" && canManageCommerce && (
-                                        <button className="btn btn-secondary btn-sm" style={{ padding: "4px 8px" }} disabled={orderPending} onClick={() => handlePayment(o.id)}>
-                                          <Check size={12} /> Ödendi işaretle
-                                        </button>
-                                      )}
-                                    </div>
-                                    {orderMsg[o.id] && (
-                                      <span style={{ width: "100%", color: "var(--text-mid)" }}>{orderMsg[o.id]}</span>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
+                            {renderIncomingOrders(incoming)}
                           </div>
                         ) : l.stockQty <= 0 ? (
                           // Tükendi: kart görünür kalır, CTA disabled — gizlenmez (dürüst durum).
@@ -696,6 +704,15 @@ function MarketInner({ session, realListings, myListings, myOrders, incomingOrde
                         </button>
                         {stockMsg[l.id] && <span style={{ fontSize: "var(--fs-xs)", color: "var(--text-mid)" }}>{stockMsg[l.id]}</span>}
                       </div>
+                      {/* Gelen siparişler burada da yönetilir — ilan Pasif olsa bile
+                          (aktif mağaza grid'inden düşer ama sipariş takı-kalmasın; UX denetimi).
+                          DetailActions'ın "sipariş yönetimi Vitrinim'de" ifadesi de böylece doğru olur. */}
+                      {(incomingOrdersByListing[l.id]?.length ?? 0) > 0 && (
+                        <div style={{ borderTop: "1px solid var(--border-hair)", paddingTop: 8 }}>
+                          <div style={{ fontSize: "var(--fs-xs)", color: "var(--text-low)", marginBottom: 2 }}>Gelen siparişler</div>
+                          {renderIncomingOrders(incomingOrdersByListing[l.id] ?? [])}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

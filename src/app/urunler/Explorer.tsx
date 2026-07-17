@@ -610,9 +610,12 @@ function DetailModal({
                 </span>
                 <EvidenceTag grade={crop.evidence} />
               </div>
-              {/* Tek sonraki adım — detayı okuyup karar veren kullanıcı burada tıkanmasın */}
+              {/* Tek sonraki adım — detayı okuyup karar veren kullanıcı burada tıkanmasın.
+                  key={crop.id}: modal eş-bitki linkiyle BAŞKA ürüne in-place geçince
+                  (onNavigate remount etmez) buton remount olup "eklendi ✓" state'ini
+                  sıfırlar — yoksa eklenmemiş ürün "Bahçende" gibi görünürdü (UX denetimi). */}
               <div style={{ marginTop: 12 }}>
-                <AddToGardenButton cropId={crop.id} hasSession={hasSession} />
+                <AddToGardenButton key={crop.id} cropId={crop.id} hasSession={hasSession} />
               </div>
             </div>
           </div>

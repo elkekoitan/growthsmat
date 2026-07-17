@@ -159,9 +159,17 @@ export function Assistant({ context, llmEnabled }: { context: AssistantContext |
                     )}
                     {m.answer?.safetyBlocked && (
                       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 8 }}>
-                        <Link href="/uzman-danisma" className="btn btn-secondary btn-sm">
-                          Uzmana danışmanlık talep et <ArrowRight size={14} />
-                        </Link>
+                        {/* Oturumsuz kullanıcı /uzman-danisma'ya (giriş ister) gönderilirse çıkmaza
+                            düşer (UX denetimi). Giriş yoksa önce /giris'e yönlendir. */}
+                        {context ? (
+                          <Link href="/uzman-danisma" className="btn btn-secondary btn-sm">
+                            Uzmana danışmanlık talep et <ArrowRight size={14} />
+                          </Link>
+                        ) : (
+                          <Link href="/giris" className="btn btn-secondary btn-sm">
+                            Giriş yap ve uzmana danış <ArrowRight size={14} />
+                          </Link>
+                        )}
                         {suggestSpecialtyForQuery(m.answer.query) && (
                           <span className="chip chip-info">
                             Önerilen alan: {SPECIALTY_LABELS[suggestSpecialtyForQuery(m.answer.query)!]}
