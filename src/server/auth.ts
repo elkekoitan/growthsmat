@@ -11,11 +11,40 @@ import { redirect } from "next/navigation";
 import { getDb } from "./db";
 import { clearSessionCookie, setSessionCookie, SESSION_COOKIE, SESSION_TTL_MS } from "./session";
 import { hashPassword, verifyPassword } from "./password";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
+import { createRateLimiter, clientIpFromForwarded } from "@/lib/rateLimit";
 
 export interface AuthFormState {
   error?: string;
 }
+
+// Brute-force koruması (tek konteyner deploy — bkz. Dockerfile; çok-replika gerekirse
+// Redis'e taşınır). Mantık saf src/lib/rateLimit.ts'te (kayan pencere, testli).
+//
+// TASARIM KARARI (adversarial review sonrası, 2026-07-17) — per-HESAP sert kilidi
+// BİLİNÇLİ OLARAK YOK. Kayan pencereli bir hesap kilidi, saldırganın kurbanın e-postasını
+// bilerek trickle trafikle (pencere hiç boşalmaz) hesabı KALICI kilitlemesine yol açardı
+// (targeted lockout DoS) — doğru şifre bile reddedilirdi. Bunun yerine:
+//   - loginByIp: tek bir KAYNAĞIN (IP) deneme hızını kısıtlar. IP kilidi belirli bir
+//     hesabı küresel kilitlemez; yalnız saldırganın kendi IP'sini geçici yavaşlatır.
+//   - "yerel" (XFF yok/tanınamayan IP) İSTİSNADIR: bilinmeyen tek bir kovaya tüm istekleri
+//     toplayıp küresel login kilidi yaratmasın (review MINOR).
+//   - Doğru şifre HER ZAMAN geçer (sayaca yalnız BAŞARISIZ denemeler eklenir) — meşru
+//     kullanıcı hiçbir koşulda kilitlenmez.
+// Dağıtık (botnet) brute-force için CAPTCHA + paylaşımlı store gerekir — ertelenmiş
+// (bkz. /panel "Canlıya çıkış").
+const LOGIN_MAX_PER_IP = 30; // başarısız login denemesi / 15 dk / IP
+const SIGNUP_MAX_PER_IP = 8; // kayıt / saat / IP
+const loginByIp = createRateLimiter(15 * 60_000, LOGIN_MAX_PER_IP);
+const signupByIp = createRateLimiter(60 * 60_000, SIGNUP_MAX_PER_IP);
+
+async function clientIp(): Promise<string> {
+  const h = await headers();
+  return clientIpFromForwarded(h.get("x-forwarded-for"));
+}
+
+// Bilgi sızmayan genel mesaj: hesabın var olup olmadığını ELE VERMEZ.
+const RATE_LIMITED_MSG = "Çok fazla deneme yapıldı. Lütfen birkaç dakika sonra tekrar dene.";
 
 function generateSessionToken(): string {
   return crypto.randomBytes(32).toString("base64url");
@@ -36,6 +65,14 @@ export async function signUp(_prevState: AuthFormState, formData: FormData): Pro
 
   if (!email || !email.includes("@")) return { error: "Geçerli bir e-posta adresi girin." };
   if (password.length < 8) return { error: "Şifre en az 8 karakter olmalı." };
+
+  // Hesap oluşturma spam'ine karşı IP başına sınır. allow() sınırı hem kontrol eder hem
+  // (izin varsa) kaydeder; aşımda kaydetmez ve false döner. "yerel" (tanınamayan IP)
+  // istisnadır — bilinmeyen kaynak küresel kayıt kilidi yaratmasın.
+  const ip = await clientIp();
+  if (ip !== "yerel" && !signupByIp.allow(`signup:${ip}`)) {
+    return { error: RATE_LIMITED_MSG };
+  }
 
   const db = getDb();
   const existing = await db.user.findUnique({ where: { email } });
@@ -72,9 +109,21 @@ export async function signIn(_prevState: AuthFormState, formData: FormData): Pro
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
 
+  // Brute-force kapısı: yalnız IP-başına (tanınan IP için). Bu bir HESABI değil, saldırganın
+  // KENDİ IP'sini geçici yavaşlatır — targeted lockout DoS yoktur (bkz. yukarıdaki tasarım
+  // notu). "yerel" (tanınamayan IP) küresel kova oluşturmasın diye istisnadır.
+  const ip = await clientIp();
+  const ipKey = `login:${ip}`;
+  if (ip !== "yerel" && loginByIp.countFor(ipKey) >= LOGIN_MAX_PER_IP) {
+    return { error: RATE_LIMITED_MSG };
+  }
+
   const db = getDb();
   const user = await db.user.findUnique({ where: { email } });
   if (!user || !verifyPassword(password, user.passwordHash)) {
+    // Yalnız BAŞARISIZ deneme IP sayacına eklenir; DOĞRU şifre hiçbir sayaca takılmaz —
+    // meşru kullanıcı (bir saldırgan aynı IP'yi doldursa bile farklı IP'den) kilitlenmez.
+    if (ip !== "yerel") loginByIp.allow(ipKey);
     return { error: "E-posta veya şifre hatalı." };
   }
 

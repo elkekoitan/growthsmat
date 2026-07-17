@@ -2,7 +2,7 @@
 // (review bulgusu: bu mantık daha önce sıfır testliydi).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createRateLimiter } from "../src/lib/rateLimit.ts";
+import { createRateLimiter, clientIpFromForwarded } from "../src/lib/rateLimit.ts";
 
 test("HIZ SINIRI: pencere içinde tam olarak maxPerWindow çağrıya izin verir", () => {
   const rl = createRateLimiter(60_000, 3);
@@ -54,4 +54,40 @@ test("HIZ SINIRI: temizlik aktif anahtarları DÜŞÜRMEZ, boşalmışları atar
   rl.allow("tetik", t0 + 120_000);
   assert.equal(rl.countFor("aktif", t0 + 120_000), 2, "aktif anahtar temizlikte silinmemeli");
   assert.equal(rl.countFor("bayat:0", t0 + 120_000), 0);
+});
+
+// ---------- clientIpFromForwarded (brute-force anahtarının güvenliği) ----------
+
+test("XFF-IP: en SAĞDAKİ girdi alınır (güvenilir proxy'nin eklediği), sol spoof'lanmaz", () => {
+  // Saldırgan soldaki girdiyi uydurabilir; biz en sağı (proxy'nin gerçek IP'si) almalıyız.
+  assert.equal(clientIpFromForwarded("1.1.1.1, 2.2.2.2, 9.9.9.9"), "9.9.9.9");
+  assert.equal(clientIpFromForwarded("203.0.113.7"), "203.0.113.7");
+});
+
+test("XFF-IP: boşluklar kırpılır, boş girdiler atlanır", () => {
+  assert.equal(clientIpFromForwarded("  1.1.1.1 ,  2.2.2.2  "), "2.2.2.2");
+  assert.equal(clientIpFromForwarded("1.1.1.1, , "), "1.1.1.1");
+});
+
+test("XFF-IP: başlık yok/boş → 'yerel' (dev/edge)", () => {
+  assert.equal(clientIpFromForwarded(null), "yerel");
+  assert.equal(clientIpFromForwarded(undefined), "yerel");
+  assert.equal(clientIpFromForwarded(""), "yerel");
+  assert.equal(clientIpFromForwarded("  ,  "), "yerel");
+});
+
+test("BRUTE-FORCE senaryosu: bir IP'nin 30 başarısız denemesinden sonra o IP kısıtlanır", () => {
+  // auth.ts login kapısı per-IP throttle kullanır (per-HESAP kilidi YOK — targeted
+  // lockout DoS önlemek için, bkz. auth.ts tasarım notu). Modelle:
+  const byIp = createRateLimiter(15 * 60_000, 30);
+  const t0 = 5_000_000;
+  const key = "login:203.0.113.9";
+  for (let i = 0; i < 30; i++) {
+    assert.ok(byIp.countFor(key, t0 + i) < 30, `deneme ${i} henüz kısıtlı olmamalı`);
+    byIp.allow(key, t0 + i);
+  }
+  // 31. denemede o IP için kapı kapanır.
+  assert.ok(byIp.countFor(key, t0 + 30) >= 30, "30 başarısızdan sonra IP kısıtı devrede");
+  // FARKLI IP etkilenmez — belirli bir kurban hesabı küresel kilitlenemez (DoS yok).
+  assert.equal(byIp.countFor("login:198.51.100.2", t0 + 30), 0);
 });

@@ -10,6 +10,19 @@ export interface RateLimiter {
   countFor(key: string, now?: number): number;
 }
 
+/**
+ * X-Forwarded-For başlığından istemci IP'sini çıkarır. EN SAĞDAKİ girdi alınır çünkü onu
+ * bizim önümüzdeki (güvenilir) proxy ekler; en soldaki girdi istemcinin kendi gönderdiği
+ * header'la SAHTELENEBİLİR (spoof) — soldaki alınsaydı saldırgan her istekte taze anahtar
+ * üretip hız sınırını atlatabilirdi. Başlık yok/boşsa "yerel" döner (dev/edge durumu).
+ * SAF: hem asistan action'ı hem auth (login brute-force) aynı türetmeyi paylaşır.
+ */
+export function clientIpFromForwarded(xff: string | null | undefined): string {
+  if (!xff) return "yerel";
+  const ip = xff.split(",").map((s) => s.trim()).filter(Boolean).pop();
+  return ip || "yerel";
+}
+
 export function createRateLimiter(windowMs: number, maxPerWindow: number): RateLimiter {
   const hits = new Map<string, number[]>();
 
