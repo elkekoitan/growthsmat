@@ -19,6 +19,7 @@ import { openCaseAction, assignCaseAction, answerCaseAction, closeCaseAction } f
 import { NumberedHeading } from "@/components/graphics";
 import { Reveal } from "@/components/ui";
 import { ShieldCheck, Check, X } from "@/components/icons";
+import { isSeedIdentity } from "@/lib/demoSeed";
 
 const STATUS_CHIP_CLASS: Record<ConsultationCase["status"], string> = {
   acik: "chip-warn",
@@ -226,6 +227,12 @@ export function ExpertConsult({ email, role, initialCases, experts }: ExpertCons
                       <span className="chip chip-info">{SPECIALTY_LABELS[c.specialty]}</span>
                       <span className="chip chip-warn">{URGENCY_LABELS[c.urgency]}</span>
                       <span className={`chip ${STATUS_CHIP_CLASS[c.status]}`}>{CASE_STATUS_LABELS[c.status]}</span>
+                      {/* Dürüstlük: tohum vakaları gerçek kullanıcı etkinliği gibi sunulmaz. */}
+                      {isSeedIdentity(c.askedBy) && (
+                        <span className="chip" title="Bu vaka, akışı göstermek için platformla gelen örnek içeriktir — gerçek bir kullanıcı talebi değildir.">
+                          Örnek kayıt
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div style={{ fontSize: "var(--fs-sm)", color: "var(--text-mid)" }}>{c.question}</div>

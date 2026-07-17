@@ -14,6 +14,7 @@ import { submitCorrectionAction, reviewCorrectionAction, withdrawSubmissionActio
 import { NumberedHeading } from "@/components/graphics";
 import { Reveal } from "@/components/ui";
 import { Clipboard, Check, X } from "@/components/icons";
+import { isSeedIdentity } from "@/lib/demoSeed";
 
 type FieldKey = "sunOptHours" | "phRange" | "daysToHarvest";
 
@@ -224,7 +225,15 @@ export function CurationConsole({ email, role, initialSubmissions }: CurationCon
                     <strong>
                       {c ? `${c.emoji} ${c.name}` : s.subjectId} — {fieldLabel}
                     </strong>
-                    <span className={`chip ${STATUS_CHIP_CLASS[s.status]}`}>{CURATION_STATUS_LABELS[s.status]}</span>
+                    <span style={{ display: "inline-flex", gap: 6, flexWrap: "wrap" }}>
+                      {/* Dürüstlük: tohum önerileri gerçek kullanıcı etkinliği gibi sunulmaz. */}
+                      {isSeedIdentity(s.submittedBy) && (
+                        <span className="chip" title="Bu öneri, akışı göstermek için platformla gelen örnek içeriktir — gerçek bir kullanıcı önerisi değildir.">
+                          Örnek kayıt
+                        </span>
+                      )}
+                      <span className={`chip ${STATUS_CHIP_CLASS[s.status]}`}>{CURATION_STATUS_LABELS[s.status]}</span>
+                    </span>
                   </div>
                   <div style={{ fontSize: "var(--fs-sm)", color: "var(--text-mid)" }}>
                     <span className="tnum" style={{ textDecoration: "line-through", color: "var(--text-low)" }}>
