@@ -4,6 +4,8 @@ import { Footer } from "@/components/Footer";
 import { RevealProvider } from "@/components/ui";
 import { Dashboard } from "./Dashboard";
 import { WorkspaceSummary, type WorkspaceSummaryData } from "./WorkspaceSummary";
+import { GoLiveChecklist } from "./GoLiveChecklist";
+import { getGoLiveState } from "@/server/goLive";
 import { getOptionalMembership } from "@/server/session";
 import { listOrSeedTasks } from "@/server/repositories/tasks";
 import { listOrSeedLots } from "@/server/repositories/lots";
@@ -52,13 +54,17 @@ async function buildSummary(workspaceId: string): Promise<WorkspaceSummaryData> 
 
 export default async function PanelPage() {
   const session = await getOptionalMembership();
-  const summary = session ? await buildSummary(session.membership.workspaceId) : null;
+  const [summary, goLive] = await Promise.all([
+    session ? buildSummary(session.membership.workspaceId) : Promise.resolve(null),
+    getGoLiveState(),
+  ]);
 
   return (
     <RevealProvider>
       <Nav />
       <main>
         <WorkspaceSummary session={session ? { email: session.user.email } : null} summary={summary} />
+        <GoLiveChecklist items={goLive.items} summary={goLive.summary} />
         <Dashboard />
       </main>
       <Footer />
