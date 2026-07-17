@@ -468,8 +468,17 @@ export const EPICS: Epic[] = [
       // cevaplanır, güvenlik filtresi kişisel bloklardan ÖNCE çalışır (bypass yapısal olarak
       // imkânsız, testli). Bu "Domain tool registry"nin (P11-03) ilk gerçek adımı: asistan
       // artık domain verisine (bahçe/görev) bağlanıyor — genel bir registry mimarisi değil
-      // henüz, o yüzden in_progress; LLM/gateway hâlâ yok (dış anahtar ister).
-      status: (["todo", "done", "in_progress", "in_progress", "done", "todo", "todo", "done", "todo", "todo", "in_progress"][i]) as TaskStatus,
+      // henüz, o yüzden in_progress.
+      // 2026-07-17 (P11-01): Model gateway KOD OLARAK TAM (src/server/llm.ts + saf
+      // src/lib/assistantLlm.ts): ANTHROPIC_API_KEY env'i tanımlanınca /asistan cevapları
+      // Claude'dan (Opus 4.8, adaptif düşünme) gelir — güvenlik filtresi bloklu soruyu
+      // modele HİÇ göndermez (testli), kişisel iddialar yalnız gerçek bahçe/görev
+      // satırlarından, kaynak seti kural motorununki (LLM'e yeni kaynak statüsü verilmez),
+      // cevap UI'da "Claude / Kural motoru" olarak dürüstçe etiketlenir, hata/kota/anahtar
+      // yokluğunda kural motoruna düşer. in_progress kalma nedeni DÜRÜST: anahtar
+      // kullanıcıdadır, canlıda henüz tanımlı değil — tanımlanıp canlıda LLM cevabı
+      // doğrulanana kadar "done" denmez.
+      status: (["in_progress", "done", "in_progress", "in_progress", "done", "todo", "todo", "done", "todo", "todo", "in_progress"][i]) as TaskStatus,
       title: ["Model gateway ve adaptör", "Politika/risk sınıflandırma", "Domain tool registry", "Sürümlü kaynak/RAG indeksi", "Kaynaklı sohbet UI/API", "Yazma taslağı ve onay", "Görsel gözlem vaka akışı", "Uzman profil ve görüş", "Topluluk/deney paylaşımı", "Moderasyon ve itiraz", "AI altın set ve eval"][i],
     })),
   },

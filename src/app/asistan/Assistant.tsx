@@ -3,6 +3,8 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
 import { askAssistant, EXAMPLE_QUESTIONS, type AssistantAnswer, type AssistantContext } from "@/lib/assistant";
+import type { AssistantReply } from "@/lib/assistantLlm";
+import { askAssistantAction } from "./actions";
 import { suggestSpecialtyForQuery, SPECIALTY_LABELS } from "@/lib/expertConsult";
 import { Reveal } from "@/components/ui";
 import { Sparkles, ShieldCheck, Check, ArrowRight, Globe } from "@/components/icons";
@@ -10,7 +12,7 @@ import { Sparkles, ShieldCheck, Check, ArrowRight, Globe } from "@/components/ic
 interface Message {
   role: "user" | "assistant";
   text: string;
-  answer?: AssistantAnswer;
+  answer?: AssistantReply;
 }
 
 const CONFIDENCE_LABEL: Record<AssistantAnswer["confidence"], string> = {
@@ -19,18 +21,47 @@ const CONFIDENCE_LABEL: Record<AssistantAnswer["confidence"], string> = {
   dusuk: "Düşük güven",
 };
 
-export function Assistant({ context }: { context: AssistantContext | null }) {
+export function Assistant({ context, llmEnabled }: { context: AssistantContext | null; llmEnabled: boolean }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
+  const [pending, setPending] = useState(false);
   const listEndRef = useRef<HTMLDivElement>(null);
 
-  function send(q: string) {
-    const query = q.trim();
-    if (!query) return;
-    const answer = askAssistant(query, context);
-    setMessages((prev) => [...prev, { role: "user", text: query }, { role: "assistant", text: answer.answer, answer }]);
-    setInput("");
+  function scrollToEnd() {
     requestAnimationFrame(() => listEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }));
+  }
+
+  function appendAnswer(query: string, answer: AssistantReply) {
+    setMessages((prev) => [...prev, { role: "user", text: query, answer: undefined }, { role: "assistant", text: answer.answer, answer }]);
+  }
+
+  async function send(q: string) {
+    const query = q.trim();
+    if (!query || pending) return;
+    setInput("");
+
+    if (!llmEnabled) {
+      // LLM kapalı: mevcut davranış birebir — kural motoru yerelde, anında.
+      appendAnswer(query, { ...askAssistant(query, context), source: "kural" });
+      scrollToEnd();
+      return;
+    }
+
+    // LLM açık: soru sunucuya gider (bağlam sunucuda yeniden kurulur).
+    setMessages((prev) => [...prev, { role: "user", text: query }]);
+    setPending(true);
+    scrollToEnd();
+    try {
+      const answer = await askAssistantAction(query);
+      setMessages((prev) => [...prev, { role: "assistant", text: answer.answer, answer }]);
+    } catch {
+      // Ağ/aksiyon hatasında bile kullanıcı cevapsız kalmaz: yerel kural motoru.
+      const fallback: AssistantReply = { ...askAssistant(query, context), source: "kural" };
+      setMessages((prev) => [...prev, { role: "assistant", text: fallback.answer, answer: fallback }]);
+    } finally {
+      setPending(false);
+      scrollToEnd();
+    }
   }
 
   return (
@@ -45,9 +76,9 @@ export function Assistant({ context }: { context: AssistantContext | null }) {
             Sorunu sor, <em style={{ fontStyle: "italic", color: "var(--primary)" }}>kaynağıyla</em> cevap alsın.
           </h1>
           <p style={{ color: "var(--text-mid)", fontSize: "var(--fs-lead)", maxWidth: 620, margin: "0 auto" }} className="text-pretty">
-            Bu asistan bir dil modeli çağırmaz — bilgi grafiğimizdeki gerçek kayıtlarla kural
-            tabanlı eşleştirme yapar. Pestisit dozu ve sağlık iddiası içeren sorularda cevap
-            üretmez; uzmana yönlendirir.
+            {llmEnabled
+              ? "Cevaplar Claude dil modeliyle üretilir ve bilgi grafiğimizdeki gerçek kayıtlara dayandırılır — her cevabın hangi motordan geldiği açıkça etiketlenir. Pestisit dozu ve sağlık iddiası soruları modele hiç gitmez; uzmana yönlendirilir."
+              : "Bu asistan bir dil modeli çağırmaz — bilgi grafiğimizdeki gerçek kayıtlarla kural tabanlı eşleştirme yapar. Pestisit dozu ve sağlık iddiası içeren sorularda cevap üretmez; uzmana yönlendirir."}
           </p>
           {/* Dürüst durum satırı: asistanın GERÇEKTE hangi kişisel veriyi bildiği. */}
           <p style={{ fontSize: "var(--fs-xs)", color: "var(--text-low)", marginTop: 12 }}>
@@ -110,6 +141,10 @@ export function Assistant({ context }: { context: AssistantContext | null }) {
                         <span className={`chip ${m.answer.confidence === "yuksek" ? "chip-ok" : m.answer.confidence === "orta" ? "chip-warn" : "chip-info"}`}>
                           <Check size={12} /> {CONFIDENCE_LABEL[m.answer.confidence]}
                         </span>
+                        {/* Dürüst kaynak etiketi: cevabı hangi motor üretti. */}
+                        <span className="chip" title={m.answer.source === "llm" ? "Claude dil modeli — bilgi grafiği kayıtlarıyla grounded" : "Kural tabanlı motor — LLM çağrısı yapılmadı"}>
+                          <Sparkles size={12} /> {m.answer.source === "llm" ? "Claude" : "Kural motoru"}
+                        </span>
                         {m.answer.citations.map((c, ci) => (
                           <span key={ci} className="chip" title={`${c.org}, ${c.year}`}>
                             <Globe size={12} /> {c.title}
@@ -137,6 +172,26 @@ export function Assistant({ context }: { context: AssistantContext | null }) {
                   </div>
                 )
               )}
+              {pending && (
+                <div style={{ alignSelf: "flex-start", maxWidth: "88%" }}>
+                  <div
+                    style={{
+                      background: "var(--bg-surface-2)",
+                      border: "1px solid var(--border-hair)",
+                      borderRadius: "14px 14px 14px 4px",
+                      padding: "12px 16px",
+                      fontSize: "var(--fs-base)",
+                      color: "var(--text-low)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                    }}
+                  >
+                    <span className="spinner" aria-hidden />
+                    Claude düşünüyor…
+                  </div>
+                </div>
+              )}
               <div ref={listEndRef} />
             </div>
 
@@ -155,7 +210,7 @@ export function Assistant({ context }: { context: AssistantContext | null }) {
                 aria-label="Asistana soru sor"
                 className="chat-input"
               />
-              <button type="submit" className="btn btn-primary" disabled={!input.trim()}>
+              <button type="submit" className="btn btn-primary" disabled={!input.trim() || pending}>
                 Sor <ArrowRight size={16} />
               </button>
             </form>

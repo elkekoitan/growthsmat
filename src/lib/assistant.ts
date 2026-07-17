@@ -89,7 +89,19 @@ function hasTodayIntent(query: string): boolean {
 // ---------- Güvenlik filtresi (06-MEVZUAT-GIDA-GUVENLIGI §10-11, PRD FR-193) ----------
 // Pestisit dozu, sağlık/tıbbi iddia ve tehlikeli yöntem sorularında asistan doğrudan
 // cevap üretmez; uzman/yetkili kaynağa yönlendirir.
-const PESTICIDE_DOSE_PATTERNS = [/\bdoz\b/i, /ka[çc]\s*ml/i, /ilaçlama/i, /pestisit/i, /ilaç\s*(oran|miktar)/i];
+// 2026-07-17 genişletme (LLM gateway review bulgusu): "ne kadar ilaç atmalıyım" gibi
+// doz-niyetli ama "doz/ml" kelimesi geçmeyen sorular da bloklanır. Bilinçli olarak
+// muhafazakâr: "ilaç atmadan yetişir mi" gibi organik-yöntem soruları da bloklanabilir —
+// yanlış-pozitifin bedeli uzmana yönlendirme, yanlış-negatifin bedeli doz önerisidir.
+const PESTICIDE_DOSE_PATTERNS = [
+  /\bdoz\b/i,
+  /ka[çc]\s*(ml|gram|gr|cc|litre)/i,
+  /ilaçlama/i,
+  /pestisit/i,
+  /ilaç\s*(oran|miktar)/i,
+  /ne\s*kadar\s*ilaç/i,
+  /ilaç\s*at/i,
+];
 const MEDICAL_CLAIM_PATTERNS = [
   /tedavi eder/i,
   /hastalığı önler/i,

@@ -19,6 +19,12 @@ test("GÜVENLİK: sıradan agronomik soru bloklanmaz", () => {
   assert.equal(r.safetyBlocked, false);
 });
 
+test("GÜVENLİK: 'ne kadar ilaç atmalıyım' gibi doz-niyetli soru da bloklanır (2026-07-17 genişletme)", () => {
+  assert.equal(askAssistant("Domatese ne kadar ilaç atmalıyım?").safetyBlocked, true);
+  assert.equal(askAssistant("Fesleğene ilaç atayım mı?").safetyBlocked, true);
+  assert.equal(askAssistant("Kaç gram uygulamalıyım bu üründen?").safetyBlocked, true);
+});
+
 test("Bilinen ürün eşleşince gerçek kaynak (citation) döner — uydurma yok", () => {
   const r = askAssistant("Cherry domates için sıcaklık ne kadar olmalı?");
   assert.equal(r.matchedCrop, "cherry-domates-kompakt");
