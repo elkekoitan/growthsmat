@@ -478,6 +478,15 @@ export const EPICS: Epic[] = [
       // imkânsız, testli). Bu "Domain tool registry"nin (P11-03) ilk gerçek adımı: asistan
       // artık domain verisine (bahçe/görev) bağlanıyor — genel bir registry mimarisi değil
       // henüz, o yüzden in_progress.
+      // 2026-07-17 (P11-11): "AI altın set ve eval" → done. 25 vakalık altın davranış seti +
+      // motor-bağımsız eval harness (src/lib/assistantGoldenSet.ts, her vaka ayrı test olarak
+      // npm test'te koşar; harness'ın kendine-güven testi kasıtlı kötü motoru yakalar).
+      // Set daha İLK koşusunda 4 gerçek boşluk yakaladı ve düzeltildi: (1) "dozu/dozda"
+      // Türkçe ekleri \bdoz\b'yi deliyordu — GÜVENLİK açığı; (2) "ne iş var" niyet dışıydı
+      // (JS \b'nin ş'de kelime sınırı üretmemesi dahil); (3) hastalık sorusu mikro filiz
+      // HASAT cevabına düşüyordu (niyet kapısı eklendi); (4) "Marul" yalın adı "Yağlı
+      // Yaprak Marul"u bulamıyordu (baş-isim eşleşmesi). LLM yolu aktifleşince AYNI harness
+      // LLM cevaplarını değerlendirmek için hazır (evaluateAnswer motor-bağımsız).
       // 2026-07-17 (P11-01): Model gateway KOD OLARAK TAM (src/server/llm.ts + saf
       // src/lib/assistantLlm.ts): ANTHROPIC_API_KEY env'i tanımlanınca /asistan cevapları
       // Claude'dan (Opus 4.8, adaptif düşünme) gelir — güvenlik filtresi bloklu soruyu
@@ -487,7 +496,7 @@ export const EPICS: Epic[] = [
       // yokluğunda kural motoruna düşer. in_progress kalma nedeni DÜRÜST: anahtar
       // kullanıcıdadır, canlıda henüz tanımlı değil — tanımlanıp canlıda LLM cevabı
       // doğrulanana kadar "done" denmez.
-      status: (["in_progress", "done", "in_progress", "in_progress", "done", "todo", "todo", "done", "todo", "todo", "in_progress"][i]) as TaskStatus,
+      status: (["in_progress", "done", "in_progress", "in_progress", "done", "todo", "todo", "done", "todo", "todo", "done"][i]) as TaskStatus,
       title: ["Model gateway ve adaptör", "Politika/risk sınıflandırma", "Domain tool registry", "Sürümlü kaynak/RAG indeksi", "Kaynaklı sohbet UI/API", "Yazma taslağı ve onay", "Görsel gözlem vaka akışı", "Uzman profil ve görüş", "Topluluk/deney paylaşımı", "Moderasyon ve itiraz", "AI altın set ve eval"][i],
     })),
   },

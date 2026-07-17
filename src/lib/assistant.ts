@@ -75,7 +75,11 @@ const LOGIN_NOTE = "Giriş yaparsan bahçene ve görevlerine göre kişisel ceva
 const PERSONAL_INTENT = {
   garden: /bah[çc]em|ürünlerim|urunlerim|neler ekili/i,
   today: /bug[üu]n/i,
-  todayTopic: /ne\s+yap|yapmal[ıi]|g[öo]rev|i[şs]ler|i[şs]im/i,
+  // "ne iş" kalıbı eklendi (2026-07-17, altın set bulgusu): "Bugün ne iş var?" yalın "iş"
+  // kelimesiyle sorulur — yalnız "işler/işim" çekimleri yetmiyordu. DİKKAT: JS \b ASCII
+  // tabanlıdır, "ş"den sonra kelime sınırı ÜRETMEZ (\bi[şs]\b asla eşleşmez) — bu yüzden
+  // sınır yerine "ne " öneki kullanılır.
+  todayTopic: /ne\s+yap|yapmal[ıi]|g[öo]rev|i[şs]ler|i[şs]im|ne\s+i[şs]/i,
 };
 
 function hasGardenIntent(query: string): boolean {
@@ -94,7 +98,9 @@ function hasTodayIntent(query: string): boolean {
 // muhafazakâr: "ilaç atmadan yetişir mi" gibi organik-yöntem soruları da bloklanabilir —
 // yanlış-pozitifin bedeli uzmana yönlendirme, yanlış-negatifin bedeli doz önerisidir.
 const PESTICIDE_DOSE_PATTERNS = [
-  /\bdoz\b/i,
+  // \bdoz\b DEĞİL \bdoz: Türkçe ekler ("dozu", "dozda", "dozajı") kelime sınırını bozar —
+  // altın set bulgusu (2026-07-17): "Bakır sülfat dozu ne olmalı?" bloklanmıyordu.
+  /\bdoz/i,
   /ka[çc]\s*(ml|gram|gr|cc|litre)/i,
   /ilaçlama/i,
   /pestisit/i,
@@ -146,11 +152,27 @@ function checkSafety(query: string): { blocked: boolean; reason?: string } {
 // ---------- Eşleştirme ----------
 function findCrop(query: string): Crop | undefined {
   const q = query.toLocaleLowerCase("tr-TR");
-  return CROPS.find(
+  // 1) Tam ad / bilimsel ad eşleşmesi (en güvenilir — önce bu denenir).
+  const exact = CROPS.find(
     (c) =>
       q.includes(c.name.toLocaleLowerCase("tr-TR")) ||
       q.includes(c.scientificName.toLocaleLowerCase("tr-TR").split(" ")[0])
   );
+  if (exact) return exact;
+  // 2) Baş-isim eşleşmesi (2026-07-17, altın set bulgusu): "Yağlı Yaprak Marul"
+  // kataloğdaki ad ama kullanıcı "Marul balkonda yetişir mi?" diye sorar — Türkçe
+  // bileşik ürün adlarında baş isim SONDADIR. Sorgu token'ı baş isme eşitse veya
+  // baş isim + kısa Türkçe ek toleransıyla başlıyorsa eşleş. BİLİNÇLİ TAKAS:
+  // bu genişleme nadiren yanlış ürüne bağlanabilir (ör. katalog dışı "biberiye"
+  // sorusu "Biber"e düşer) ama cevap konusunu her zaman tam adıyla söylediği için
+  // yanlışlık şeffaftır; en yaygın sorgu sınıfının (yalın ürün adı) boş dönmesinden
+  // daha dürüst bir davranıştır.
+  const tokens = q.split(/[^a-zçğıöşüâîû]+/).filter(Boolean);
+  return CROPS.find((c) => {
+    const head = c.name.toLocaleLowerCase("tr-TR").split(/\s+/).pop() ?? "";
+    if (head.length < 4) return false;
+    return tokens.some((t) => t === head || (t.startsWith(head) && t.length <= head.length + 4));
+  });
 }
 
 function findMicrogreen(query: string): MicrogreenRecipe | undefined {
@@ -266,8 +288,12 @@ export function askAssistant(rawQuery: string, context?: AssistantContext | null
     };
   }
 
+  // 2026-07-17 (altın set bulgusu): mikro filiz eşleşmesi artık NİYET kapılı —
+  // "Fesleğende yaprak lekesi görüyorum" sorusu fesleğen MİKRO FİLİZ reçetesine değil
+  // fesleğen ÜRÜNÜNE (hastalık cevabına) düşmeli. Bloklu tür kontrolü zaten aynı
+  // kapıyı kullanıyordu; buradaki eksikti.
   const microgreen = findMicrogreen(query);
-  if (microgreen) {
+  if (microgreen && INTENT.microgreen.test(query)) {
     const [dLow, dHigh] = microgreen.harvestDays;
     const [yLow, yHigh] = microgreen.expectedYieldG;
     return {
